@@ -1,0 +1,131 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* SyncShow — Midnight Blue + Glowing Red */
+    --background: 224 47% 6%;          /* #0a0e1a */
+    --foreground: 210 40% 98%;
+
+    --card: 224 40% 9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 224 45% 8%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 0 84% 55%;              /* glowing red */
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 0 90% 65%;
+
+    --secondary: 224 35% 14%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 224 30% 14%;
+    --muted-foreground: 215 20% 70%;
+
+    --accent: 0 84% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 224 30% 18%;
+    --input: 224 30% 14%;
+    --ring: 0 84% 55%;
+
+    --radius: 1rem;
+
+    /* gradients & shadows */
+    --gradient-hero: radial-gradient(ellipse at center, hsl(224 60% 12% / 0.9), hsl(224 47% 4% / 1) 70%);
+    --gradient-red: linear-gradient(135deg, hsl(0 84% 55%), hsl(350 90% 60%));
+    --gradient-glass: linear-gradient(135deg, hsl(224 40% 16% / 0.6), hsl(224 40% 8% / 0.3));
+    --shadow-neon: 0 0 30px hsl(0 90% 60% / 0.55), 0 0 60px hsl(0 90% 55% / 0.3);
+    --shadow-card: 0 10px 40px -10px hsl(0 0% 0% / 0.6);
+    --glass-border: 1px solid hsl(0 0% 100% / 0.08);
+
+    --sidebar-background: 224 47% 6%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 0 84% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 224 35% 14%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 224 30% 18%;
+    --sidebar-ring: 0 84% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+}
+
+@layer components {
+  .glass {
+    background: var(--gradient-glass);
+    border: var(--glass-border);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+  }
+  .neon-text {
+    color: hsl(var(--primary));
+    text-shadow:
+      0 0 8px hsl(var(--primary) / 0.9),
+      0 0 24px hsl(var(--primary) / 0.7),
+      0 0 48px hsl(var(--primary-glow) / 0.5);
+  }
+  .neon-border {
+    box-shadow: var(--shadow-neon);
+  }
+}
+
+@keyframes flicker {
+  0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% {
+    text-shadow:
+      0 0 6px hsl(var(--primary) / 0.95),
+      0 0 22px hsl(var(--primary) / 0.75),
+      0 0 44px hsl(var(--primary-glow) / 0.55);
+    opacity: 1;
+  }
+  20%, 24%, 55% { opacity: 0.85; text-shadow: none; }
+}
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px hsl(var(--primary) / 0.5); }
+  50% { box-shadow: 0 0 40px hsl(var(--primary) / 0.9); }
+}
+@keyframes float-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===== Anti-theft / anti-download protections ===== */
+img, video {
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  -o-user-drag: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+.no-select, .player-shell {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  -webkit-touch-callout: none;
+}
+/* Hide native download button from HTML5 video controls (Chromium). */
+video::-internal-media-controls-download-button { display: none; }
+video::-webkit-media-controls-enclosure { overflow: hidden; }
+video::-webkit-media-controls-panel { width: calc(100% + 30px); }

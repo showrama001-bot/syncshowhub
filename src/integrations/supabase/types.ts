@@ -1,0 +1,1399 @@
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
+  public: {
+    Tables: {
+      ads_assets: {
+        Row: {
+          active: boolean
+          ad_mode: string
+          created_at: string
+          created_by: string | null
+          id: string
+          media_type: string
+          media_url: string | null
+          placement: Database["public"]["Enums"]["ad_placement"]
+          redirect_url: string | null
+          script_code: string | null
+          title: string | null
+          updated_at: string
+          weight: number
+        }
+        Insert: {
+          active?: boolean
+          ad_mode?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          media_type: string
+          media_url?: string | null
+          placement: Database["public"]["Enums"]["ad_placement"]
+          redirect_url?: string | null
+          script_code?: string | null
+          title?: string | null
+          updated_at?: string
+          weight?: number
+        }
+        Update: {
+          active?: boolean
+          ad_mode?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          media_type?: string
+          media_url?: string | null
+          placement?: Database["public"]["Enums"]["ad_placement"]
+          redirect_url?: string | null
+          script_code?: string | null
+          title?: string | null
+          updated_at?: string
+          weight?: number
+        }
+        Relationships: []
+      }
+      ads_settings: {
+        Row: {
+          antiadblock_enabled: boolean
+          antiadblock_message: string | null
+          created_at: string
+          global_scripts: string | null
+          id: number
+          interstitial_seconds: number
+          master_enabled: boolean
+          popup_duration_seconds: number
+          popup_enabled: boolean
+          popup_interval_seconds: number
+          preroll_enabled: boolean
+          preroll_skip_seconds: number
+          updated_at: string
+        }
+        Insert: {
+          antiadblock_enabled?: boolean
+          antiadblock_message?: string | null
+          created_at?: string
+          global_scripts?: string | null
+          id?: number
+          interstitial_seconds?: number
+          master_enabled?: boolean
+          popup_duration_seconds?: number
+          popup_enabled?: boolean
+          popup_interval_seconds?: number
+          preroll_enabled?: boolean
+          preroll_skip_seconds?: number
+          updated_at?: string
+        }
+        Update: {
+          antiadblock_enabled?: boolean
+          antiadblock_message?: string | null
+          created_at?: string
+          global_scripts?: string | null
+          id?: number
+          interstitial_seconds?: number
+          master_enabled?: boolean
+          popup_duration_seconds?: number
+          popup_enabled?: boolean
+          popup_interval_seconds?: number
+          preroll_enabled?: boolean
+          preroll_skip_seconds?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      blocks: {
+        Row: {
+          blocked_id: string
+          blocker_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          blocked_id: string
+          blocker_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          blocked_id?: string
+          blocker_id?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      community_uploads: {
+        Row: {
+          backdrop_url: string | null
+          category: string | null
+          created_at: string
+          description: string | null
+          duration_minutes: number | null
+          episode_number: number | null
+          episode_title: string | null
+          genre: string | null
+          id: string
+          imdb_rating: number | null
+          kind: string
+          poster_url: string | null
+          published_episode_id: string | null
+          published_movie_id: string | null
+          rating: number | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          season_number: number | null
+          series_tmdb_id: number | null
+          source_type: string | null
+          status: string
+          stream_url: string | null
+          telegram_file_id: string | null
+          title: string
+          tmdb_id: number | null
+          updated_at: string
+          uploader_id: string
+          year: number | null
+        }
+        Insert: {
+          backdrop_url?: string | null
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number | null
+          episode_number?: number | null
+          episode_title?: string | null
+          genre?: string | null
+          id?: string
+          imdb_rating?: number | null
+          kind?: string
+          poster_url?: string | null
+          published_episode_id?: string | null
+          published_movie_id?: string | null
+          rating?: number | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          season_number?: number | null
+          series_tmdb_id?: number | null
+          source_type?: string | null
+          status?: string
+          stream_url?: string | null
+          telegram_file_id?: string | null
+          title: string
+          tmdb_id?: number | null
+          updated_at?: string
+          uploader_id: string
+          year?: number | null
+        }
+        Update: {
+          backdrop_url?: string | null
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          duration_minutes?: number | null
+          episode_number?: number | null
+          episode_title?: string | null
+          genre?: string | null
+          id?: string
+          imdb_rating?: number | null
+          kind?: string
+          poster_url?: string | null
+          published_episode_id?: string | null
+          published_movie_id?: string | null
+          rating?: number | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          season_number?: number | null
+          series_tmdb_id?: number | null
+          source_type?: string | null
+          status?: string
+          stream_url?: string | null
+          telegram_file_id?: string | null
+          title?: string
+          tmdb_id?: number | null
+          updated_at?: string
+          uploader_id?: string
+          year?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_uploads_published_movie_id_fkey"
+            columns: ["published_movie_id"]
+            isOneToOne: false
+            referencedRelation: "movies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      device_bans: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          device_fingerprint: string
+          id: string
+          ip_address: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          device_fingerprint: string
+          id?: string
+          ip_address?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          device_fingerprint?: string
+          id?: string
+          ip_address?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      direct_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          read_at: string | null
+          recipient_id: string
+          sender_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          read_at?: string | null
+          recipient_id: string
+          sender_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          read_at?: string | null
+          recipient_id?: string
+          sender_id?: string
+        }
+        Relationships: []
+      }
+      episodes: {
+        Row: {
+          created_at: string
+          doodstream_url: string | null
+          episode_number: number
+          id: string
+          season_id: string
+          stream_url: string | null
+          streamtape_url: string | null
+          title: string
+          voe_sx_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          doodstream_url?: string | null
+          episode_number: number
+          id?: string
+          season_id: string
+          stream_url?: string | null
+          streamtape_url?: string | null
+          title: string
+          voe_sx_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          doodstream_url?: string | null
+          episode_number?: number
+          id?: string
+          season_id?: string
+          stream_url?: string | null
+          streamtape_url?: string | null
+          title?: string
+          voe_sx_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "episodes_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      friendships: {
+        Row: {
+          addressee_id: string
+          created_at: string
+          id: string
+          requester_id: string
+          status: Database["public"]["Enums"]["friendship_status"]
+          updated_at: string
+        }
+        Insert: {
+          addressee_id: string
+          created_at?: string
+          id?: string
+          requester_id: string
+          status?: Database["public"]["Enums"]["friendship_status"]
+          updated_at?: string
+        }
+        Update: {
+          addressee_id?: string
+          created_at?: string
+          id?: string
+          requester_id?: string
+          status?: Database["public"]["Enums"]["friendship_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      matches: {
+        Row: {
+          away_logo: string | null
+          away_score: number | null
+          away_team: string
+          created_at: string
+          created_by: string | null
+          home_logo: string | null
+          home_score: number | null
+          home_team: string
+          id: string
+          kickoff_at: string
+          league: string | null
+          source_type: string
+          status: string
+          stream_url: string | null
+        }
+        Insert: {
+          away_logo?: string | null
+          away_score?: number | null
+          away_team: string
+          created_at?: string
+          created_by?: string | null
+          home_logo?: string | null
+          home_score?: number | null
+          home_team: string
+          id?: string
+          kickoff_at: string
+          league?: string | null
+          source_type?: string
+          status?: string
+          stream_url?: string | null
+        }
+        Update: {
+          away_logo?: string | null
+          away_score?: number | null
+          away_team?: string
+          created_at?: string
+          created_by?: string | null
+          home_logo?: string | null
+          home_score?: number | null
+          home_team?: string
+          id?: string
+          kickoff_at?: string
+          league?: string | null
+          source_type?: string
+          status?: string
+          stream_url?: string | null
+        }
+        Relationships: []
+      }
+      missing_stream_submissions: {
+        Row: {
+          created_at: string
+          id: string
+          movie_id: string
+          note: string | null
+          status: string
+          updated_at: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          movie_id: string
+          note?: string | null
+          status?: string
+          updated_at?: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          movie_id?: string
+          note?: string | null
+          status?: string
+          updated_at?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "missing_stream_submissions_movie_id_fkey"
+            columns: ["movie_id"]
+            isOneToOne: false
+            referencedRelation: "movies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      missing_stream_votes: {
+        Row: {
+          created_at: string
+          id: string
+          movie_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          movie_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          movie_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "missing_stream_votes_movie_id_fkey"
+            columns: ["movie_id"]
+            isOneToOne: false
+            referencedRelation: "movies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      movie_comments: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          movie_id: string
+          rating: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          movie_id: string
+          rating?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          movie_id?: string
+          rating?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movie_comments_movie_id_fkey"
+            columns: ["movie_id"]
+            isOneToOne: false
+            referencedRelation: "movies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      movie_reports: {
+        Row: {
+          created_at: string
+          id: string
+          movie_id: string
+          reason: string
+          reporter_id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          movie_id: string
+          reason: string
+          reporter_id: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          movie_id?: string
+          reason?: string
+          reporter_id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movie_reports_movie_id_fkey"
+            columns: ["movie_id"]
+            isOneToOne: false
+            referencedRelation: "movies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      movies: {
+        Row: {
+          backdrop_url: string | null
+          category: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          doodstream_url: string | null
+          duration_minutes: number | null
+          featured: boolean
+          genre: string | null
+          id: string
+          imdb_rating: number | null
+          is_admin_upload: boolean
+          poster_url: string | null
+          provider: string | null
+          rating: number | null
+          source_type: string
+          status: string
+          stream_url: string | null
+          streamtape_url: string | null
+          title: string
+          tmdb_id: number | null
+          voe_sx_url: string | null
+          year: number | null
+        }
+        Insert: {
+          backdrop_url?: string | null
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          doodstream_url?: string | null
+          duration_minutes?: number | null
+          featured?: boolean
+          genre?: string | null
+          id?: string
+          imdb_rating?: number | null
+          is_admin_upload?: boolean
+          poster_url?: string | null
+          provider?: string | null
+          rating?: number | null
+          source_type?: string
+          status?: string
+          stream_url?: string | null
+          streamtape_url?: string | null
+          title: string
+          tmdb_id?: number | null
+          voe_sx_url?: string | null
+          year?: number | null
+        }
+        Update: {
+          backdrop_url?: string | null
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          doodstream_url?: string | null
+          duration_minutes?: number | null
+          featured?: boolean
+          genre?: string | null
+          id?: string
+          imdb_rating?: number | null
+          is_admin_upload?: boolean
+          poster_url?: string | null
+          provider?: string | null
+          rating?: number | null
+          source_type?: string
+          status?: string
+          stream_url?: string | null
+          streamtape_url?: string | null
+          title?: string
+          tmdb_id?: number | null
+          voe_sx_url?: string | null
+          year?: number | null
+        }
+        Relationships: []
+      }
+      platform_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
+      playback_reports: {
+        Row: {
+          content_id: string
+          content_kind: string
+          content_title: string | null
+          created_at: string
+          id: string
+          issue: string
+          note: string | null
+          reporter_id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+        }
+        Insert: {
+          content_id: string
+          content_kind: string
+          content_title?: string | null
+          created_at?: string
+          id?: string
+          issue: string
+          note?: string | null
+          reporter_id: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+        }
+        Update: {
+          content_id?: string
+          content_kind?: string
+          content_title?: string | null
+          created_at?: string
+          id?: string
+          issue?: string
+          note?: string | null
+          reporter_id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          is_banned: boolean
+          permanent_banned: boolean
+          suspended_until: string | null
+          updated_at: string
+          username: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          display_name?: string | null
+          id: string
+          is_banned?: boolean
+          permanent_banned?: boolean
+          suspended_until?: string | null
+          updated_at?: string
+          username?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          is_banned?: boolean
+          permanent_banned?: boolean
+          suspended_until?: string | null
+          updated_at?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
+      reports: {
+        Row: {
+          created_at: string
+          id: string
+          reason: string
+          reported_message_id: string | null
+          reported_user_id: string | null
+          reporter_id: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          reason: string
+          reported_message_id?: string | null
+          reported_user_id?: string | null
+          reporter_id: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          reason?: string
+          reported_message_id?: string | null
+          reported_user_id?: string | null
+          reporter_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reports_reported_message_id_fkey"
+            columns: ["reported_message_id"]
+            isOneToOne: false
+            referencedRelation: "direct_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      room_invites: {
+        Row: {
+          created_at: string
+          from_user: string
+          id: string
+          room_id: string
+          status: string
+          to_user: string
+        }
+        Insert: {
+          created_at?: string
+          from_user: string
+          id?: string
+          room_id: string
+          status?: string
+          to_user: string
+        }
+        Update: {
+          created_at?: string
+          from_user?: string
+          id?: string
+          room_id?: string
+          status?: string
+          to_user?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_invites_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "watch_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      seasons: {
+        Row: {
+          created_at: string
+          id: string
+          season_number: number
+          series_id: string
+          title: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          season_number: number
+          series_id: string
+          title?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          season_number?: number
+          series_id?: string
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seasons_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "series"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      series: {
+        Row: {
+          backdrop_url: string | null
+          category: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          featured: boolean
+          genre: string | null
+          id: string
+          imdb_rating: number | null
+          poster_url: string | null
+          title: string
+          tmdb_id: number | null
+          updated_at: string
+          year: number | null
+        }
+        Insert: {
+          backdrop_url?: string | null
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          featured?: boolean
+          genre?: string | null
+          id?: string
+          imdb_rating?: number | null
+          poster_url?: string | null
+          title: string
+          tmdb_id?: number | null
+          updated_at?: string
+          year?: number | null
+        }
+        Update: {
+          backdrop_url?: string | null
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          featured?: boolean
+          genre?: string | null
+          id?: string
+          imdb_rating?: number | null
+          poster_url?: string | null
+          title?: string
+          tmdb_id?: number | null
+          updated_at?: string
+          year?: number | null
+        }
+        Relationships: []
+      }
+      server_reports: {
+        Row: {
+          created_at: string
+          id: string
+          movie_id: string
+          note: string | null
+          reporter_id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          server: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          movie_id: string
+          note?: string | null
+          reporter_id: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          server: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          movie_id?: string
+          note?: string | null
+          reporter_id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          server?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      trailers: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          doodstream_url: string | null
+          id: string
+          kind: string
+          movie_id: string | null
+          movie_title: string
+          series_id: string | null
+          streamtape_url: string | null
+          updated_at: string
+          voe_sx_url: string | null
+          youtube_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          doodstream_url?: string | null
+          id?: string
+          kind?: string
+          movie_id?: string | null
+          movie_title: string
+          series_id?: string | null
+          streamtape_url?: string | null
+          updated_at?: string
+          voe_sx_url?: string | null
+          youtube_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          doodstream_url?: string | null
+          id?: string
+          kind?: string
+          movie_id?: string | null
+          movie_title?: string
+          series_id?: string | null
+          streamtape_url?: string | null
+          updated_at?: string
+          voe_sx_url?: string | null
+          youtube_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trailers_movie_id_fkey"
+            columns: ["movie_id"]
+            isOneToOne: false
+            referencedRelation: "movies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trailers_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "series"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tv_channel_messages: {
+        Row: {
+          channel_id: string
+          content: string
+          created_at: string
+          id: string
+          sender_id: string
+        }
+        Insert: {
+          channel_id: string
+          content: string
+          created_at?: string
+          id?: string
+          sender_id: string
+        }
+        Update: {
+          channel_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tv_channel_messages_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "tv_channels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tv_channels: {
+        Row: {
+          category: string | null
+          country: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          logo_url: string | null
+          m3u_url: string
+          name: string
+          source_type: string
+        }
+        Insert: {
+          category?: string | null
+          country?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          logo_url?: string | null
+          m3u_url: string
+          name: string
+          source_type?: string
+        }
+        Update: {
+          category?: string | null
+          country?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          logo_url?: string | null
+          m3u_url?: string
+          name?: string
+          source_type?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_violations: {
+        Row: {
+          action_taken: string
+          created_at: string
+          created_by: string | null
+          id: string
+          movie_id: string | null
+          report_id: string | null
+          user_id: string
+        }
+        Insert: {
+          action_taken: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          movie_id?: string | null
+          report_id?: string | null
+          user_id: string
+        }
+        Update: {
+          action_taken?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          movie_id?: string | null
+          report_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_violations_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "movie_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      watch_room_reminders: {
+        Row: {
+          created_at: string
+          id: string
+          room_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          room_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          room_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "watch_room_reminders_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "watch_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      watch_rooms: {
+        Row: {
+          content_id: string | null
+          content_kind: string
+          content_title: string | null
+          created_at: string
+          host_id: string
+          id: string
+          participant_count: number
+          password_hash: string | null
+          poster_url: string | null
+          scheduled_at: string | null
+          status: string
+          stream_url: string | null
+          title: string
+          updated_at: string
+          visibility: string
+        }
+        Insert: {
+          content_id?: string | null
+          content_kind?: string
+          content_title?: string | null
+          created_at?: string
+          host_id: string
+          id?: string
+          participant_count?: number
+          password_hash?: string | null
+          poster_url?: string | null
+          scheduled_at?: string | null
+          status?: string
+          stream_url?: string | null
+          title?: string
+          updated_at?: string
+          visibility?: string
+        }
+        Update: {
+          content_id?: string | null
+          content_kind?: string
+          content_title?: string | null
+          created_at?: string
+          host_id?: string
+          id?: string
+          participant_count?: number
+          password_hash?: string | null
+          poster_url?: string | null
+          scheduled_at?: string | null
+          status?: string
+          stream_url?: string | null
+          title?: string
+          updated_at?: string
+          visibility?: string
+        }
+        Relationships: []
+      }
+      watchlist: {
+        Row: {
+          created_at: string
+          id: string
+          movie_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          movie_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          movie_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "watchlist_movie_id_fkey"
+            columns: ["movie_id"]
+            isOneToOne: false
+            referencedRelation: "movies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_blocked: { Args: { _a: string; _b: string }; Returns: boolean }
+      is_device_banned: { Args: { _fp: string }; Returns: boolean }
+      verify_watch_room_password: {
+        Args: { _password_hash: string; _room_id: string }
+        Returns: boolean
+      }
+    }
+    Enums: {
+      ad_placement:
+        | "preroll"
+        | "popup"
+        | "banner_header"
+        | "banner_grid"
+        | "banner_under_player"
+        | "interstitial"
+      app_role: "admin" | "user"
+      friendship_status: "pending" | "accepted" | "declined" | "blocked"
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {
+      ad_placement: [
+        "preroll",
+        "popup",
+        "banner_header",
+        "banner_grid",
+        "banner_under_player",
+        "interstitial",
+      ],
+      app_role: ["admin", "user"],
+      friendship_status: ["pending", "accepted", "declined", "blocked"],
+    },
+  },
+} as const

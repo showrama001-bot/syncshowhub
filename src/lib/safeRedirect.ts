@@ -1,0 +1,1 @@
+export const safeRedirect = (url: string) => `/redirect?to=${encodeURIComponent(url)}`;

@@ -1,0 +1,569 @@
+import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toast } from "sonner";
+import { Search, Loader2, Film, Tv, Sparkles, Link as LinkIcon } from "lucide-react";
+import MissingStreamsPanel from "./MissingStreamsPanel";
+
+/* ────────────────────────────────────────────────────────────────────
+   Super Scraper Dashboard — Isolated from existing upload system.
+   Uses NEW edge function `tmdb-scraper`; writes only to existing
+   movies/series/seasons/episodes tables via standard inserts.
+   ──────────────────────────────────────────────────────────────────── */
+
+type SearchResult = {
+  tmdb_id: number;
+  title: string;
+  original_title?: string;
+  overview: string;
+  poster_url: string | null;
+  year: string | null;
+};
+
+type Details = {
+  tmdb_id: number;
+  title: string;
+  description: string;
+  poster_url: string | null;
+  backdrop_url: string | null;
+  year: number | null;
+  genre: string | null;
+  category: string | null;
+  duration_minutes: number | null;
+  imdb_rating: number | null;
+  rating: number | null;
+  number_of_seasons?: number | null;
+};
+
+type StreamMode = "embed" | "hls";
+
+const EMBED_PROVIDERS = [
+  { id: "vidsrc.xyz", label: "VidSrc (vidsrc.xyz)" },
+  { id: "vidsrc.to", label: "VidSrc.to" },
+  { id: "embed.su", label: "Embed.su" },
+  { id: "autoembed.cc", label: "AutoEmbed.cc" },
+  { id: "multiembed.mov", label: "MultiEmbed.mov" },
+] as const;
+
+type ProviderId = (typeof EMBED_PROVIDERS)[number]["id"];
+const ALL_PROVIDER_IDS: ProviderId[] = EMBED_PROVIDERS.map((p) => p.id);
+
+function buildEmbedUrl(
+  provider: ProviderId,
+  kind: "movie" | "tv",
+  tmdbId: number,
+  season?: number,
+  episode?: number,
+): string {
+  const isTv = kind === "tv";
+  switch (provider) {
+    case "vidsrc.xyz":
+      return isTv
+        ? `https://vidsrc.xyz/embed/tv/${tmdbId}/${season}/${episode}`
+        : `https://vidsrc.xyz/embed/movie/${tmdbId}`;
+    case "vidsrc.to":
+      return isTv
+        ? `https://vidsrc.to/embed/tv/${tmdbId}/${season}/${episode}`
+        : `https://vidsrc.to/embed/movie/${tmdbId}`;
+    case "embed.su":
+      return isTv
+        ? `https://embed.su/embed/tv/${tmdbId}/${season}/${episode}`
+        : `https://embed.su/embed/movie/${tmdbId}`;
+    case "autoembed.cc":
+      return isTv
+        ? `https://player.autoembed.cc/embed/tv/${tmdbId}/${season}/${episode}`
+        : `https://player.autoembed.cc/embed/movie/${tmdbId}`;
+    case "multiembed.mov":
+      return isTv
+        ? `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&s=${season}&e=${episode}`
+        : `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1`;
+  }
+}
+
+async function callScraper(payload: Record<string, unknown>) {
+  const { data, error } = await supabase.functions.invoke("tmdb-scraper", { body: payload });
+  if (error) throw error;
+  if ((data as any)?.error) throw new Error((data as any).error);
+  return data;
+}
+
+async function checkAllProviders(kind: "movie" | "tv", tmdbId: number) {
+  const urls = ALL_PROVIDER_IDS.map((p) => ({
+    provider: p,
+    url: buildEmbedUrl(p, kind, tmdbId),
+  }));
+  return (await callScraper({ action: "check_providers", urls })) as {
+    checks: { provider: ProviderId; url: string; state: "ok" | "missing" | "unknown"; reason: string }[];
+    verdict:
+      | { available: true; provider: ProviderId; url: string; confidence: "high" | "low" }
+      | { available: false };
+  };
+}
+
+/* ───────── Shared title-search panel ───────── */
+function TitleSearch({
+  kind,
+  onPick,
+}: {
+  kind: "movie" | "tv";
+  onPick: (r: SearchResult) => void;
+}) {
+  const [q, setQ] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [results, setResults] = useState<SearchResult[]>([]);
+
+  const run = async () => {
+    if (!q.trim()) return;
+    setLoading(true);
+    try {
+      const data = await callScraper({ action: "search", kind, query: q.trim() });
+      setResults((data as any).results ?? []);
+    } catch (e: any) {
+      toast.error(e.message ?? "Search failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2">
+        <Input
+          placeholder={`Search ${kind === "tv" ? "series" : "movies"} by title (English)`}
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && run()}
+        />
+        <Button onClick={run} disabled={loading}>
+          {loading ? <Loader2 className="animate-spin" /> : <Search />} Search
+        </Button>
+      </div>
+      {results.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-[480px] overflow-y-auto pr-1">
+          {results.map((r) => (
+            <button
+              key={r.tmdb_id}
+              onClick={() => onPick(r)}
+              className="text-left rounded-lg border bg-card hover:border-primary transition overflow-hidden"
+            >
+              {r.poster_url ? (
+                <img src={r.poster_url} alt={r.title} className="w-full aspect-[2/3] object-cover" />
+              ) : (
+                <div className="w-full aspect-[2/3] bg-muted" />
+              )}
+              <div className="p-2">
+                <div className="text-sm font-medium line-clamp-2">{r.title}</div>
+                <div className="text-xs text-muted-foreground">{r.year ?? "—"}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ───────── Stream mode picker ───────── */
+function StreamModePicker({
+  mode,
+  setMode,
+  provider,
+  setProvider,
+  hlsUrl,
+  setHlsUrl,
+}: {
+  mode: StreamMode;
+  setMode: (m: StreamMode) => void;
+  provider: ProviderId;
+  setProvider: (p: ProviderId) => void;
+  hlsUrl: string;
+  setHlsUrl: (s: string) => void;
+}) {
+  return (
+    <div className="space-y-3 rounded-lg border p-4 bg-card/50">
+      <Label className="text-sm font-semibold">Stream Mode</Label>
+      <RadioGroup value={mode} onValueChange={(v) => setMode(v as StreamMode)} className="flex flex-col sm:flex-row gap-3">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <RadioGroupItem value="embed" id="m-embed" />
+          <span>External Embed (multi-provider iframe)</span>
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <RadioGroupItem value="hls" id="m-hls" />
+          <span>Clean HLS / M3U8 (custom player, no ads)</span>
+        </label>
+      </RadioGroup>
+
+      {mode === "embed" ? (
+        <div className="space-y-2">
+          <Label className="text-xs">Embed Provider</Label>
+          <Select value={provider} onValueChange={(v) => setProvider(v as ProviderId)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {EMBED_PROVIDERS.map((p) => (
+                <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Embed URL is auto-generated from the TMDB ID for each item.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <Label className="text-xs">Direct .m3u8 / .mp4 URL (resolver fallback / manual paste)</Label>
+          <Input
+            placeholder="https://.../master.m3u8"
+            value={hlsUrl}
+            onChange={(e) => setHlsUrl(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">
+            Paste a clean direct link from public IPTV-org / GitHub stream aggregators.
+            This URL is used for ALL episodes when applied to a series in HLS mode.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ───────────────────── Movies Scraper ───────────────────── */
+function MoviesScraper() {
+  const [picked, setPicked] = useState<SearchResult | null>(null);
+  const [details, setDetails] = useState<Details | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const [mode, setMode] = useState<StreamMode>("embed");
+  const [provider, setProvider] = useState<ProviderId>("vidsrc.xyz");
+  const [hlsUrl, setHlsUrl] = useState("");
+
+  const pick = async (r: SearchResult) => {
+    setPicked(r);
+    setDetails(null);
+    setLoading(true);
+    try {
+      const d = await callScraper({ action: "details", kind: "movie", tmdb_id: r.tmdb_id });
+      setDetails(d as Details);
+    } catch (e: any) {
+      toast.error(e.message ?? "Failed to load details");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const save = async () => {
+    if (!details) return;
+    setSaving(true);
+    try {
+      let status: "published" | "missing_stream" = "published";
+      let stream_url: string | null = null;
+      let chosenProvider: string | null = null;
+      let sourceType: "iframe" | "hls" = mode === "embed" ? "iframe" : "hls";
+
+      if (mode === "hls") {
+        stream_url = hlsUrl.trim();
+        if (!stream_url) {
+          toast.error("Please provide a direct HLS/MP4 URL");
+          setSaving(false);
+          return;
+        }
+      } else {
+        toast.info("Checking all 5 embed providers…");
+        const result = await checkAllProviders("movie", details.tmdb_id);
+        if (result.verdict.available) {
+          chosenProvider = result.verdict.provider;
+          stream_url = result.verdict.url;
+          status = "published";
+          toast.success(
+            `Available on ${chosenProvider}${result.verdict.confidence === "low" ? " (firewall — assumed OK)" : ""}`,
+          );
+        } else {
+          status = "missing_stream";
+          stream_url = null;
+          sourceType = "iframe";
+          toast.warning(
+            "Not found on any of the 5 providers — routed to Suggested Movies / Missing Streams.",
+          );
+        }
+      }
+
+      const { error } = await supabase.from("movies").insert({
+        title: details.title,
+        description: details.description,
+        poster_url: details.poster_url,
+        backdrop_url: details.backdrop_url,
+        year: details.year,
+        genre: details.genre,
+        category: details.category,
+        duration_minutes: details.duration_minutes,
+        imdb_rating: details.imdb_rating,
+        rating: details.rating,
+        tmdb_id: details.tmdb_id,
+        stream_url,
+        source_type: sourceType,
+        status,
+        provider: chosenProvider,
+        is_admin_upload: true,
+      } as any);
+      if (error) throw error;
+      setPicked(null);
+      setDetails(null);
+      setHlsUrl("");
+    } catch (e: any) {
+      toast.error(e.message ?? "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <TitleSearch kind="movie" onPick={pick} />
+      {picked && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Film className="h-5 w-5" /> {picked.title}{" "}
+              <Badge variant="outline">{picked.year ?? "—"}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {loading || !details ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading TMDB metadata…
+              </div>
+            ) : (
+              <>
+                <div className="grid md:grid-cols-[160px_1fr] gap-4">
+                  {details.poster_url && (
+                    <img src={details.poster_url} alt={details.title} className="rounded-md w-40" />
+                  )}
+                  <div className="space-y-1 text-sm">
+                    <div><span className="text-muted-foreground">Genre:</span> {details.genre ?? "—"}</div>
+                    <div><span className="text-muted-foreground">Runtime:</span> {details.duration_minutes ?? "—"} min</div>
+                    <div><span className="text-muted-foreground">TMDB:</span> {details.tmdb_id}</div>
+                    <p className="text-muted-foreground line-clamp-5 pt-2">{details.description}</p>
+                  </div>
+                </div>
+                <StreamModePicker
+                  mode={mode} setMode={setMode}
+                  provider={provider} setProvider={setProvider}
+                  hlsUrl={hlsUrl} setHlsUrl={setHlsUrl}
+                />
+                <Button onClick={save} disabled={saving} className="w-full sm:w-auto">
+                  {saving ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                  Inject Movie
+                </Button>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+/* ───────────────────── TV Series Scraper ───────────────────── */
+type SeasonStruct = {
+  season_number: number;
+  title: string;
+  episodes: { episode_number: number; title: string; overview: string | null }[];
+};
+
+function SeriesScraper() {
+  const [picked, setPicked] = useState<SearchResult | null>(null);
+  const [details, setDetails] = useState<Details | null>(null);
+  const [structure, setStructure] = useState<SeasonStruct[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const [mode, setMode] = useState<StreamMode>("embed");
+  const [provider, setProvider] = useState<ProviderId>("vidsrc.xyz");
+  const [hlsUrl, setHlsUrl] = useState("");
+
+  const pick = async (r: SearchResult) => {
+    setPicked(r);
+    setDetails(null);
+    setStructure([]);
+    setLoading(true);
+    try {
+      const [d, s] = await Promise.all([
+        callScraper({ action: "details", kind: "tv", tmdb_id: r.tmdb_id }),
+        callScraper({ action: "series_structure", kind: "tv", tmdb_id: r.tmdb_id }),
+      ]);
+      setDetails(d as Details);
+      setStructure((s as any).seasons ?? []);
+    } catch (e: any) {
+      toast.error(e.message ?? "Failed to load series");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const totalEpisodes = structure.reduce((n, s) => n + s.episodes.length, 0);
+
+  const save = async () => {
+    if (!details || structure.length === 0) return;
+    if (mode === "hls" && !hlsUrl.trim()) {
+      toast.error("Provide a direct HLS/MP4 URL for episodes");
+      return;
+    }
+    setSaving(true);
+    try {
+      const { data: seriesRow, error: sErr } = await supabase
+        .from("series")
+        .insert({
+          title: details.title,
+          description: details.description,
+          poster_url: details.poster_url,
+          backdrop_url: details.backdrop_url,
+          year: details.year,
+          genre: details.genre,
+          category: details.category,
+          imdb_rating: details.imdb_rating,
+          tmdb_id: details.tmdb_id,
+        })
+        .select("id")
+        .single();
+      if (sErr) throw sErr;
+      const seriesId = seriesRow.id as string;
+
+      for (const season of structure) {
+        const { data: seasonRow, error: seErr } = await supabase
+          .from("seasons")
+          .insert({
+            series_id: seriesId,
+            season_number: season.season_number,
+            title: season.title,
+          })
+          .select("id")
+          .single();
+        if (seErr) throw seErr;
+        const seasonId = seasonRow.id as string;
+
+        const episodeRows = season.episodes.map((e) => ({
+          season_id: seasonId,
+          episode_number: e.episode_number,
+          title: e.title,
+          stream_url:
+            mode === "embed"
+              ? buildEmbedUrl(provider, "tv", details.tmdb_id, season.season_number, e.episode_number)
+              : hlsUrl.trim(),
+        }));
+        if (episodeRows.length) {
+          const { error: epErr } = await supabase.from("episodes").insert(episodeRows);
+          if (epErr) throw epErr;
+        }
+      }
+      toast.success(`Injected "${details.title}" — ${structure.length} seasons / ${totalEpisodes} episodes`);
+      setPicked(null);
+      setDetails(null);
+      setStructure([]);
+      setHlsUrl("");
+    } catch (e: any) {
+      toast.error(e.message ?? "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <TitleSearch kind="tv" onPick={pick} />
+      {picked && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Tv className="h-5 w-5" /> {picked.title}{" "}
+              <Badge variant="outline">{picked.year ?? "—"}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {loading || !details ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading TMDB structure…
+              </div>
+            ) : (
+              <>
+                <div className="grid md:grid-cols-[160px_1fr] gap-4">
+                  {details.poster_url && (
+                    <img src={details.poster_url} alt={details.title} className="rounded-md w-40" />
+                  )}
+                  <div className="space-y-1 text-sm">
+                    <div><span className="text-muted-foreground">Genre:</span> {details.genre ?? "—"}</div>
+                    <div><span className="text-muted-foreground">Seasons:</span> {structure.length}</div>
+                    <div><span className="text-muted-foreground">Episodes:</span> {totalEpisodes}</div>
+                    <div><span className="text-muted-foreground">TMDB:</span> {details.tmdb_id}</div>
+                    <p className="text-muted-foreground line-clamp-5 pt-2">{details.description}</p>
+                  </div>
+                </div>
+
+                <StreamModePicker
+                  mode={mode} setMode={setMode}
+                  provider={provider} setProvider={setProvider}
+                  hlsUrl={hlsUrl} setHlsUrl={setHlsUrl}
+                />
+
+                <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1 border rounded-md p-3">
+                  {structure.map((s) => (
+                    <div key={s.season_number} className="text-sm">
+                      <div className="font-medium flex items-center gap-2">
+                        <LinkIcon className="h-3 w-3" /> {s.title}
+                        <Badge variant="secondary">{s.episodes.length} ep</Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <Button onClick={save} disabled={saving} className="w-full sm:w-auto">
+                  {saving ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                  Inject Series + All Episodes
+                </Button>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+/* ───────────────────── Root ───────────────────── */
+export default function SuperScraperDashboard() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold flex items-center gap-2">
+          <Sparkles className="h-6 w-6 text-primary" /> Super Scraper Dashboard
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Isolated TMDB-powered title scraper with dual-route streaming (External Embed or Clean HLS).
+          Existing manual upload tools are not affected.
+        </p>
+      </div>
+      <Tabs defaultValue="movies">
+        <TabsList>
+          <TabsTrigger value="movies"><Film className="h-4 w-4 mr-1" /> Movies Scraper</TabsTrigger>
+          <TabsTrigger value="series"><Tv className="h-4 w-4 mr-1" /> TV Series Scraper</TabsTrigger>
+          <TabsTrigger value="missing">Missing Streams & Reports</TabsTrigger>
+        </TabsList>
+        <TabsContent value="movies" className="mt-4"><MoviesScraper /></TabsContent>
+        <TabsContent value="series" className="mt-4"><SeriesScraper /></TabsContent>
+        <TabsContent value="missing" className="mt-4"><MissingStreamsPanel /></TabsContent>
+      </Tabs>
+    </div>
+  );
+}
