@@ -598,6 +598,23 @@ function TvTab() {
 
   return (
     <div className="space-y-4">
+      <div className="glass rounded-2xl p-5 space-y-3">
+        <div className="text-sm font-medium">Find an official trailer via TMDB</div>
+        <p className="text-xs text-muted-foreground">
+          Search by title — the official YouTube trailer URL is auto-fetched and dropped into the form below.
+        </p>
+        <div className="flex gap-2">
+          <Input
+            placeholder={`Search ${form.kind === "series" ? "series" : "movies"} on TMDB…`}
+            value={tmdbQuery}
+            onChange={(e) => setTmdbQuery(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); searchTmdbTrailer(); } }}
+          />
+          <Button type="button" onClick={searchTmdbTrailer} disabled={tmdbBusy} className="bg-gradient-red shadow-neon">
+            {tmdbBusy ? "Searching…" : "Find trailer"}
+          </Button>
+        </div>
+      </div>
       <form onSubmit={submit} className="glass rounded-2xl p-5 grid sm:grid-cols-2 gap-4">
         <Field label="Channel name *"><Input required onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
         <Field label="M3U / HLS URL *"><Input required onChange={(e) => setForm({ ...form, m3u_url: e.target.value })} placeholder="https://…/stream.m3u8" /></Field>
@@ -1019,8 +1036,12 @@ function TrailersTab() {
           </Field>
         )}
         <div className="sm:col-span-2">
-          <Field label="YouTube trailer URL *">
-            <Input value={form.youtube_url ?? ""} onChange={(e) => setForm({ ...form, youtube_url: e.target.value })} placeholder="https://youtu.be/… or https://www.youtube.com/watch?v=…" />
+          <Field label="YouTube URL, video ID, or iframe embed path *">
+            <Input
+              value={form.youtube_url ?? ""}
+              onChange={(e) => setForm({ ...form, youtube_url: e.target.value })}
+              placeholder="dQw4w9WgXcQ  ·  https://youtu.be/…  ·  https://www.youtube.com/embed/…  ·  <iframe src=…>"
+            />
           </Field>
         </div>
         <div className="sm:col-span-2"><Button className="bg-gradient-red shadow-neon">{editingId ? "Save changes" : "Add trailer"}</Button></div>
