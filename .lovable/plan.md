@@ -1,39 +1,61 @@
-## Ads & Monetization System
+# Build Plan — Major Feature Expansion
 
-Building a centralized ads platform driven by a single `ads_settings` row + an `ads_assets` table, controlled from a new **Ads Management** tab in the Admin Dashboard.
+This is a large, multi-system change. To keep it safe and **non-destructive** to the existing DB schema, movie styles, and core layout, I'll ship it in 5 phases. After each phase you can review before I move on.
 
-### 1. Database (Lovable Cloud)
-- `ads_settings` (singleton row, id=1): `master_enabled bool`, `preroll_enabled bool`, `preroll_skip_seconds int`, `popup_enabled bool`, `popup_interval_seconds int`, `popup_duration_seconds int`, `antiadblock_enabled bool`, `interstitial_seconds int`, timestamps.
-- `ads_assets`: `id`, `placement` enum (`preroll`, `popup`, `banner_header`, `banner_grid`, `banner_under_player`, `interstitial`), `media_type` ('video'|'image'), `media_url`, `redirect_url`, `weight int`, `active bool`, `created_by`, timestamps.
-- RLS: public `SELECT` for active rows + settings; admin (`has_role admin`) full CRUD. Full GRANTs.
+> Bunny.net keys (`BUNNY_ACCESS_KEY`, `BUNNY_STORAGE_ZONE`, `BUNNY_PULL_ZONE`) remain declared in the backend secrets but **bypassed** in all new code paths. All new uploads route through the existing `telegram-upload` edge function.
 
-### 2. Frontend Components (`src/components/ads/`)
-- `AdsProvider.tsx` — fetches `ads_settings` + assets once, exposes context, realtime updates.
-- `VideoAdPlayer.tsx` — pre-roll: autoplay muted video, large countdown overlay, Skip button hidden until 0, click → opens `redirect_url` in new tab.
-- `PopupAdOverlay.tsx` — periodic full-screen modal with autoplay video; close X disabled until countdown ends.
-- `HeaderBanner.tsx` — top horizontal banner mounted in `AppShell`.
-- `GridBanner.tsx` — banner card injected every N items in home/movies grids.
-- `UnderPlayerBanner.tsx` — placed under `BunnyVideoPlayer` on player pages.
-- `AntiAdblock.tsx` — bait div check; if blocked + `antiadblock_enabled`, render blur overlay.
-- `useAdRotation()` — weighted random selection per placement.
+---
 
-### 3. Player Integration
-- Wrap `BunnyVideoPlayer` + HLS player + match iframe with `VideoAdPlayer` gate.
-- Mount `PopupAdOverlay` + `AntiAdblock` + `HeaderBanner` inside `AppShell`.
-- Inject `GridBanner` into Home/Movies/Series grids.
-- Add `UnderPlayerBanner` to `Player.tsx`.
+## Phase 1 — Upload Gateway (Admin + Users) & Player Hardening
 
-### 4. Interstitial Redirect (`src/pages/Redirect.tsx`)
-- Route `/redirect?to=<url>`; 10s countdown with banner ads above/below; button revealed at 0.
-- Helper `src/lib/safeRedirect.ts` to wrap external links.
+- New page `/upload-gateway` reusing the existing `UploadMovie` TMDB search + Telegram upload flow, but available to **any signed-in user**. Admin uploads go straight to `movies`/`series`; user uploads go to `community_uploads` (already in schema) for admin review.
+- Reuses existing `tmdb-scraper` edge function and `uploadToTelegram` utility — no DB schema changes.
+- Player hardening in `BunnyVideoPlayer`: wrap any iframe with `sandbox="allow-scripts allow-same-origin allow-presentation"`, add `onContextMenu={e=>e.preventDefault()}` on the container, ensure `controlsList="nodownload noremoteplayback"` and `disablePictureInPicture`. Guard `requestFullscreen`/`webkitEnterFullScreen` calls in `try/catch` to swallow the "Permission denied for function" error.
 
-### 5. Admin UI (new tab in `src/pages/app/Admin.tsx`)
-- **Settings panel**: master toggle, preroll on/off + skip seconds slider, popup interval/duration, anti-adblock toggle, interstitial seconds.
-- **Assets manager**: table grouped by placement with add/edit/delete (URL, redirect, weight, active). Live preview thumbnails.
-- Fully responsive (mobile-first grid → desktop table).
+## Phase 2 — Super Scraper Parallel + Trailers Admin
 
-### 6. Files
-- **New**: migration; `src/components/ads/{AdsProvider,VideoAdPlayer,PopupAdOverlay,HeaderBanner,GridBanner,UnderPlayerBanner,AntiAdblock}.tsx`; `src/lib/ads.ts`; `src/lib/safeRedirect.ts`; `src/pages/Redirect.tsx`; `src/components/admin/AdsManager.tsx`.
-- **Edited**: `src/App.tsx` (route + provider), `src/components/layout/AppShell.tsx` (header/popup/antiadblock mounts), `src/pages/app/Player.tsx` (preroll gate + under-player banner), `src/pages/app/Home.tsx` + `Movies.tsx` + `Series.tsx` (grid banners), `src/pages/app/Admin.tsx` (new tab).
+- Modify `tmdb-scraper` `check_providers` to return **all** OK/unknown providers (not just the first). Update Player to render a **Server 1 / Server 2 / …** switcher when ≥2 are available.
+- Add real-time **search filter bar** in `AdsManager`/Trailers admin tab for picking a movie by title.
+- Extend trailers admin: attach trailer via YouTube URL **or** PC video upload (Telegram pipeline, 50 MB cap).
+- New public route `/trailers` rendering all trailers in a responsive CSS Grid (`grid-cols-2 md:grid-cols-3 lg:grid-cols-4`).
 
-Approve to proceed — migration goes first, then code.
+## Phase 3 — Jitsi Rooms + DMs/Friends Repair
+
+- Add `UNIQUE` constraint on `watch_rooms.name` (migration). Surface clear error in UI on collision.
+- Replace external Jitsi redirect with **in-app** `<iframe src="https://meet.jit.si/<room>#config...">` (or `external_api.js`) sized responsively for mobile.
+- Host moderation: store `host_user_id` (already exists via `created_by`); expose a "Kick" action that calls Jitsi External API `executeCommand('kickParticipant', id)`.
+- DMs/Friends: audit `direct_messages` realtime subscription + `friendships` insert flow; add "Invite Friend" action creating a `friendships` row with status `pending` + in-app notification (uses existing `InviteNotifier`).
+
+## Phase 4 — Social Feed (Accueil) + Reels
+
+New tables (additive, with full GRANTs + RLS):
+
+```text
+social_posts(id, author_id, body, image_url, created_at)
+social_post_likes(post_id, user_id, created_at)  -- PK (post_id,user_id)
+social_post_comments(id, post_id, author_id, body, created_at)
+reels(id, title, video_url, movie_id?, trailer_id?, created_by, created_at)
+```
+
+- `/accueil` — Facebook-style feed: text + image posts, like/comment/share, ad slots injected every 4 posts using existing `AdsProvider` placements.
+- `/reels` — vertical TikTok-style swipe feed (snap-y, full viewport). Admin-only upload form; can pick an existing trailer or upload a video to Telegram. Every 4th item is a `preroll`/`interstitial` ad asset. CTA button → `/play/movie/:id` using strict ID match.
+
+## Phase 5 — Sidebar Restructure
+
+Reorder `SideDrawer` items exactly:
+
+1. Home   2. Accueil   3. Reels   4. Trailers   5. Shared Rooms   6. Friends & Messages   7. Upload Gateway
+
+Add `scrollbar-hide` utility (`scrollbar-width:none; &::-webkit-scrollbar{display:none}`) to the nav container with smooth scrolling.
+
+---
+
+## Out of scope / preserved as-is
+
+- Existing Home, Movies, Series, Watchlist pages and movie card styling — untouched.
+- All existing DB tables and columns — untouched (only additive migrations).
+- Bunny.net code paths — left dormant.
+
+## Question before I start
+
+This is ~5 days of build work compressed. **Want me to execute all 5 phases sequentially in this conversation, or ship Phase 1 + 2 first so you can validate before I touch social/reels/jitsi?**

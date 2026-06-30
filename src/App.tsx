@@ -26,6 +26,9 @@ import UploadMovie from "./pages/app/UploadMovie";
 import UploadShare from "./pages/app/UploadShare";
 import Contribute from "./pages/app/Contribute";
 import Friends from "./pages/app/Friends";
+import Accueil from "./pages/app/Accueil";
+import Reels from "./pages/app/Reels";
+import Trailers from "./pages/app/Trailers";
 import NotFound from "./pages/NotFound";
 import { AdsProvider } from "@/components/ads/AdsProvider";
 import { installAntiTheft } from "@/lib/antiTheft";
@@ -69,8 +72,12 @@ const App = () => {
               <Route path="/friends" element={<Friends />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/upload-movie" element={<UploadMovie />} />
+              <Route path="/upload-gateway" element={<UploadMovie />} />
               <Route path="/upload-share" element={<UploadShare />} />
               <Route path="/contribute" element={<Contribute />} />
+              <Route path="/accueil" element={<Accueil />} />
+              <Route path="/reels" element={<Reels />} />
+              <Route path="/trailers" element={<Trailers />} />
               <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
               <Route path="/admin/dashboard" element={<Admin />} />
               <Route

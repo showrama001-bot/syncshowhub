@@ -22,24 +22,30 @@ import {
   Bookmark,
   Upload,
   Sparkles,
+  Home as HomeIcon,
+  Newspaper,
+  PlayCircle,
+  Clapperboard,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useState } from "react";
 
 const items = [
-  { to: "/profile", label: "Profile", icon: User },
+  { to: "/", label: "Home", icon: HomeIcon },
+  { to: "/accueil", label: "Accueil (Social Feed)", icon: Newspaper },
+  { to: "/reels", label: "Reels", icon: PlayCircle },
+  { to: "/trailers", label: "Trailers", icon: Clapperboard },
+  { to: "/rooms", label: "Shared Rooms", icon: Users },
+  { to: "/friends", label: "Friends & Messages", icon: MessageSquare },
+  { to: "/upload-gateway", label: "Upload Gateway", icon: Upload },
   { to: "/movies", label: "Movies", icon: Film },
   { to: "/series", label: "Series", icon: Tv2 },
-  { to: "/suggested", label: "Suggested Movies", icon: Sparkles },
+  { to: "/suggested", label: "Suggested", icon: Sparkles },
   { to: "/watchlist", label: "My Watchlist", icon: Bookmark },
   { to: "/tv", label: "TV", icon: Tv },
   { to: "/sports", label: "Sports", icon: Trophy },
-  { to: "/rooms", label: "Watch Together", icon: Users },
-  { to: "/friends", label: "Friends", icon: UserPlus },
-  { to: "/dms", label: "DMs", icon: MessageSquare },
-  { to: "/upload-movie", label: "Upload Movie", icon: Upload },
-  { to: "/upload-share", label: "Upload & Share", icon: Sparkles },
-  { to: "/contribute", label: "Contribute Episode", icon: Tv2 },
+  { to: "/dms", label: "DMs", icon: UserPlus },
+  { to: "/profile", label: "Profile", icon: User },
 ];
 
 export const SideDrawer = () => {
@@ -67,7 +73,7 @@ export const SideDrawer = () => {
           </SheetTitle>
           <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
         </SheetHeader>
-        <nav className="flex flex-col gap-1 p-4">
+        <nav className="flex flex-col gap-1 p-4 overflow-y-auto scrollbar-hide max-h-[calc(100vh-9rem)]">
           {items.map((it) => (
             <NavLink
               key={it.to}
