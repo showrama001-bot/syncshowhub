@@ -40,8 +40,9 @@ export default function UploadMovie() {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [sourceMode, setSourceMode] = useState<"upload" | "url">("upload");
+  const [sourceMode, setSourceMode] = useState<"upload" | "direct" | "telegram">("upload");
   const [directUrl, setDirectUrl] = useState("");
+  const [telegramUrl, setTelegramUrl] = useState("");
 
   if (loading) return null;
   if (!user) return <Navigate to="/auth" replace />;
@@ -70,9 +71,13 @@ export default function UploadMovie() {
   const uploadAndSave = async () => {
     if (!meta.title) return toast.error("Fetch movie details first");
     if (sourceMode === "upload" && !file) return toast.error("Choose a video file");
-    if (sourceMode === "url" && !directUrl.trim()) return toast.error("Paste a direct video URL");
-    if (sourceMode === "url" && !/^https?:\/\//i.test(directUrl.trim())) {
+    if (sourceMode === "direct" && !directUrl.trim()) return toast.error("Paste a direct video URL");
+    if (sourceMode === "direct" && !/^https?:\/\//i.test(directUrl.trim())) {
       return toast.error("URL must start with http(s)://");
+    }
+    if (sourceMode === "telegram" && !telegramUrl.trim()) return toast.error("Paste a Telegram stream URL");
+    if (sourceMode === "telegram" && !/^https?:\/\//i.test(telegramUrl.trim())) {
+      return toast.error("Telegram URL must start with http(s)://");
     }
 
     setUploading(true);
@@ -108,8 +113,11 @@ export default function UploadMovie() {
         const res = await uploadToTelegram(file, meta.title!, (p) => setProgress(p));
         finalUrl = res.stream_url;
         setProgress(100);
-      } else {
+      } else if (sourceMode === "direct") {
         finalUrl = directUrl.trim();
+        setProgress(100);
+      } else {
+        finalUrl = telegramUrl.trim();
         setProgress(100);
       }
 
@@ -136,9 +144,16 @@ export default function UploadMovie() {
       });
       if (insErr) throw insErr;
 
-      toast.success(sourceMode === "upload" ? "Uploaded to Telegram channel" : "Movie saved with direct URL");
+      toast.success(
+        sourceMode === "upload"
+          ? "Uploaded to Telegram channel"
+          : sourceMode === "direct"
+          ? "Movie saved with direct stream URL"
+          : "Movie saved with Telegram stream link",
+      );
       setFile(null);
       setDirectUrl("");
+      setTelegramUrl("");
       setMeta({});
       setQuery("");
       setProgress(0);
@@ -222,10 +237,11 @@ export default function UploadMovie() {
 
         <div className="space-y-2">
           <Label>2. Video source</Label>
-          <Tabs value={sourceMode} onValueChange={(v) => setSourceMode(v as "upload" | "url")}>
-            <TabsList className="grid grid-cols-2 w-full">
-              <TabsTrigger value="upload" disabled={uploading}>Upload to Telegram</TabsTrigger>
-              <TabsTrigger value="url" disabled={uploading}>Direct video URL</TabsTrigger>
+          <Tabs value={sourceMode} onValueChange={(v) => setSourceMode(v as "upload" | "direct" | "telegram")}>
+            <TabsList className="grid grid-cols-3 w-full">
+              <TabsTrigger value="upload" disabled={uploading}>PC File Upload</TabsTrigger>
+              <TabsTrigger value="direct" disabled={uploading}>HLS / M3U8 / MP4</TabsTrigger>
+              <TabsTrigger value="telegram" disabled={uploading}>Telegram Link</TabsTrigger>
             </TabsList>
             <TabsContent value="upload" className="space-y-2 pt-3">
               <Input
@@ -240,16 +256,28 @@ export default function UploadMovie() {
                 </p>
               )}
             </TabsContent>
-            <TabsContent value="url" className="space-y-2 pt-3">
+            <TabsContent value="direct" className="space-y-2 pt-3">
               <Input
                 type="url"
-                placeholder="https://example.com/video.mp4"
+                placeholder="https://example.com/stream.m3u8  or  …/video.mp4"
                 value={directUrl}
                 onChange={(e) => setDirectUrl(e.target.value)}
                 disabled={uploading}
               />
               <p className="text-xs text-muted-foreground">
-                Paste a direct .mp4 / .m3u8 URL hosted anywhere.
+                Paste a direct .mp4, .webm, or HLS (.m3u8) playlist URL — played natively by the hardened HTML5 player.
+              </p>
+            </TabsContent>
+            <TabsContent value="telegram" className="space-y-2 pt-3">
+              <Input
+                type="url"
+                placeholder="https://api.telegram.org/file/bot…/video.mp4  or  https://t.me/c/.../123"
+                value={telegramUrl}
+                onChange={(e) => setTelegramUrl(e.target.value)}
+                disabled={uploading}
+              />
+              <p className="text-xs text-muted-foreground">
+                Paste a public Telegram channel video link or a direct Bot API stream URL.
               </p>
             </TabsContent>
           </Tabs>
@@ -272,7 +300,11 @@ export default function UploadMovie() {
           disabled={
             uploading ||
             !meta.title ||
-            (sourceMode === "upload" ? !file : !directUrl.trim())
+            (sourceMode === "upload"
+              ? !file
+              : sourceMode === "direct"
+              ? !directUrl.trim()
+              : !telegramUrl.trim())
           }
         >
           {uploading ? (
