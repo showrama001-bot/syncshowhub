@@ -977,6 +977,23 @@ function TrailersTab() {
 
   return (
     <div className="space-y-4">
+      <div className="glass rounded-2xl p-5 space-y-3">
+        <div className="text-sm font-medium">Find an official trailer via TMDB</div>
+        <p className="text-xs text-muted-foreground">
+          Search by title — the official YouTube trailer URL is auto-fetched and dropped into the form below.
+        </p>
+        <div className="flex gap-2">
+          <Input
+            placeholder={`Search ${form.kind === "series" ? "series" : "movies"} on TMDB…`}
+            value={tmdbQuery}
+            onChange={(e) => setTmdbQuery(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); searchTmdbTrailer(); } }}
+          />
+          <Button type="button" onClick={searchTmdbTrailer} disabled={tmdbBusy} className="bg-gradient-red shadow-neon">
+            {tmdbBusy ? "Searching…" : "Find trailer"}
+          </Button>
+        </div>
+      </div>
       <form onSubmit={submit} className="glass rounded-2xl p-5 grid sm:grid-cols-2 gap-4">
         {editingId && (
           <div className="sm:col-span-2 flex items-center justify-between text-sm">
