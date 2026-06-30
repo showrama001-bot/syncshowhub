@@ -49,7 +49,7 @@ const items = [
 ];
 
 export const SideDrawer = () => {
-  const { isAdmin, signOut, user } = useAuth();
+  const { signOut, user } = useAuth();
   const [open, setOpen] = useState(false);
 
   return (
@@ -91,20 +91,6 @@ export const SideDrawer = () => {
               <span className="font-medium">{it.label}</span>
             </NavLink>
           ))}
-          {isAdmin && (
-            <NavLink
-              to="/admin/dashboard"
-              onClick={() => setOpen(false)}
-              className={({ isActive }) =>
-                `group flex items-center gap-3 rounded-xl px-4 py-3 transition-all border border-primary/30 mt-2 ${
-                  isActive ? "bg-primary/20 text-primary" : "text-primary/90 hover:bg-primary/10"
-                }`
-              }
-            >
-              <Shield className="h-5 w-5" />
-              <span className="font-medium">Admin Panel</span>
-            </NavLink>
-          )}
         </nav>
         <div className="absolute bottom-4 left-4 right-4">
           <Button
