@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { Clapperboard, Play } from "lucide-react";
+import { Clapperboard } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 
@@ -63,40 +62,32 @@ export default function Trailers() {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {filtered.map((t) => {
             const yt = youtubeId(t.youtube_url);
-            const thumb = yt ? `https://i.ytimg.com/vi/${yt}/hqdefault.jpg` : null;
-            const linkTo = t.movie_id
-              ? `/play/movie/${t.movie_id}`
-              : t.series_id
-              ? `/play/series/${t.series_id}`
-              : "#";
             return (
-              <Link
+              <div
                 key={t.id}
-                to={linkTo}
-                className="group rounded-2xl overflow-hidden border border-border/40 bg-card hover:border-primary/60 transition-all"
+                className="rounded-2xl overflow-hidden border border-border/40 bg-card hover:border-primary/60 transition-all"
               >
                 <div className="relative aspect-video bg-black">
-                  {thumb ? (
-                    <img
-                      src={thumb}
-                      alt={t.movie_title ?? "Trailer"}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                  {yt ? (
+                    <iframe
+                      src={`https://www.youtube.com/embed/${yt}`}
+                      title={t.movie_title ?? "Trailer"}
                       loading="lazy"
+                      allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      className="w-full h-full"
                     />
                   ) : (
                     <div className="w-full h-full grid place-items-center text-muted-foreground text-xs">
                       No preview
                     </div>
                   )}
-                  <div className="absolute inset-0 grid place-items-center opacity-0 group-hover:opacity-100 transition bg-black/40">
-                    <Play className="h-10 w-10 text-primary" />
-                  </div>
                 </div>
                 <div className="p-3">
                   <p className="text-sm font-medium truncate">{t.movie_title ?? "Untitled"}</p>
                   <p className="text-xs text-muted-foreground capitalize">{t.kind ?? "movie"}</p>
                 </div>
-              </Link>
+              </div>
             );
           })}
         </div>
