@@ -31,7 +31,7 @@ type TmdbResult = {
 };
 
 export default function UploadMovie() {
-  const { user, loading } = useAuth();
+  const { user, loading, isAdmin } = useAuth();
 
   const [query, setQuery] = useState("");
   const [tmdbBusy, setTmdbBusy] = useState(false);
@@ -237,11 +237,18 @@ export default function UploadMovie() {
 
         <div className="space-y-2">
           <Label>2. Video source</Label>
-          <Tabs value={sourceMode} onValueChange={(v) => setSourceMode(v as "upload" | "direct" | "telegram")}>
-            <TabsList className="grid grid-cols-3 w-full">
+          <Tabs
+            value={sourceMode}
+            onValueChange={(v) => setSourceMode(v as "upload" | "direct" | "telegram")}
+          >
+            <TabsList className={`grid w-full ${isAdmin ? "grid-cols-3" : "grid-cols-1"}`}>
               <TabsTrigger value="upload" disabled={uploading}>PC File Upload</TabsTrigger>
-              <TabsTrigger value="direct" disabled={uploading}>HLS / M3U8 / MP4</TabsTrigger>
-              <TabsTrigger value="telegram" disabled={uploading}>Telegram Link</TabsTrigger>
+              {isAdmin && (
+                <>
+                  <TabsTrigger value="direct" disabled={uploading}>HLS / M3U8 / MP4</TabsTrigger>
+                  <TabsTrigger value="telegram" disabled={uploading}>Telegram Link</TabsTrigger>
+                </>
+              )}
             </TabsList>
             <TabsContent value="upload" className="space-y-2 pt-3">
               <Input
@@ -256,6 +263,7 @@ export default function UploadMovie() {
                 </p>
               )}
             </TabsContent>
+            {isAdmin && (
             <TabsContent value="direct" className="space-y-2 pt-3">
               <Input
                 type="url"
@@ -268,6 +276,8 @@ export default function UploadMovie() {
                 Paste a direct .mp4, .webm, or HLS (.m3u8) playlist URL — played natively by the hardened HTML5 player.
               </p>
             </TabsContent>
+            )}
+            {isAdmin && (
             <TabsContent value="telegram" className="space-y-2 pt-3">
               <Input
                 type="url"
@@ -280,6 +290,7 @@ export default function UploadMovie() {
                 Paste a public Telegram channel video link or a direct Bot API stream URL.
               </p>
             </TabsContent>
+            )}
           </Tabs>
         </div>
 
