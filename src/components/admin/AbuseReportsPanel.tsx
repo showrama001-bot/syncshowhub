@@ -13,7 +13,7 @@ type ReportRow = {
   reason: string;
   status: string;
   created_at: string;
-  movie?: { id: string; title: string; poster_url: string | null; created_by: string | null; doodstream_url: string | null; year: number | null } | null;
+  movie?: { id: string; title: string; poster_url: string | null; created_by: string | null; stream_url: string | null; year: number | null } | null;
   uploader?: { id: string; display_name: string | null; username: string | null; is_banned: boolean; suspended_until: string | null; permanent_banned: boolean } | null;
   uploader_email?: string | null;
   violation_count?: number;
@@ -34,7 +34,7 @@ export default function AbuseReportsPanel() {
 
     const movieIds = Array.from(new Set((reports ?? []).map((r) => r.movie_id)));
     const { data: movies } = movieIds.length
-      ? await supabase.from("movies").select("id, title, poster_url, created_by, doodstream_url, year").in("id", movieIds)
+      ? await supabase.from("movies").select("id, title, poster_url, created_by, stream_url, year").in("id", movieIds)
       : { data: [] as any[] };
 
     const uploaderIds = Array.from(new Set((movies ?? []).map((m: any) => m.created_by).filter(Boolean)));
@@ -118,9 +118,9 @@ export default function AbuseReportsPanel() {
                   <div className="text-xs text-muted-foreground mt-1">
                     Reported {new Date(r.created_at).toLocaleString()}
                   </div>
-                  {r.movie?.doodstream_url && (
-                    <a href={r.movie.doodstream_url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline break-all">
-                      {r.movie.doodstream_url}
+                  {r.movie?.stream_url && (
+                    <a href={r.movie.stream_url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline break-all">
+                      {r.movie.stream_url}
                     </a>
                   )}
                   <div className="mt-2 text-sm">
