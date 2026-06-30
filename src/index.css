@@ -129,3 +129,7 @@ img, video {
 video::-internal-media-controls-download-button { display: none; }
 video::-webkit-media-controls-enclosure { overflow: hidden; }
 video::-webkit-media-controls-panel { width: calc(100% + 30px); }
+
+/* Sidebar smooth-scroll with hidden visual scrollbar */
+.scrollbar-hide { scrollbar-width: none; -ms-overflow-style: none; scroll-behavior: smooth; }
+.scrollbar-hide::-webkit-scrollbar { display: none; width: 0; height: 0; }
