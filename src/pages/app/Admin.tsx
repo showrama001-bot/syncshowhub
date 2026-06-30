@@ -38,7 +38,6 @@ import {
   Plus,
 } from "lucide-react";
 import AbuseReportsPanel from "@/components/admin/AbuseReportsPanel";
-import BrokenServerReportsPanel from "@/components/admin/BrokenServerReportsPanel";
 import PlaybackReportsPanel from "@/components/admin/PlaybackReportsPanel";
 import AdsManager from "@/components/admin/AdsManager";
 import SuperScraperDashboard from "@/components/admin/SuperScraperDashboard";
@@ -80,7 +79,6 @@ export default function Admin() {
           <TabsTrigger value="sports">Sports</TabsTrigger>
           <TabsTrigger value="reports">Reports</TabsTrigger>
           <TabsTrigger value="abuse">Abuse</TabsTrigger>
-          <TabsTrigger value="broken">Broken Servers</TabsTrigger>
           <TabsTrigger value="playback">Playback Reports</TabsTrigger>
           <TabsTrigger value="ads">Ads Management</TabsTrigger>
           <TabsTrigger value="scraper">Super Scraper</TabsTrigger>
@@ -96,7 +94,6 @@ export default function Admin() {
         <TabsContent value="sports"><SportsTab /></TabsContent>
         <TabsContent value="reports"><ReportsTab /></TabsContent>
         <TabsContent value="abuse"><AbuseReportsPanel /></TabsContent>
-        <TabsContent value="broken"><BrokenServerReportsPanel /></TabsContent>
         <TabsContent value="playback"><PlaybackReportsPanel /></TabsContent>
         <TabsContent value="ads"><AdsManager /></TabsContent>
         <TabsContent value="scraper"><SuperScraperDashboard /></TabsContent>

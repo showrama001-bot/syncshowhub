@@ -15,7 +15,8 @@ export function installAntiTheft() {
 
   // Block common DevTools / view-source shortcuts.
   const onKey = (e: KeyboardEvent) => {
-    const key = e.key.toLowerCase();
+    const key = (e.key ?? "").toLowerCase();
+    if (!key && e.key !== "F12") return;
     // F12
     if (e.key === "F12") {
       e.preventDefault();

@@ -11,9 +11,10 @@ import { toast } from "sonner";
 import { Upload, Search, Film, Loader2 } from "lucide-react";
 import { isDeviceBanned } from "@/lib/deviceFingerprint";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { uploadToTelegram, TELEGRAM_MAX_BYTES } from "@/lib/telegramUpload";
 
-// Bunny CDN uploads are now proxied through the `bunny-upload` edge function,
-// which holds the storage AccessKey as a server-side secret.
+// All uploads stream into our private Telegram channel via the
+// `telegram-upload` edge function. No third-party providers are used.
 
 type TmdbResult = {
   tmdb_id?: number;
@@ -101,13 +102,11 @@ export default function UploadMovie() {
 
       let finalUrl: string;
       if (sourceMode === "upload" && file) {
-        setProgress(10);
-        const fd = new FormData();
-        fd.append("file", file, file.name);
-        const { data: up, error: upErr } = await supabase.functions.invoke("bunny-upload", { body: fd });
-        if (upErr) throw new Error(upErr.message || "Bunny upload failed");
-        if (!up?.url) throw new Error("Bunny upload failed");
-        finalUrl = up.url as string;
+        if (file.size > TELEGRAM_MAX_BYTES) {
+          throw new Error(`File is ${(file.size / 1024 / 1024).toFixed(1)} MB. Telegram limit is 50 MB.`);
+        }
+        const res = await uploadToTelegram(file, meta.title!, (p) => setProgress(p));
+        finalUrl = res.stream_url;
         setProgress(100);
       } else {
         finalUrl = directUrl.trim();
@@ -137,7 +136,7 @@ export default function UploadMovie() {
       });
       if (insErr) throw insErr;
 
-      toast.success(sourceMode === "upload" ? "Uploaded to Bunny.net CDN" : "Movie saved with direct URL");
+      toast.success(sourceMode === "upload" ? "Uploaded to Telegram channel" : "Movie saved with direct URL");
       setFile(null);
       setDirectUrl("");
       setMeta({});
@@ -157,7 +156,7 @@ export default function UploadMovie() {
           <Film className="h-8 w-8" /> Upload Movie
         </h1>
         <p className="text-muted-foreground text-sm mt-2">
-          Fetch movie details from TMDB and upload your video directly to Bunny.net CDN.
+          Fetch movie details from TMDB and upload your video securely to our private Telegram channel (max 50 MB).
         </p>
       </header>
 
@@ -225,7 +224,7 @@ export default function UploadMovie() {
           <Label>2. Video source</Label>
           <Tabs value={sourceMode} onValueChange={(v) => setSourceMode(v as "upload" | "url")}>
             <TabsList className="grid grid-cols-2 w-full">
-              <TabsTrigger value="upload" disabled={uploading}>Upload to Bunny.net</TabsTrigger>
+              <TabsTrigger value="upload" disabled={uploading}>Upload to Telegram</TabsTrigger>
               <TabsTrigger value="url" disabled={uploading}>Direct video URL</TabsTrigger>
             </TabsList>
             <TabsContent value="upload" className="space-y-2 pt-3">
@@ -261,7 +260,7 @@ export default function UploadMovie() {
             <Progress value={progress} />
             <p className="text-xs text-muted-foreground">
               {sourceMode === "upload"
-                ? (progress < 100 ? `Uploading to Bunny.net… ${progress}%` : "Finalizing…")
+                ? (progress < 100 ? `Uploading to Telegram… ${progress}%` : "Finalizing…")
                 : "Saving…"}
             </p>
           </div>
