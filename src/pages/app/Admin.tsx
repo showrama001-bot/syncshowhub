@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadToTelegram } from "@/lib/telegramUpload";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -239,7 +240,7 @@ function MoviesTab() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [tmdbQuery, setTmdbQuery] = useState("");
   const [tmdbBusy, setTmdbBusy] = useState(false);
-  const [sourceMode, setSourceMode] = useState<"upload" | "url">("upload");
+  const [sourceMode, setSourceMode] = useState<"upload" | "direct" | "telegram">("upload");
   const [file, setFile] = useState<File | null>(null);
   const [directUrl, setDirectUrl] = useState("");
   const [telegramUrl, setTelegramUrl] = useState("");
@@ -274,27 +275,23 @@ function MoviesTab() {
       let finalUrl = form.stream_url || "";
 
       if (!editingId) {
-        if (storageMode === "telegram") {
-          const tg = telegramUrl.trim();
-          if (!tg) throw new Error("Paste a Telegram video stream URL / message link");
-          if (!/^https?:\/\//i.test(tg)) throw new Error("Telegram URL must start with http(s)://");
-          finalUrl = tg;
-          setProgress(100);
-        } else if (sourceMode === "upload") {
+        if (sourceMode === "upload") {
           if (!file) throw new Error("Choose a video file to upload");
-          setProgress(10);
-          const fd = new FormData();
-          fd.append("file", file, file.name);
-          const { data: up, error: upErr } = await supabase.functions.invoke("bunny-upload", { body: fd });
-          if (upErr) throw new Error(upErr.message || "Bunny upload failed");
-          if (!up?.url) throw new Error("Bunny upload failed");
-          finalUrl = up.url as string;
+          const res = await uploadToTelegram(file, form.title, (p) => setProgress(p));
+          finalUrl = res.stream_url;
           setProgress(100);
-        } else {
+        } else if (sourceMode === "direct") {
           if (!directUrl.trim() || !/^https?:\/\//i.test(directUrl.trim())) {
             throw new Error("Paste a valid direct video URL (http/https)");
           }
           finalUrl = directUrl.trim();
+          setProgress(100);
+        } else {
+          const tg = telegramUrl.trim();
+          if (!tg || !/^https?:\/\//i.test(tg)) {
+            throw new Error("Paste a Telegram video stream URL (http/https)");
+          }
+          finalUrl = tg;
           setProgress(100);
         }
       }
@@ -457,24 +454,11 @@ function MoviesTab() {
                 {storageMode === "telegram" ? "Telegram Free Stream (active)" : "Bunny.net Premium CDN (active)"}
               </span>
             </Label>
-            {storageMode === "telegram" ? (
-              <div className="space-y-2 pt-1">
-                <Input
-                  type="url"
-                  placeholder="https://t.me/c/.../123  or  https://api.telegram.org/file/bot…/video.mp4"
-                  value={telegramUrl}
-                  onChange={(e) => setTelegramUrl(e.target.value)}
-                  disabled={uploading}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Paste a direct Telegram video stream URL or a public channel message link. The player will route through it automatically.
-                </p>
-              </div>
-            ) : (
-            <Tabs value={sourceMode} onValueChange={(v) => setSourceMode(v as "upload" | "url")}>
-              <TabsList className="grid grid-cols-2 w-full">
-                <TabsTrigger value="upload" disabled={uploading}>Upload from PC (Bunny.net)</TabsTrigger>
-                <TabsTrigger value="url" disabled={uploading}>Direct Video URL</TabsTrigger>
+            <Tabs value={sourceMode} onValueChange={(v) => setSourceMode(v as "upload" | "direct" | "telegram")}>
+              <TabsList className="grid grid-cols-3 w-full">
+                <TabsTrigger value="upload" disabled={uploading}>PC File Upload</TabsTrigger>
+                <TabsTrigger value="direct" disabled={uploading}>HLS / M3U8 / MP4</TabsTrigger>
+                <TabsTrigger value="telegram" disabled={uploading}>Telegram Link</TabsTrigger>
               </TabsList>
               <TabsContent value="upload" className="space-y-2 pt-3">
                 <Input
@@ -488,30 +472,42 @@ function MoviesTab() {
                     {file.name} — {(file.size / (1024 * 1024)).toFixed(1)} MB
                   </p>
                 )}
+                <p className="text-xs text-muted-foreground">
+                  File is streamed into the private Telegram channel (50 MB max) and played back natively.
+                </p>
               </TabsContent>
-              <TabsContent value="url" className="space-y-2 pt-3">
+              <TabsContent value="direct" className="space-y-2 pt-3">
                 <Input
                   type="url"
-                  placeholder="https://example.com/video.mp4"
+                  placeholder="https://example.com/stream.m3u8  or  …/video.mp4"
                   value={directUrl}
                   onChange={(e) => setDirectUrl(e.target.value)}
                   disabled={uploading}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Paste a direct .mp4 / .m3u8 URL. Bots and API integrations can also write this field via the movies table.
+                  Paste a direct .mp4, .webm, or HLS (.m3u8) playlist — played by the hardened HTML5 player.
+                </p>
+              </TabsContent>
+              <TabsContent value="telegram" className="space-y-2 pt-3">
+                <Input
+                  type="url"
+                  placeholder="https://t.me/c/.../123  or  https://api.telegram.org/file/bot…/video.mp4"
+                  value={telegramUrl}
+                  onChange={(e) => setTelegramUrl(e.target.value)}
+                  disabled={uploading}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Paste a public Telegram channel message link or a direct Bot API stream URL.
                 </p>
               </TabsContent>
             </Tabs>
-            )}
             {uploading && (
               <div className="space-y-1">
                 <Progress value={progress} />
                 <p className="text-xs text-muted-foreground">
-                  {storageMode === "telegram"
-                    ? "Saving Telegram link…"
-                    : sourceMode === "upload"
-                      ? `Uploading to Bunny.net… ${progress}%`
-                      : "Saving…"}
+                  {sourceMode === "upload"
+                    ? `Uploading to Telegram… ${progress}%`
+                    : "Saving…"}
                 </p>
               </div>
             )}
@@ -1321,9 +1317,10 @@ function SeasonsManager({ seriesId }: { seriesId: string }) {
 function EpisodesManager({ seasonId }: { seasonId: string }) {
   const [eps, setEps] = useState<any[]>([]);
   const [form, setForm] = useState<any>({});
-  const [sourceMode, setSourceMode] = useState<"upload" | "url">("upload");
+  const [sourceMode, setSourceMode] = useState<"upload" | "direct" | "telegram">("upload");
   const [file, setFile] = useState<File | null>(null);
   const [directUrl, setDirectUrl] = useState("");
+  const [telegramUrl, setTelegramUrl] = useState("");
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
 
@@ -1350,19 +1347,21 @@ function EpisodesManager({ seasonId }: { seasonId: string }) {
       let finalUrl = "";
       if (sourceMode === "upload") {
         if (!file) throw new Error("Choose a video file to upload");
-        setProgress(10);
-        const fd = new FormData();
-        fd.append("file", file, file.name);
-        const { data: up, error: upErr } = await supabase.functions.invoke("bunny-upload", { body: fd });
-        if (upErr) throw new Error(upErr.message || "Bunny upload failed");
-        if (!up?.url) throw new Error("Bunny upload failed");
-        finalUrl = up.url as string;
+        const res = await uploadToTelegram(file, form.title, (p) => setProgress(p));
+        finalUrl = res.stream_url;
         setProgress(100);
-      } else {
+      } else if (sourceMode === "direct") {
         if (!directUrl.trim() || !/^https?:\/\//i.test(directUrl.trim())) {
           throw new Error("Paste a valid direct video URL (http/https)");
         }
         finalUrl = directUrl.trim();
+        setProgress(100);
+      } else {
+        const tg = telegramUrl.trim();
+        if (!tg || !/^https?:\/\//i.test(tg)) {
+          throw new Error("Paste a Telegram video stream URL (http/https)");
+        }
+        finalUrl = tg;
         setProgress(100);
       }
 
@@ -1389,6 +1388,7 @@ function EpisodesManager({ seasonId }: { seasonId: string }) {
       setForm({});
       setFile(null);
       setDirectUrl("");
+      setTelegramUrl("");
       setProgress(0);
       load();
     } catch (err: any) {
@@ -1412,23 +1412,27 @@ function EpisodesManager({ seasonId }: { seasonId: string }) {
           <Input type="number" placeholder="EP #" value={form.episode_number ?? ""} onChange={(e) => setForm({ ...form, episode_number: e.target.value })} />
           <Input className="sm:col-span-2" placeholder="Episode title" value={form.title ?? ""} onChange={(e) => setForm({ ...form, title: e.target.value })} />
         </div>
-        <Tabs value={sourceMode} onValueChange={(v) => setSourceMode(v as "upload" | "url")}>
-          <TabsList className="grid grid-cols-2 w-full">
-            <TabsTrigger value="upload" disabled={uploading}>Upload to Bunny.net</TabsTrigger>
-            <TabsTrigger value="url" disabled={uploading}>Direct Video URL</TabsTrigger>
+        <Tabs value={sourceMode} onValueChange={(v) => setSourceMode(v as "upload" | "direct" | "telegram")}>
+          <TabsList className="grid grid-cols-3 w-full">
+            <TabsTrigger value="upload" disabled={uploading}>PC File Upload</TabsTrigger>
+            <TabsTrigger value="direct" disabled={uploading}>HLS / M3U8 / MP4</TabsTrigger>
+            <TabsTrigger value="telegram" disabled={uploading}>Telegram Link</TabsTrigger>
           </TabsList>
           <TabsContent value="upload" className="pt-2 space-y-1">
             <Input type="file" accept="video/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} disabled={uploading} />
             {file && <p className="text-xs text-muted-foreground">{file.name} — {(file.size / (1024 * 1024)).toFixed(1)} MB</p>}
           </TabsContent>
-          <TabsContent value="url" className="pt-2">
-            <Input type="url" placeholder="https://example.com/episode.mp4" value={directUrl} onChange={(e) => setDirectUrl(e.target.value)} disabled={uploading} />
+          <TabsContent value="direct" className="pt-2">
+            <Input type="url" placeholder="https://example.com/episode.m3u8  or  …/episode.mp4" value={directUrl} onChange={(e) => setDirectUrl(e.target.value)} disabled={uploading} />
+          </TabsContent>
+          <TabsContent value="telegram" className="pt-2">
+            <Input type="url" placeholder="https://t.me/c/.../123  or  https://api.telegram.org/file/bot…/video.mp4" value={telegramUrl} onChange={(e) => setTelegramUrl(e.target.value)} disabled={uploading} />
           </TabsContent>
         </Tabs>
         {uploading && (
           <div className="space-y-1">
             <Progress value={progress} />
-            <p className="text-xs text-muted-foreground">{sourceMode === "upload" ? `Uploading… ${progress}%` : "Saving…"}</p>
+            <p className="text-xs text-muted-foreground">{sourceMode === "upload" ? `Uploading to Telegram… ${progress}%` : "Saving…"}</p>
           </div>
         )}
         <Button type="button" onClick={addEp} disabled={uploading} className="bg-gradient-red shadow-neon">
