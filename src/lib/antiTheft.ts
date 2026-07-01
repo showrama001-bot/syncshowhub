@@ -10,6 +10,19 @@ export function installAntiTheft() {
 
   // Block context menu site-wide.
   const onContext = (e: MouseEvent) => {
+    const t = e.target as HTMLElement | null;
+    if (t) {
+      const tag = t.tagName;
+      if (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        t.isContentEditable ||
+        t.closest?.("input, textarea, select, [contenteditable=''], [contenteditable='true']")
+      ) {
+        return; // allow native context menu in form fields
+      }
+    }
     e.preventDefault();
   };
 
