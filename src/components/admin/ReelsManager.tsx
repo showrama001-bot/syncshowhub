@@ -84,7 +84,7 @@ export default function ReelsManager() {
     if (!file) return toast.error("Pick a video file");
     setUploading(true);
     try {
-      const url = await uploadToTelegram(file);
+      const { stream_url: url } = await uploadToTelegram(file, upTitle || file.name);
       const { error } = await (supabase.from("reels" as any) as any).insert({
         source_type: "upload", video_url: url, title: upTitle || file.name,
         movie_id: upMovieId || null, created_by: user!.id,
