@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { SyncedPlayer } from "@/components/streaming/SyncedPlayer";
-import { VoiceChat } from "@/components/rooms/VoiceChat";
+import { MediaChat } from "@/components/rooms/MediaChat";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -303,8 +303,16 @@ export default function Watch() {
           {/* Host content picker */}
           {isHost && <ContentSearch room={room} update={updateRoom} />}
 
-          {/* In-app WebRTC voice */}
-          {user && <VoiceChat roomId={room.id} userId={user.id} />}
+          {/* In-app WebRTC video + voice */}
+          {user && (
+            <MediaChat
+              roomId={room.id}
+              userId={user.id}
+              hostId={room.host_id}
+              isHost={isHost}
+              onKick={(uid) => kickUser(uid)}
+            />
+          )}
 
           {/* Participants + host kick */}
           <div className="glass rounded-2xl p-3">
