@@ -46,7 +46,7 @@ export default function ReelsManager() {
   const load = async () => {
     const [{ data: r }, { data: t }, { data: m }] = await Promise.all([
       (supabase.from("reels" as any) as any).select("*").order("created_at", { ascending: false }),
-      (supabase.from("trailers" as any) as any).select("id, title, youtube_url, movie_id, poster_url").order("created_at", { ascending: false }).limit(50),
+      (supabase.from("trailers" as any) as any).select("id, movie_title, youtube_url, movie_id").order("created_at", { ascending: false }).limit(50),
       supabase.from("movies").select("id, title").order("title").limit(500),
     ]);
     setReels((r || []) as any);
@@ -59,7 +59,7 @@ export default function ReelsManager() {
     const id = ytIdFromAny(tr.youtube_url || "");
     if (!id) return toast.error("Trailer has no valid YouTube URL");
     const { error } = await (supabase.from("reels" as any) as any).insert({
-      source_type: "trailer", youtube_id: id, title: tr.title, poster_url: tr.poster_url || null,
+      source_type: "trailer", youtube_id: id, title: tr.movie_title, poster_url: null,
       movie_id: tr.movie_id || null, created_by: user!.id,
     });
     if (error) return toast.error(error.message);
@@ -133,7 +133,7 @@ export default function ReelsManager() {
                   <Youtube className="h-5 w-5 text-red-500" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">{tr.title}</div>
+                  <div className="text-sm font-medium truncate">{tr.movie_title}</div>
                 </div>
                 <Button size="sm" className="bg-gradient-red" onClick={() => addFromTrailer(tr)}>Publish</Button>
               </div>
