@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Bell, BellOff, Users, Clock, Lock, Play } from "lucide-react";
+import { Bell, BellOff, Users, Clock, Lock, Play, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 type Room = {
@@ -89,12 +91,7 @@ export default function Rooms() {
           <h1 className="font-display text-3xl md:text-4xl tracking-wider">Watch Together</h1>
           <p className="text-muted-foreground text-sm">Jump into a public room or schedule one with friends.</p>
         </div>
-        <Link
-          to="/movies"
-          className="px-4 py-2 rounded-full bg-gradient-red shadow-neon text-sm font-semibold"
-        >
-          Start a room
-        </Link>
+        <CreateRoomDialog onCreated={(id) => navigate(`/watch/${id}`)} />
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
@@ -135,6 +132,72 @@ export default function Rooms() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+function CreateRoomDialog({ onCreated }: { onCreated: (id: string) => void }) {
+  const { user } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState("");
+  const [visibility, setVisibility] = useState<"public" | "private">("public");
+  const [busy, setBusy] = useState(false);
+
+  const create = async () => {
+    if (!user) { toast.error("Sign in required"); return; }
+    const clean = title.trim();
+    if (clean.length < 3) { toast.error("Room name must be at least 3 characters"); return; }
+    setBusy(true);
+    // Uniqueness pre-check (DB has UNIQUE index; catch collision explicitly).
+    const { data: existing } = await (supabase.from("watch_rooms" as any) as any)
+      .select("id").eq("title", clean).maybeSingle();
+    if (existing) {
+      setBusy(false);
+      toast.error("That room name is already taken. Pick a unique one.");
+      return;
+    }
+    const { data, error } = await (supabase.from("watch_rooms" as any) as any)
+      .insert({ host_id: user.id, title: clean, visibility, status: "live" })
+      .select("id").maybeSingle();
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    setOpen(false);
+    onCreated(data.id);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button className="bg-gradient-red shadow-neon rounded-full"><Plus className="h-4 w-4 mr-1" /> Start a room</Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create a Watch Room</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <label className="text-xs text-muted-foreground">Unique room name</label>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Friday Sci-Fi Night" />
+          </div>
+          <div className="flex gap-2">
+            {(["public", "private"] as const).map(v => (
+              <button key={v} type="button"
+                onClick={() => setVisibility(v)}
+                className={`px-3 py-1.5 rounded-full text-xs border ${visibility === v ? "bg-primary/20 border-primary text-primary" : "border-border/50"}`}>
+                {v}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Room names must be unique. Once created, use the search inside the room to pick a movie or episode.
+          </p>
+        </div>
+        <DialogFooter>
+          <Button className="bg-gradient-red shadow-neon" onClick={create} disabled={busy}>
+            {busy ? "Creating…" : "Create room"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

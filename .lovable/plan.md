@@ -1,61 +1,57 @@
-# Build Plan — Major Feature Expansion
+# Build Plan — Rooms v2, Social Feed & Reels
 
-This is a large, multi-system change. To keep it safe and **non-destructive** to the existing DB schema, movie styles, and core layout, I'll ship it in 5 phases. After each phase you can review before I move on.
-
-> Bunny.net keys (`BUNNY_ACCESS_KEY`, `BUNNY_STORAGE_ZONE`, `BUNNY_PULL_ZONE`) remain declared in the backend secrets but **bypassed** in all new code paths. All new uploads route through the existing `telegram-upload` edge function.
+Scope is large; splitting into 3 phases so each can be validated in the preview before moving on. All work respects the existing DB, movie layout, ads system, and Telegram pipeline.
 
 ---
 
-## Phase 1 — Upload Gateway (Admin + Users) & Player Hardening
+## Phase 1 — Shared Rooms v2 (Jitsi removal + native sync + voice)
 
-- New page `/upload-gateway` reusing the existing `UploadMovie` TMDB search + Telegram upload flow, but available to **any signed-in user**. Admin uploads go straight to `movies`/`series`; user uploads go to `community_uploads` (already in schema) for admin review.
-- Reuses existing `tmdb-scraper` edge function and `uploadToTelegram` utility — no DB schema changes.
-- Player hardening in `BunnyVideoPlayer`: wrap any iframe with `sandbox="allow-scripts allow-same-origin allow-presentation"`, add `onContextMenu={e=>e.preventDefault()}` on the container, ensure `controlsList="nodownload noremoteplayback"` and `disablePictureInPicture`. Guard `requestFullscreen`/`webkitEnterFullScreen` calls in `try/catch` to swallow the "Permission denied for function" error.
+**Frontend**
+- Rewrite `src/pages/app/Watch.tsx`: remove Jitsi iframe entirely.
+- Add `SyncedPlayer` component wrapping `BunnyVideoPlayer`/HLS. Uses a Supabase Realtime broadcast channel `room:{id}:playback` to emit `{action: play|pause|seek, time, at}`. Host is authoritative; guests apply events with drift correction (±0.5s snap).
+- Add `VoiceChat` component: mesh WebRTC (RTCPeerConnection per peer) with signaling via Supabase Realtime `room:{id}:signal` (offer/answer/ICE). Mic mute toggle, per-peer volume meter. Mobile-optimized (audio-only, `echoCancellation`, `noiseSuppression`).
+- Room creation modal in `Rooms.tsx`: enforce unique `title` (DB check + friendly error).
+- Host "Kick" button already scaffolded — wire it to insert into a new `room_kicks` table; guests self-eject on kick event.
+- `FriendsSidebar` in room: "Invite" button calls existing `inviteToRoom` → creates `room_invites` row (already picked up by `InviteNotifier`).
 
-## Phase 2 — Super Scraper Parallel + Trailers Admin
+**Backend (migration)**
+- `ALTER TABLE watch_rooms ADD CONSTRAINT watch_rooms_title_key UNIQUE (title);`
+- New table `room_kicks(room_id, user_id, kicked_by, created_at)` + RLS: host can insert; kicked user can read own row.
+- Enable Realtime on `room_kicks`.
 
-- Modify `tmdb-scraper` `check_providers` to return **all** OK/unknown providers (not just the first). Update Player to render a **Server 1 / Server 2 / …** switcher when ≥2 are available.
-- Add real-time **search filter bar** in `AdsManager`/Trailers admin tab for picking a movie by title.
-- Extend trailers admin: attach trailer via YouTube URL **or** PC video upload (Telegram pipeline, 50 MB cap).
-- New public route `/trailers` rendering all trailers in a responsive CSS Grid (`grid-cols-2 md:grid-cols-3 lg:grid-cols-4`).
+## Phase 2 — Friends / DMs polish
 
-## Phase 3 — Jitsi Rooms + DMs/Friends Repair
+- `Friends.tsx`: verify "Invite to Room" button appears next to each accepted friend when a room context exists (via query param `?invite=roomId`).
+- `DMs.tsx`: add "Invite to current room" quick action.
+- Notification toast already handled by `InviteNotifier`.
 
-- Add `UNIQUE` constraint on `watch_rooms.name` (migration). Surface clear error in UI on collision.
-- Replace external Jitsi redirect with **in-app** `<iframe src="https://meet.jit.si/<room>#config...">` (or `external_api.js`) sized responsively for mobile.
-- Host moderation: store `host_user_id` (already exists via `created_by`); expose a "Kick" action that calls Jitsi External API `executeCommand('kickParticipant', id)`.
-- DMs/Friends: audit `direct_messages` realtime subscription + `friendships` insert flow; add "Invite Friend" action creating a `friendships` row with status `pending` + in-app notification (uses existing `InviteNotifier`).
+## Phase 3 — Accueil (Social Feed) + Reels
 
-## Phase 4 — Social Feed (Accueil) + Reels
+**Accueil**
+- Replace placeholder `Accueil.tsx` with feed: composer (text + optional image via existing `avatars` bucket pattern → new `feed-media` bucket), timeline list, like/comment.
+- New tables: `feed_posts(user_id, content, image_url)`, `feed_likes(post_id, user_id)`, `feed_comments(post_id, user_id, content)`. Full RLS + GRANTs.
+- Insert `<GridBanner />` ad every 4 posts.
 
-New tables (additive, with full GRANTs + RLS):
-
-```text
-social_posts(id, author_id, body, image_url, created_at)
-social_post_likes(post_id, user_id, created_at)  -- PK (post_id,user_id)
-social_post_comments(id, post_id, author_id, body, created_at)
-reels(id, title, video_url, movie_id?, trailer_id?, created_by, created_at)
-```
-
-- `/accueil` — Facebook-style feed: text + image posts, like/comment/share, ad slots injected every 4 posts using existing `AdsProvider` placements.
-- `/reels` — vertical TikTok-style swipe feed (snap-y, full viewport). Admin-only upload form; can pick an existing trailer or upload a video to Telegram. Every 4th item is a `preroll`/`interstitial` ad asset. CTA button → `/play/movie/:id` using strict ID match.
-
-## Phase 5 — Sidebar Restructure
-
-Reorder `SideDrawer` items exactly:
-
-1. Home   2. Accueil   3. Reels   4. Trailers   5. Shared Rooms   6. Friends & Messages   7. Upload Gateway
-
-Add `scrollbar-hide` utility (`scrollbar-width:none; &::-webkit-scrollbar{display:none}`) to the nav container with smooth scrolling.
+**Reels**
+- New table `reels(id, source_type: 'trailer'|'upload', youtube_id, video_url, movie_id, title, created_by, created_at)`. Admin-only insert policy.
+- Admin panel `ReelsTab` in `Admin.tsx`: import from existing `trailers` table (one-click) or upload short MP4 via Telegram pipeline.
+- `Reels.tsx`: full-screen vertical snap-scroll feed. Each 3rd swipe forces an ad slide (from `AdsProvider` video assets) that must complete before next reel unlocks.
+- Each reel card shows a prominent "Watch full movie" button → `/play/movie/{movie_id}` (strict FK match; button hidden if no movie link).
 
 ---
 
-## Out of scope / preserved as-is
+## Technical notes
 
-- Existing Home, Movies, Series, Watchlist pages and movie card styling — untouched.
-- All existing DB tables and columns — untouched (only additive migrations).
-- Bunny.net code paths — left dormant.
+- **Sync algorithm**: host broadcasts every state change + heartbeat every 5s with `currentTime`. Guests correct if drift > 1.5s.
+- **WebRTC**: STUN only (`stun:stun.l.google.com:19302`), no TURN. Sufficient for most mobile networks; document limitation.
+- **Ad lock in Reels**: `swipeCount % 3 === 0` injects an `AdSlide` component using `useAds().pick('reel')` with a required `ended` event before advancing.
+- **Right-click / anti-download** already global via `installAntiTheft`.
 
-## Question before I start
+## Delivery order
 
-This is ~5 days of build work compressed. **Want me to execute all 5 phases sequentially in this conversation, or ship Phase 1 + 2 first so you can validate before I touch social/reels/jitsi?**
+1. Migration for room uniqueness + kicks + feed + reels tables (single migration, awaits approval).
+2. Phase 1 code once migration approved.
+3. Phase 2 tweaks.
+4. Phase 3 code + admin UI.
+
+Confirm to proceed and I'll ship the migration first.

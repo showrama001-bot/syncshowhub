@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { BunnyVideoPlayer } from "@/components/streaming/BunnyVideoPlayer";
-import { HlsPlayer } from "@/components/streaming/HlsPlayer";
+import { SyncedPlayer } from "@/components/streaming/SyncedPlayer";
+import { VoiceChat } from "@/components/rooms/VoiceChat";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -17,8 +17,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Mic, MicOff, Video, VideoOff, Calendar, Send, Search, Settings, Lock,
-  Copy, Bell, BellOff, Play, Users,
+  Calendar, Send, Search, Settings, Lock,
+  Copy, Bell, BellOff, Play, Users, UserX,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -52,13 +52,11 @@ export default function Watch() {
   const [pinOk, setPinOk] = useState(false);
   const [pinInput, setPinInput] = useState("");
   const [now, setNow] = useState(Date.now());
-  const [mic, setMic] = useState(true);
-  const [cam, setCam] = useState(true);
   const [chat, setChat] = useState<{ id: string; user: string; text: string; ts: number }[]>([]);
   const [msg, setMsg] = useState("");
-  const [showVoice, setShowVoice] = useState(false);
   const [reminded, setReminded] = useState(false);
   const [participants, setParticipants] = useState(0);
+  const [participantList, setParticipantList] = useState<{ id: string; name: string }[]>([]);
   const channelRef = useRef<any>(null);
   const presenceRef = useRef<any>(null);
 
@@ -116,10 +114,21 @@ export default function Watch() {
     ch.on("broadcast", { event: "msg" }, ({ payload }) => {
       setChat((c) => [...c, payload as any]);
     });
+    ch.on("broadcast", { event: "kick" }, ({ payload }) => {
+      if (payload?.userId && user && payload.userId === user.id) {
+        toast.error("You were removed from this room by the host.");
+        setTimeout(() => navigate("/rooms"), 400);
+      }
+    });
     ch.on("presence", { event: "sync" }, () => {
       const state = ch.presenceState();
       const count = Object.keys(state).length;
       setParticipants(count);
+      const list = Object.entries(state).map(([id, metas]: [string, any]) => ({
+        id,
+        name: (metas?.[0]?.user as string) || id.slice(0, 6),
+      }));
+      setParticipantList(list);
       // Best-effort update participant count (only host writes to avoid contention)
       if (room && user && room.host_id === user.id) {
         (supabase.from("watch_rooms" as any) as any).update({ participant_count: count }).eq("id", roomId);
@@ -135,7 +144,29 @@ export default function Watch() {
     return () => {
       supabase.removeChannel(ch);
     };
-  }, [roomId, user?.id, room?.host_id]);
+  }, [roomId, user?.id, room?.host_id, navigate]);
+
+  // If a persistent kick exists, boot user immediately on load.
+  useEffect(() => {
+    if (!user || !roomId) return;
+    (supabase.from("room_kicks" as any) as any)
+      .select("id").eq("room_id", roomId).eq("user_id", user.id).maybeSingle()
+      .then(({ data }: any) => {
+        if (data) {
+          toast.error("You are banned from this room.");
+          navigate("/rooms");
+        }
+      });
+  }, [user?.id, roomId, navigate]);
+
+  const kickUser = async (targetId: string) => {
+    if (!isHost || !room || targetId === user?.id) return;
+    await (supabase.from("room_kicks" as any) as any).insert({
+      room_id: room.id, user_id: targetId, kicked_by: user!.id,
+    });
+    channelRef.current?.send({ type: "broadcast", event: "kick", payload: { userId: targetId } });
+    toast.success("User kicked");
+  };
 
   const sendChat = () => {
     if (!msg.trim()) return;
@@ -214,22 +245,6 @@ export default function Watch() {
   }
 
   const src = room.stream_url || "";
-  const useHls = /\.m3u8(\?|$)/i.test(src);
-  const jitsiFlags = [
-    `config.startWithAudioMuted=${!mic}`,
-    `config.startWithVideoMuted=${!cam}`,
-    `config.prejoinPageEnabled=false`,
-    `config.prejoinConfig.enabled=false`,
-    `config.disableDeepLinking=true`,
-    `config.disableInviteFunctions=true`,
-    `config.toolbarButtons=%5B%22microphone%22%2C%22camera%22%2C%22hangup%22%2C%22tileview%22%5D`,
-    `interfaceConfig.MOBILE_APP_PROMO=false`,
-    `interfaceConfig.SHOW_JITSI_WATERMARK=false`,
-    `interfaceConfig.SHOW_CHROME_EXTENSION_BANNER=false`,
-    `interfaceConfig.HIDE_INVITE_MORE_HEADER=true`,
-    `userInfo.displayName=${encodeURIComponent(user?.email?.split("@")[0] || "Guest")}`,
-  ].join("&");
-  const jitsiUrl = `https://meet.jit.si/${encodeURIComponent("syncshow-" + room.id)}#${jitsiFlags}`;
 
   return (
     <div className="pt-20 px-3 md:px-6 pb-10 max-w-[1600px] mx-auto">
@@ -248,7 +263,7 @@ export default function Watch() {
         >
           <Copy className="h-4 w-4 mr-1" /> Invite
         </Button>
-        {isHost && <FriendsSidebar roomId={room.id} />}
+        <FriendsSidebar roomId={room.id} />
         {isHost && <HostSettings room={room} update={updateRoom} />}
         {!isHost && room.status === "scheduled" && (
           <Button size="sm" variant="outline" onClick={toggleReminder}>
@@ -273,11 +288,12 @@ export default function Watch() {
               </div>
             </div>
           ) : src ? (
-            useHls ? (
-              <HlsPlayer src={src} poster={room.poster_url || undefined} />
-            ) : (
-              <BunnyVideoPlayer src={src} poster={room.poster_url || undefined} title={room.content_title || room.title} />
-            )
+            <SyncedPlayer
+              roomId={room.id}
+              src={src}
+              poster={room.poster_url || undefined}
+              isHost={isHost}
+            />
           ) : (
             <div className="aspect-video rounded-2xl glass grid place-items-center text-muted-foreground text-center px-4">
               {isHost ? "Search a movie or episode below to start playing." : "Host hasn't picked content yet."}
@@ -287,51 +303,35 @@ export default function Watch() {
           {/* Host content picker */}
           {isHost && <ContentSearch room={room} update={updateRoom} />}
 
-          {/* Voice / Video room */}
-          <div className="glass rounded-2xl overflow-hidden">
-            <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-border/40">
-              <div className="text-sm font-semibold flex items-center gap-2">
-                <Video className="h-4 w-4 text-primary" /> Voice & Video
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => setMic((v) => !v)}
-                  className={`rounded-full h-9 w-9 ${mic ? "bg-primary/15 text-primary hover:bg-primary/25" : "bg-destructive/15 text-destructive hover:bg-destructive/25"}`}
-                  aria-label={mic ? "Mute mic" : "Unmute mic"}
-                >
-                  {mic ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
-                </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => setCam((v) => !v)}
-                  className={`rounded-full h-9 w-9 ${cam ? "bg-primary/15 text-primary hover:bg-primary/25" : "bg-destructive/15 text-destructive hover:bg-destructive/25"}`}
-                  aria-label={cam ? "Disable camera" : "Enable camera"}
-                >
-                  {cam ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => setShowVoice((v) => !v)}>
-                  {showVoice ? "Leave" : "Join"}
-                </Button>
-              </div>
+          {/* In-app WebRTC voice */}
+          {user && <VoiceChat roomId={room.id} userId={user.id} />}
+
+          {/* Participants + host kick */}
+          <div className="glass rounded-2xl p-3">
+            <div className="text-xs uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-2">
+              <Users className="h-3 w-3" /> Participants ({participantList.length})
             </div>
-            {showVoice ? (
-              <div className="relative w-full bg-black aspect-video sm:aspect-[16/7] lg:aspect-auto lg:h-[280px]">
-                <iframe
-                  key={`${mic}-${cam}`}
-                  title="Voice & video"
-                  src={jitsiUrl}
-                  allow="camera; microphone; fullscreen; display-capture; autoplay"
-                  className="absolute inset-0 w-full h-full border-0"
-                />
-              </div>
-            ) : (
-              <div className="px-4 py-6 text-center text-xs text-muted-foreground">
-                Tap <span className="text-foreground font-medium">Join</span> to start voice & video with your crew.
-              </div>
+            {participantList.length === 0 && (
+              <div className="text-xs text-muted-foreground">No one else here yet.</div>
             )}
+            <div className="flex flex-wrap gap-2">
+              {participantList.map((p) => (
+                <div key={p.id} className="flex items-center gap-2 rounded-full px-3 py-1 bg-secondary/40 text-sm">
+                  <span className={p.id === room.host_id ? "text-primary font-semibold" : ""}>
+                    {p.name}{p.id === room.host_id ? " · host" : ""}
+                  </span>
+                  {isHost && p.id !== user?.id && (
+                    <button
+                      onClick={() => kickUser(p.id)}
+                      className="text-destructive hover:text-destructive/80"
+                      title="Kick user"
+                    >
+                      <UserX className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
