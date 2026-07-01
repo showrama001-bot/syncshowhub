@@ -44,6 +44,7 @@ import AdsManager from "@/components/admin/AdsManager";
 import SuperScraperDashboard from "@/components/admin/SuperScraperDashboard";
 import StorageModeToggle from "@/components/admin/StorageModeToggle";
 import CommunityUploadsQueue from "@/components/admin/CommunityUploadsQueue";
+import ReelsManager from "@/components/admin/ReelsManager";
 import { useStorageMode } from "@/hooks/useStorageMode";
 
 type SourceType = "hls" | "iframe";
@@ -76,6 +77,7 @@ export default function Admin() {
           <TabsTrigger value="movies">Movies</TabsTrigger>
           <TabsTrigger value="series">Series</TabsTrigger>
           <TabsTrigger value="trailers">Trailers</TabsTrigger>
+          <TabsTrigger value="reels">Reels</TabsTrigger>
           <TabsTrigger value="tv">TV</TabsTrigger>
           <TabsTrigger value="sports">Sports</TabsTrigger>
           <TabsTrigger value="reports">Reports</TabsTrigger>
@@ -91,6 +93,7 @@ export default function Admin() {
         <TabsContent value="movies"><MoviesTab /></TabsContent>
         <TabsContent value="series"><SeriesTab /></TabsContent>
         <TabsContent value="trailers"><TrailersTab /></TabsContent>
+        <TabsContent value="reels"><ReelsManager /></TabsContent>
         <TabsContent value="tv"><TvTab /></TabsContent>
         <TabsContent value="sports"><SportsTab /></TabsContent>
         <TabsContent value="reports"><ReportsTab /></TabsContent>
