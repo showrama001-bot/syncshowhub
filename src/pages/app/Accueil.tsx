@@ -171,7 +171,7 @@ function PostCard({ post, onLike, onDelete, me }: { post: Post; onLike: () => vo
     (async () => {
       const { data } = await (supabase.from("feed_comments" as any) as any)
         .select("*").eq("post_id", post.id).order("created_at", { ascending: true });
-      const authorIds = Array.from(new Set((data || []).map((c: any) => c.user_id)));
+    const authorIds = Array.from(new Set((data || []).map((c: any) => c.user_id as string))) as string[];
       const { data: profs } = authorIds.length
         ? await supabase.from("profiles").select("id, username, display_name, avatar_url").in("id", authorIds)
         : { data: [] as any[] };
