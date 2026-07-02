@@ -96,13 +96,13 @@ export default function Accueil() {
     const [{ data: mv }, { data: sr }, rls, tls] = await Promise.all([
       supabase.from("movies").select("id, title, poster_url").order("title").limit(500),
       (supabase.from("series" as any).select("id, title, poster_url").order("title").limit(500) as any),
-      (supabase.from("reels" as any) as any).select("id, title, thumb_url, youtube_id").order("created_at", { ascending: false }).limit(200),
+      (supabase.from("reels" as any) as any).select("id, title, poster_url, youtube_id").order("created_at", { ascending: false }).limit(200),
       (supabase.from("trailers" as any) as any).select("id, movie_title, youtube_url").order("created_at", { ascending: false }).limit(200),
     ]);
     const items: CatalogItem[] = [];
     (mv || []).forEach((m: any) => items.push({ kind: "movie", id: m.id, title: m.title, thumb: m.poster_url }));
     (sr || []).forEach((s: any) => items.push({ kind: "series", id: s.id, title: s.title, thumb: s.poster_url }));
-    (rls.data || []).forEach((r: any) => items.push({ kind: "reel", id: r.id, title: r.title || "Reel", thumb: r.thumb_url || (r.youtube_id ? `https://i.ytimg.com/vi/${r.youtube_id}/hqdefault.jpg` : null) }));
+    (rls.data || []).forEach((r: any) => items.push({ kind: "reel", id: r.id, title: r.title || "Reel", thumb: r.poster_url || (r.youtube_id ? `https://i.ytimg.com/vi/${r.youtube_id}/hqdefault.jpg` : null) }));
     (tls.data || []).forEach((t: any) => {
       const m = String(t.youtube_url || "").match(/[?&]v=([A-Za-z0-9_-]{6,})/);
       items.push({ kind: "trailer", id: t.id, title: t.movie_title || "Trailer", thumb: m ? `https://i.ytimg.com/vi/${m[1]}/hqdefault.jpg` : null });
