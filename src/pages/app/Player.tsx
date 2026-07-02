@@ -250,6 +250,19 @@ export default function Player() {
           ))}
         </div>
       )}
+      {src && isEmbedUrl(src) && (
+        <div className="mb-3">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="glass"
+            onClick={() => window.open(src, "_blank", "noopener,noreferrer")}
+          >
+            Open in Backup Player ↗
+          </Button>
+        </div>
+      )}
       {src ? (
         <VideoAdPlayer>
           {isMovie || isSeries ? (
