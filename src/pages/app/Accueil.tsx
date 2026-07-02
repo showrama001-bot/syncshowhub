@@ -325,6 +325,33 @@ function PostCard({ post, onLike, onDelete, me }: { post: Post; onLike: () => vo
   );
 }
 
+function AttachmentCard({ kind, id, title, thumb }: { kind: "movie" | "series" | "reel" | "trailer"; id: string; title: string; thumb: string | null }) {
+  const to =
+    kind === "movie" ? `/play/movie/${id}` :
+    kind === "series" ? `/play/series/${id}` :
+    kind === "reel" ? `/reels?id=${id}` :
+    `/trailers?id=${id}`;
+  const Icon = kind === "reel" ? PlaySquare : kind === "trailer" ? Clapperboard : Film;
+  return (
+    <Link to={to} className="block mb-3 rounded-xl overflow-hidden border border-primary/30 bg-black/40 hover:border-primary transition group">
+      <div className="flex">
+        <div className="w-28 sm:w-36 aspect-[2/3] bg-black shrink-0 overflow-hidden">
+          {thumb
+            ? <img src={thumb} alt="" className="w-full h-full object-cover group-hover:scale-105 transition" loading="lazy" />
+            : <div className="w-full h-full flex items-center justify-center text-muted-foreground"><Icon className="h-8 w-8" /></div>}
+        </div>
+        <div className="p-3 flex-1 min-w-0 flex flex-col justify-between">
+          <div>
+            <div className="text-[10px] uppercase tracking-widest text-primary flex items-center gap-1"><Icon className="h-3 w-3" /> {kind}</div>
+            <div className="font-semibold text-sm sm:text-base mt-1 line-clamp-2">{title}</div>
+          </div>
+          <div className="text-xs text-primary group-hover:underline mt-2">▶ Watch now</div>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 function FeedAdCard({ ad }: { ad: AdAsset }) {
   const body = (
     <div className="glass rounded-2xl overflow-hidden border border-primary/30">
