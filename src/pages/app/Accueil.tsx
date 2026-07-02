@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Newspaper, Heart, MessageCircle, Image as ImageIcon, Send, Trash2, Film, Clapperboard, PlaySquare, Search, X } from "lucide-react";
+import { Newspaper, Heart, MessageCircle, ImagePlus, Send, Trash2, Film, Clapperboard, PlaySquare, Search, X, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -38,7 +38,8 @@ export default function Accueil() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [content, setContent] = useState("");
   const [imageUrl, setImageUrl] = useState("");
-  const [showImage, setShowImage] = useState(false);
+  const [uploadingImg, setUploadingImg] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
   const [posting, setPosting] = useState(false);
   const [ads, setAds] = useState<AdAsset[]>([]);
   const [adsOn, setAdsOn] = useState(true);
@@ -125,7 +126,27 @@ export default function Accueil() {
     });
     setPosting(false);
     if (error) return toast.error(error.message);
-    setContent(""); setImageUrl(""); setShowImage(false); setAttachment(null); setPickerOpen(false); setPickerQ("");
+    setContent(""); setImageUrl(""); setAttachment(null); setPickerOpen(false); setPickerQ("");
+  };
+
+  const onPickFile = async (file: File) => {
+    if (!user) return toast.error("Sign in to upload");
+    if (!file.type.startsWith("image/")) return toast.error("Please pick an image");
+    if (file.size > 8 * 1024 * 1024) return toast.error("Max 8 MB");
+    setUploadingImg(true);
+    try {
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("feed-images").upload(path, file, { cacheControl: "3600", upsert: false });
+      if (upErr) throw upErr;
+      const { data: signed, error: sErr } = await supabase.storage.from("feed-images").createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
+      if (sErr || !signed?.signedUrl) throw sErr || new Error("Sign failed");
+      setImageUrl(signed.signedUrl);
+    } catch (e: any) {
+      toast.error(e.message || "Upload failed");
+    } finally {
+      setUploadingImg(false);
+    }
   };
 
   const toggleLike = async (p: Post) => {
@@ -173,8 +194,17 @@ export default function Accueil() {
           className="bg-secondary/40 resize-none min-h-[80px]"
           maxLength={1000}
         />
-        {showImage && (
-          <Input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="Paste an image URL (https://…)" className="bg-secondary/40" />
+        {imageUrl && (
+          <div className="relative rounded-xl overflow-hidden border border-border/40 bg-black/40">
+            <img src={imageUrl} alt="" className="w-full max-h-72 object-contain" />
+            <button
+              onClick={() => setImageUrl("")}
+              className="absolute top-2 right-2 rounded-full bg-background/80 hover:bg-background p-1.5 border border-border/60"
+              aria-label="Remove image"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
         )}
         {attachment && (
           <div className="flex items-center gap-3 rounded-xl bg-secondary/40 border border-primary/30 p-2">
@@ -214,10 +244,18 @@ export default function Accueil() {
         )}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1">
-            <Button size="sm" variant="ghost" onClick={() => setShowImage(v => !v)}>
-              <ImageIcon className="h-4 w-4 mr-1" /> {showImage ? "Remove image" : "Image"}
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) onPickFile(f); e.currentTarget.value = ""; }}
+            />
+            <Button size="sm" variant="ghost" onClick={() => fileRef.current?.click()} disabled={uploadingImg}>
+              {uploadingImg ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <ImagePlus className="h-4 w-4 mr-1" />}
+              {uploadingImg ? "Uploading…" : "Photo"}
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => { setPickerOpen(v => !v); }}>
+            <Button size="sm" variant="ghost" onClick={() => setPickerOpen(v => !v)}>
               <Film className="h-4 w-4 mr-1" /> Attach
             </Button>
           </div>
