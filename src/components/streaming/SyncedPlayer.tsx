@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -18,6 +18,8 @@ export function SyncedPlayer({ roomId, src, poster, isHost }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const suppressRef = useRef(false); // ignore events we just applied
+  const [needsTap, setNeedsTap] = useState(false); // guest autoplay blocked
+  const [muted, setMuted] = useState(!isHost); // guests start muted so autoplay works
 
   // Attach source (HLS or native).
   useEffect(() => {
@@ -50,7 +52,16 @@ export function SyncedPlayer({ roomId, src, poster, isHost }: Props) {
           const drift = Math.abs(v.currentTime - payload.time);
           if (drift > 1.2) v.currentTime = payload.time;
         }
-        if (payload.action === "play") v.play().catch(() => {});
+        if (payload.action === "play") {
+          v.play().catch(() => {
+            // Autoplay blocked — try muted, then surface tap-to-play if still blocked.
+            if (!isHost) {
+              v.muted = true;
+              setMuted(true);
+              v.play().catch(() => setNeedsTap(true));
+            }
+          });
+        }
         else if (payload.action === "pause") v.pause();
       } finally {
         setTimeout(() => { suppressRef.current = false; }, 250);
@@ -104,9 +115,18 @@ export function SyncedPlayer({ roomId, src, poster, isHost }: Props) {
     };
   }, [isHost, src]);
 
-  // Guests can't seek/play/pause independently.
-  const guestGuard = (e: React.SyntheticEvent) => {
-    if (!isHost) e.preventDefault();
+  // Guest tap: satisfies user-gesture requirement so playback (and unmuting) works.
+  const handleGuestTap = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.play().then(() => setNeedsTap(false)).catch(() => {});
+  };
+  const unmute = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = false;
+    setMuted(false);
+    v.play().catch(() => {});
   };
 
   return (
@@ -116,16 +136,39 @@ export function SyncedPlayer({ roomId, src, poster, isHost }: Props) {
         poster={poster}
         controls={isHost}
         playsInline
+        muted={muted}
         controlsList="nodownload noremoteplayback noplaybackrate"
         disablePictureInPicture
         onContextMenu={(e) => e.preventDefault()}
-        onClick={guestGuard}
+        onClick={isHost ? undefined : handleGuestTap}
         className="w-full h-full bg-black"
       />
       {!isHost && (
-        <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-black/60 text-white text-[10px] uppercase tracking-widest">
-          Synced with host
-        </div>
+        <>
+          <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-black/60 text-white text-[10px] uppercase tracking-widest">
+            Synced with host
+          </div>
+          {needsTap && (
+            <button
+              type="button"
+              onClick={handleGuestTap}
+              className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 text-white"
+            >
+              <span className="px-4 py-2 rounded-full bg-primary/90 text-sm font-semibold shadow-neon">
+                Tap to join playback
+              </span>
+            </button>
+          )}
+          {!needsTap && muted && (
+            <button
+              type="button"
+              onClick={unmute}
+              className="absolute bottom-3 left-3 z-20 px-3 py-1.5 rounded-full bg-black/70 text-white text-xs font-semibold hover:bg-black/85"
+            >
+              🔇 Tap to unmute
+            </button>
+          )}
+        </>
       )}
       <div
         aria-hidden="true"
