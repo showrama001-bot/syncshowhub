@@ -1,0 +1,2 @@
+ALTER TABLE public.movies ADD COLUMN IF NOT EXISTS stream_sources jsonb NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE public.episodes ADD COLUMN IF NOT EXISTS stream_sources jsonb NOT NULL DEFAULT '[]'::jsonb;
