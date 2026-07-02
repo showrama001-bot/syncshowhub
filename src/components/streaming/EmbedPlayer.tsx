@@ -36,8 +36,9 @@ export const EmbedPlayer = ({ src, title }: EmbedPlayerProps) => {
         className="w-full h-full border-0"
         loading="lazy"
         referrerPolicy="no-referrer"
-        allow="autoplay; encrypted-media; fullscreen"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
         allowFullScreen={true}
+        sandbox="allow-scripts allow-same-origin allow-forms allow-pointer-lock allow-popups allow-popups-to-escape-sandbox allow-presentation"
       />
     </div>
   );
