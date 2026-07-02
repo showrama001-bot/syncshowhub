@@ -231,6 +231,25 @@ export default function Player() {
           )}
         </div>
       )}
+      {servers.length > 1 && (
+        <div className="mb-3 flex flex-wrap gap-2">
+          <span className="text-xs text-muted-foreground self-center mr-1">Servers:</span>
+          {servers.map((s, i) => (
+            <Button
+              key={`${s.provider}-${i}`}
+              type="button"
+              size="sm"
+              variant={i === serverIdx ? "default" : "outline"}
+              onClick={() => setServerIdx(i)}
+              className={i === serverIdx ? "bg-gradient-red shadow-neon" : "glass"}
+              title={s.url}
+            >
+              Server {i + 1}
+              <span className="ml-2 text-[10px] uppercase opacity-70">{s.provider}</span>
+            </Button>
+          ))}
+        </div>
+      )}
       {src ? (
         <VideoAdPlayer>
           {isMovie || isSeries ? (
