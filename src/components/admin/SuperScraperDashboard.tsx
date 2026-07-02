@@ -113,6 +113,24 @@ async function checkAllProviders(kind: "movie" | "tv", tmdbId: number) {
   };
 }
 
+type StreamSource = { provider: string; url: string };
+
+/** Merge two source lists dropping duplicate URLs (case-insensitive on url). */
+function dedupeSources(...lists: StreamSource[][]): StreamSource[] {
+  const seen = new Set<string>();
+  const out: StreamSource[] = [];
+  for (const list of lists) {
+    for (const s of list) {
+      if (!s?.url) continue;
+      const key = s.url.trim().toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ provider: s.provider, url: s.url.trim() });
+    }
+  }
+  return out;
+}
+
 /* ───────── Shared title-search panel ───────── */
 function TitleSearch({
   kind,
@@ -272,6 +290,7 @@ function MoviesScraper() {
       let stream_url: string | null = null;
       let chosenProvider: string | null = null;
       let sourceType: "iframe" | "hls" = mode === "embed" ? "iframe" : "hls";
+      let newSources: StreamSource[] = [];
 
       if (mode === "hls") {
         stream_url = hlsUrl.trim();
@@ -280,45 +299,71 @@ function MoviesScraper() {
           setSaving(false);
           return;
         }
+        newSources = [{ provider: "hls", url: stream_url }];
       } else {
-        toast.info("Checking all 5 embed providers…");
+        toast.info("Checking all 5 embed providers sequentially…");
         const result = await checkAllProviders("movie", details.tmdb_id);
-        if (result.verdict.available) {
-          chosenProvider = result.verdict.provider;
-          stream_url = result.verdict.url;
-          status = "published";
-          toast.success(
-            `Available on ${chosenProvider}${result.verdict.confidence === "low" ? " (firewall — assumed OK)" : ""}`,
-          );
-        } else {
+        // Collect EVERY provider that isn't a hard-miss (ok + unknown/firewall).
+        newSources = result.checks
+          .filter((c) => c.state === "ok" || c.state === "unknown")
+          .map((c) => ({ provider: c.provider, url: c.url }));
+        if (newSources.length === 0) {
           status = "missing_stream";
-          stream_url = null;
           sourceType = "iframe";
-          toast.warning(
-            "Not found on any of the 5 providers — routed to Suggested Movies / Missing Streams.",
-          );
+          toast.warning("Not found on any of the 5 providers — routed to Missing Streams.");
+        } else {
+          chosenProvider = newSources[0].provider;
+          stream_url = newSources[0].url;
+          toast.success(`Found on ${newSources.length}/5 providers`);
         }
       }
 
-      const { error } = await supabase.from("movies").insert({
-        title: details.title,
-        description: details.description,
-        poster_url: details.poster_url,
-        backdrop_url: details.backdrop_url,
-        year: details.year,
-        genre: details.genre,
-        category: details.category,
-        duration_minutes: details.duration_minutes,
-        imdb_rating: details.imdb_rating,
-        rating: details.rating,
-        tmdb_id: details.tmdb_id,
-        stream_url,
-        source_type: sourceType,
-        status,
-        provider: chosenProvider,
-        is_admin_upload: true,
-      } as any);
-      if (error) throw error;
+      // Duplicate-prevention: merge into existing movie with same tmdb_id.
+      const { data: existing } = await supabase
+        .from("movies")
+        .select("id, stream_sources, stream_url, provider")
+        .eq("tmdb_id", details.tmdb_id)
+        .maybeSingle();
+
+      if (existing) {
+        const merged = dedupeSources(
+          (existing.stream_sources as StreamSource[]) ?? [],
+          newSources,
+        );
+        const { error } = await supabase
+          .from("movies")
+          .update({
+            stream_sources: merged as any,
+            stream_url: existing.stream_url ?? stream_url,
+            provider: existing.provider ?? chosenProvider,
+            source_type: sourceType,
+            status: merged.length ? "published" : "missing_stream",
+          } as any)
+          .eq("id", existing.id);
+        if (error) throw error;
+        toast.success(`Merged into existing "${details.title}" — ${merged.length} unique server(s)`);
+      } else {
+        const { error } = await supabase.from("movies").insert({
+          title: details.title,
+          description: details.description,
+          poster_url: details.poster_url,
+          backdrop_url: details.backdrop_url,
+          year: details.year,
+          genre: details.genre,
+          category: details.category,
+          duration_minutes: details.duration_minutes,
+          imdb_rating: details.imdb_rating,
+          rating: details.rating,
+          tmdb_id: details.tmdb_id,
+          stream_url,
+          stream_sources: newSources as any,
+          source_type: sourceType,
+          status,
+          provider: chosenProvider,
+          is_admin_upload: true,
+        } as any);
+        if (error) throw error;
+      }
       setPicked(null);
       setDetails(null);
       setHlsUrl("");
@@ -423,49 +468,120 @@ function SeriesScraper() {
     }
     setSaving(true);
     try {
-      const { data: seriesRow, error: sErr } = await supabase
+      // Which providers actually work for this series? Probe S1E1 once.
+      let workingProviders: ProviderId[] = [...ALL_PROVIDER_IDS];
+      if (mode === "embed") {
+        toast.info("Probing all 5 providers on S1E1…");
+        const probeUrls = ALL_PROVIDER_IDS.map((p) => ({
+          provider: p,
+          url: buildEmbedUrl(p, "tv", details.tmdb_id, 1, 1),
+        }));
+        const probe = (await callScraper({
+          action: "check_providers",
+          urls: probeUrls,
+        })) as { checks: { provider: ProviderId; state: string }[] };
+        workingProviders = probe.checks
+          .filter((c) => c.state === "ok" || c.state === "unknown")
+          .map((c) => c.provider as ProviderId);
+        if (workingProviders.length === 0) {
+          toast.warning("No providers responded — series will be saved without embed URLs.");
+        } else {
+          toast.success(`${workingProviders.length}/5 providers usable for this series`);
+        }
+      }
+
+      // Upsert-style: reuse existing series with same tmdb_id if any.
+      const { data: existingSeries } = await supabase
         .from("series")
-        .insert({
-          title: details.title,
-          description: details.description,
-          poster_url: details.poster_url,
-          backdrop_url: details.backdrop_url,
-          year: details.year,
-          genre: details.genre,
-          category: details.category,
-          imdb_rating: details.imdb_rating,
-          tmdb_id: details.tmdb_id,
-        })
         .select("id")
-        .single();
-      if (sErr) throw sErr;
-      const seriesId = seriesRow.id as string;
+        .eq("tmdb_id", details.tmdb_id)
+        .maybeSingle();
+
+      let seriesId: string;
+      if (existingSeries) {
+        seriesId = existingSeries.id as string;
+      } else {
+        const { data: seriesRow, error: sErr } = await supabase
+          .from("series")
+          .insert({
+            title: details.title,
+            description: details.description,
+            poster_url: details.poster_url,
+            backdrop_url: details.backdrop_url,
+            year: details.year,
+            genre: details.genre,
+            category: details.category,
+            imdb_rating: details.imdb_rating,
+            tmdb_id: details.tmdb_id,
+          })
+          .select("id")
+          .single();
+        if (sErr) throw sErr;
+        seriesId = seriesRow.id as string;
+      }
 
       for (const season of structure) {
+        // Upsert season by (series_id, season_number).
         const { data: seasonRow, error: seErr } = await supabase
           .from("seasons")
-          .insert({
-            series_id: seriesId,
-            season_number: season.season_number,
-            title: season.title,
-          })
+          .upsert(
+            {
+              series_id: seriesId,
+              season_number: season.season_number,
+              title: season.title,
+            },
+            { onConflict: "series_id,season_number" },
+          )
           .select("id")
           .single();
         if (seErr) throw seErr;
         const seasonId = seasonRow.id as string;
 
-        const episodeRows = season.episodes.map((e) => ({
-          season_id: seasonId,
-          episode_number: e.episode_number,
-          title: e.title,
-          stream_url:
+        // Existing episodes so we can merge stream_sources without duplicates.
+        const { data: existingEps } = await supabase
+          .from("episodes")
+          .select("id, episode_number, stream_sources, stream_url")
+          .eq("season_id", seasonId);
+        const existingMap = new Map<number, any>(
+          (existingEps ?? []).map((e: any) => [e.episode_number, e]),
+        );
+
+        for (const e of season.episodes) {
+          const generated: StreamSource[] =
             mode === "embed"
-              ? buildEmbedUrl(provider, "tv", details.tmdb_id, season.season_number, e.episode_number)
-              : hlsUrl.trim(),
-        }));
-        if (episodeRows.length) {
-          const { error: epErr } = await supabase.from("episodes").insert(episodeRows);
-          if (epErr) throw epErr;
+              ? workingProviders.map((p) => ({
+                  provider: p,
+                  url: buildEmbedUrl(p, "tv", details.tmdb_id, season.season_number, e.episode_number),
+                }))
+              : [{ provider: "hls", url: hlsUrl.trim() }];
+
+          const existingEp = existingMap.get(e.episode_number);
+          const merged = dedupeSources(
+            (existingEp?.stream_sources as StreamSource[]) ?? [],
+            generated,
+          );
+          const primary = existingEp?.stream_url || merged[0]?.url || null;
+
+          if (existingEp) {
+            const { error: upErr } = await supabase
+              .from("episodes")
+              .update({
+                title: e.title,
+                stream_url: primary,
+                stream_sources: merged as any,
+              } as any)
+              .eq("id", existingEp.id);
+            if (upErr) throw upErr;
+          } else {
+            const { error: insErr } = await supabase.from("episodes").insert({
+              season_id: seasonId,
+              episode_number: e.episode_number,
+              title: e.title,
+              stream_url: primary,
+              stream_sources: merged as any,
+            } as any);
+            if (insErr) throw insErr;
+          }
         }
       }
       toast.success(`Injected "${details.title}" — ${structure.length} seasons / ${totalEpisodes} episodes`);

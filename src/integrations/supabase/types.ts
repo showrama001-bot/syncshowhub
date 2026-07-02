@@ -296,6 +296,7 @@ export type Database = {
           episode_number: number
           id: string
           season_id: string
+          stream_sources: Json
           stream_url: string | null
           streamtape_url: string | null
           title: string
@@ -307,6 +308,7 @@ export type Database = {
           episode_number: number
           id?: string
           season_id: string
+          stream_sources?: Json
           stream_url?: string | null
           streamtape_url?: string | null
           title: string
@@ -318,6 +320,7 @@ export type Database = {
           episode_number?: number
           id?: string
           season_id?: string
+          stream_sources?: Json
           stream_url?: string | null
           streamtape_url?: string | null
           title?: string
@@ -673,6 +676,7 @@ export type Database = {
           rating: number | null
           source_type: string
           status: string
+          stream_sources: Json
           stream_url: string | null
           streamtape_url: string | null
           title: string
@@ -698,6 +702,7 @@ export type Database = {
           rating?: number | null
           source_type?: string
           status?: string
+          stream_sources?: Json
           stream_url?: string | null
           streamtape_url?: string | null
           title: string
@@ -723,6 +728,7 @@ export type Database = {
           rating?: number | null
           source_type?: string
           status?: string
+          stream_sources?: Json
           stream_url?: string | null
           streamtape_url?: string | null
           title?: string
