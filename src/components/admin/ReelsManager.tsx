@@ -8,6 +8,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Trash2, Upload, Youtube, Film } from "lucide-react";
 import { toast } from "sonner";
 import { uploadToTelegram } from "@/lib/telegramUpload";
+import { MovieSearchPicker } from "./MovieSearchPicker";
 
 type Reel = {
   id: string;
@@ -32,7 +33,7 @@ export default function ReelsManager() {
   const { user } = useAuth();
   const [reels, setReels] = useState<Reel[]>([]);
   const [trailers, setTrailers] = useState<any[]>([]);
-  const [movies, setMovies] = useState<{ id: string; title: string }[]>([]);
+  const [movies, setMovies] = useState<{ id: string; title: string; poster_url: string | null }[]>([]);
 
   const [ytInput, setYtInput] = useState("");
   const [ytTitle, setYtTitle] = useState("");
@@ -47,7 +48,7 @@ export default function ReelsManager() {
     const [{ data: r }, { data: t }, { data: m }] = await Promise.all([
       (supabase.from("reels" as any) as any).select("*").order("created_at", { ascending: false }),
       (supabase.from("trailers" as any) as any).select("id, movie_title, youtube_url, movie_id").order("created_at", { ascending: false }).limit(50),
-      supabase.from("movies").select("id, title").order("title").limit(500),
+      supabase.from("movies").select("id, title, poster_url").order("title").limit(1000),
     ]);
     setReels((r || []) as any);
     setTrailers((t || []) as any);
