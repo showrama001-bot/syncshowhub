@@ -38,8 +38,6 @@ export default function Home() {
       });
   }, []);
 
-  const heroMovie = movies[0];
-
   return (
     <div className="relative">
       {/* Hero */}
