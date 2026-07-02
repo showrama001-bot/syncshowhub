@@ -65,13 +65,12 @@ export default function Home() {
             A neon-lit cinema for movies, live TV and sports — watch together with friends in real time.
           </p>
           <div className="mt-8 flex flex-wrap gap-3 justify-center">
-            <button
-              type="button"
-              onClick={() => setTrailerOpen(true)}
+            <Link
+              to="/trailers"
               className="px-6 py-3 rounded-full bg-gradient-red shadow-neon font-semibold flex items-center gap-2 hover:scale-105 transition"
             >
-              <Clapperboard className="h-4 w-4" /> Watch Trailer
-            </button>
+              <Clapperboard className="h-4 w-4" /> Watch Trailers
+            </Link>
             <Link
               to="/movies"
               className="px-6 py-3 rounded-full glass font-semibold flex items-center gap-2 hover:neon-border transition"
