@@ -151,7 +151,12 @@ export default function ReelsManager() {
             <Label>Title (optional)</Label>
             <Input value={ytTitle} onChange={(e) => setYtTitle(e.target.value)} />
           </div>
-          <MoviePicker movies={movies} value={ytMovieId} onChange={setYtMovieId} />
+          <MovieSearchPicker
+            label='Link to movie (for "Watch full movie" button)'
+            items={movies}
+            value={ytMovieId}
+            onChange={(id) => setYtMovieId(id)}
+          />
           <Button className="bg-gradient-red shadow-neon" onClick={addYouTube}>Add reel</Button>
         </TabsContent>
 
@@ -164,7 +169,12 @@ export default function ReelsManager() {
             <Label>Title</Label>
             <Input value={upTitle} onChange={(e) => setUpTitle(e.target.value)} />
           </div>
-          <MoviePicker movies={movies} value={upMovieId} onChange={setUpMovieId} />
+          <MovieSearchPicker
+            label='Link to movie (for "Watch full movie" button)'
+            items={movies}
+            value={upMovieId}
+            onChange={(id) => setUpMovieId(id)}
+          />
           <Button className="bg-gradient-red shadow-neon" onClick={uploadClip} disabled={uploading}>
             <Upload className="h-4 w-4 mr-1" /> {uploading ? "Uploading…" : "Upload reel"}
           </Button>
@@ -200,18 +210,3 @@ export default function ReelsManager() {
   );
 }
 
-function MoviePicker({ movies, value, onChange }: { movies: { id: string; title: string }[]; value: string; onChange: (v: string) => void }) {
-  return (
-    <div className="space-y-1">
-      <Label>Link to movie (for "Watch full movie" button)</Label>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full bg-secondary/50 rounded-md h-9 px-2 text-sm border border-border/40"
-      >
-        <option value="">— none —</option>
-        {movies.map((m) => <option key={m.id} value={m.id}>{m.title}</option>)}
-      </select>
-    </div>
-  );
-}
