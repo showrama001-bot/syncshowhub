@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Newspaper, Heart, MessageCircle, Image as ImageIcon, Send, Trash2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Newspaper, Heart, MessageCircle, Image as ImageIcon, Send, Trash2, Film, Clapperboard, PlaySquare, Search, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,18 @@ type Post = {
   likes: number;
   liked: boolean;
   comment_count: number;
+  attachment_kind: "movie" | "series" | "reel" | "trailer" | null;
+  attachment_id: string | null;
+  attachment_title: string | null;
+  attachment_thumb: string | null;
   author?: { username?: string; display_name?: string; avatar_url?: string };
+};
+
+type CatalogItem = {
+  kind: "movie" | "series" | "reel" | "trailer";
+  id: string;
+  title: string;
+  thumb: string | null;
 };
 
 export default function Accueil() {
@@ -30,6 +42,10 @@ export default function Accueil() {
   const [posting, setPosting] = useState(false);
   const [ads, setAds] = useState<AdAsset[]>([]);
   const [adsOn, setAdsOn] = useState(true);
+  const [catalog, setCatalog] = useState<CatalogItem[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerQ, setPickerQ] = useState("");
+  const [attachment, setAttachment] = useState<CatalogItem | null>(null);
 
   const load = async () => {
     if (!user) return;
@@ -67,6 +83,7 @@ export default function Accueil() {
     Promise.all([fetchAdsAssets(), fetchAdsSettings()]).then(([a, s]) => {
       setAds(a); setAdsOn(!!s.master_enabled);
     });
+    loadCatalog();
     const ch = supabase.channel("feed-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "feed_posts" }, () => load())
       .on("postgres_changes", { event: "*", schema: "public", table: "feed_likes" }, () => load())
@@ -75,16 +92,40 @@ export default function Accueil() {
     return () => { supabase.removeChannel(ch); };
   }, [user?.id]);
 
+  const loadCatalog = async () => {
+    const [{ data: mv }, { data: sr }, rls, tls] = await Promise.all([
+      supabase.from("movies").select("id, title, poster_url").order("title").limit(500),
+      (supabase.from("series" as any).select("id, title, poster_url").order("title").limit(500) as any),
+      (supabase.from("reels" as any) as any).select("id, title, poster_url, youtube_id").order("created_at", { ascending: false }).limit(200),
+      (supabase.from("trailers" as any) as any).select("id, movie_title, youtube_url").order("created_at", { ascending: false }).limit(200),
+    ]);
+    const items: CatalogItem[] = [];
+    (mv || []).forEach((m: any) => items.push({ kind: "movie", id: m.id, title: m.title, thumb: m.poster_url }));
+    (sr || []).forEach((s: any) => items.push({ kind: "series", id: s.id, title: s.title, thumb: s.poster_url }));
+    (rls.data || []).forEach((r: any) => items.push({ kind: "reel", id: r.id, title: r.title || "Reel", thumb: r.poster_url || (r.youtube_id ? `https://i.ytimg.com/vi/${r.youtube_id}/hqdefault.jpg` : null) }));
+    (tls.data || []).forEach((t: any) => {
+      const m = String(t.youtube_url || "").match(/[?&]v=([A-Za-z0-9_-]{6,})/);
+      items.push({ kind: "trailer", id: t.id, title: t.movie_title || "Trailer", thumb: m ? `https://i.ytimg.com/vi/${m[1]}/hqdefault.jpg` : null });
+    });
+    setCatalog(items);
+  };
+
   const submit = async () => {
     if (!user) return toast.error("Sign in to post");
-    if (!content.trim() && !imageUrl.trim()) return;
+    if (!content.trim() && !imageUrl.trim() && !attachment) return;
     setPosting(true);
     const { error } = await (supabase.from("feed_posts" as any) as any).insert({
-      user_id: user.id, content: content.trim() || null, image_url: imageUrl.trim() || null,
+      user_id: user.id,
+      content: content.trim() || null,
+      image_url: imageUrl.trim() || null,
+      attachment_kind: attachment?.kind ?? null,
+      attachment_id: attachment?.id ?? null,
+      attachment_title: attachment?.title ?? null,
+      attachment_thumb: attachment?.thumb ?? null,
     });
     setPosting(false);
     if (error) return toast.error(error.message);
-    setContent(""); setImageUrl(""); setShowImage(false);
+    setContent(""); setImageUrl(""); setShowImage(false); setAttachment(null); setPickerOpen(false); setPickerQ("");
   };
 
   const toggleLike = async (p: Post) => {
@@ -135,10 +176,51 @@ export default function Accueil() {
         {showImage && (
           <Input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="Paste an image URL (https://…)" className="bg-secondary/40" />
         )}
+        {attachment && (
+          <div className="flex items-center gap-3 rounded-xl bg-secondary/40 border border-primary/30 p-2">
+            <div className="w-10 h-14 rounded overflow-hidden bg-black/40">
+              {attachment.thumb && <img src={attachment.thumb} alt="" className="w-full h-full object-cover" />}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[10px] uppercase tracking-widest text-primary">{attachment.kind}</div>
+              <div className="text-sm truncate">{attachment.title}</div>
+            </div>
+            <button onClick={() => setAttachment(null)} className="text-muted-foreground hover:text-destructive p-1"><X className="h-4 w-4" /></button>
+          </div>
+        )}
+        {pickerOpen && !attachment && (
+          <div className="rounded-xl border border-border/40 bg-background/60 p-2 space-y-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input autoFocus value={pickerQ} onChange={(e) => setPickerQ(e.target.value)} placeholder="Search movies, series, reels, trailers…" className="pl-9 bg-secondary/40" />
+            </div>
+            <div className="max-h-64 overflow-y-auto divide-y divide-border/30">
+              {catalog
+                .filter((c) => !pickerQ.trim() || c.title.toLowerCase().includes(pickerQ.toLowerCase()))
+                .slice(0, 20)
+                .map((c) => (
+                  <button key={`${c.kind}-${c.id}`} onClick={() => { setAttachment(c); setPickerOpen(false); }} className="w-full flex items-center gap-3 px-2 py-2 hover:bg-secondary/60 text-left">
+                    <div className="w-8 h-11 rounded bg-black/40 overflow-hidden shrink-0">
+                      {c.thumb && <img src={c.thumb} alt="" className="w-full h-full object-cover" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm truncate">{c.title}</div>
+                      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{c.kind}</div>
+                    </div>
+                  </button>
+                ))}
+            </div>
+          </div>
+        )}
         <div className="flex items-center justify-between">
-          <Button size="sm" variant="ghost" onClick={() => setShowImage(v => !v)}>
-            <ImageIcon className="h-4 w-4 mr-1" /> {showImage ? "Remove image" : "Add image"}
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button size="sm" variant="ghost" onClick={() => setShowImage(v => !v)}>
+              <ImageIcon className="h-4 w-4 mr-1" /> {showImage ? "Remove image" : "Image"}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => { setPickerOpen(v => !v); }}>
+              <Film className="h-4 w-4 mr-1" /> Attach
+            </Button>
+          </div>
           <Button size="sm" className="bg-gradient-red shadow-neon" onClick={submit} disabled={posting}>
             <Send className="h-4 w-4 mr-1" /> Post
           </Button>
@@ -209,6 +291,14 @@ function PostCard({ post, onLike, onDelete, me }: { post: Post; onLike: () => vo
           <img src={post.image_url} alt="" className="w-full max-h-[520px] object-contain" loading="lazy" />
         </div>
       )}
+      {post.attachment_kind && post.attachment_id && (
+        <AttachmentCard
+          kind={post.attachment_kind}
+          id={post.attachment_id}
+          title={post.attachment_title || ""}
+          thumb={post.attachment_thumb}
+        />
+      )}
       <div className="flex items-center gap-4 text-sm">
         <button onClick={onLike} className={`flex items-center gap-1 ${post.liked ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
           <Heart className={`h-4 w-4 ${post.liked ? "fill-current" : ""}`} /> {post.likes}
@@ -232,6 +322,33 @@ function PostCard({ post, onLike, onDelete, me }: { post: Post; onLike: () => vo
         </div>
       )}
     </article>
+  );
+}
+
+function AttachmentCard({ kind, id, title, thumb }: { kind: "movie" | "series" | "reel" | "trailer"; id: string; title: string; thumb: string | null }) {
+  const to =
+    kind === "movie" ? `/play/movie/${id}` :
+    kind === "series" ? `/play/series/${id}` :
+    kind === "reel" ? `/reels?id=${id}` :
+    `/trailers?id=${id}`;
+  const Icon = kind === "reel" ? PlaySquare : kind === "trailer" ? Clapperboard : Film;
+  return (
+    <Link to={to} className="block mb-3 rounded-xl overflow-hidden border border-primary/30 bg-black/40 hover:border-primary transition group">
+      <div className="flex">
+        <div className="w-28 sm:w-36 aspect-[2/3] bg-black shrink-0 overflow-hidden">
+          {thumb
+            ? <img src={thumb} alt="" className="w-full h-full object-cover group-hover:scale-105 transition" loading="lazy" />
+            : <div className="w-full h-full flex items-center justify-center text-muted-foreground"><Icon className="h-8 w-8" /></div>}
+        </div>
+        <div className="p-3 flex-1 min-w-0 flex flex-col justify-between">
+          <div>
+            <div className="text-[10px] uppercase tracking-widest text-primary flex items-center gap-1"><Icon className="h-3 w-3" /> {kind}</div>
+            <div className="font-semibold text-sm sm:text-base mt-1 line-clamp-2">{title}</div>
+          </div>
+          <div className="text-xs text-primary group-hover:underline mt-2">▶ Watch now</div>
+        </div>
+      </div>
+    </Link>
   );
 }
 

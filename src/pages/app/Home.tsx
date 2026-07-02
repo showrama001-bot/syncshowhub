@@ -18,7 +18,6 @@ type Movie = {
 export default function Home() {
   const [movies, setMovies] = useState<Movie[]>([]);
   const [series, setSeries] = useState<any[]>([]);
-  const [trailerOpen, setTrailerOpen] = useState(false);
   const [trailerTarget, setTrailerTarget] = useState<{ kind: "movie" | "series"; id: string; title: string } | null>(null);
   const [seriesTrailerIds, setSeriesTrailerIds] = useState<Set<string>>(new Set());
 
@@ -38,8 +37,6 @@ export default function Home() {
         setSeriesTrailerIds(new Set((data ?? []).map((t: any) => t.series_id).filter(Boolean)));
       });
   }, []);
-
-  const heroMovie = movies[0];
 
   return (
     <div className="relative">
@@ -65,13 +62,12 @@ export default function Home() {
             A neon-lit cinema for movies, live TV and sports — watch together with friends in real time.
           </p>
           <div className="mt-8 flex flex-wrap gap-3 justify-center">
-            <button
-              type="button"
-              onClick={() => setTrailerOpen(true)}
+            <Link
+              to="/trailers"
               className="px-6 py-3 rounded-full bg-gradient-red shadow-neon font-semibold flex items-center gap-2 hover:scale-105 transition"
             >
-              <Clapperboard className="h-4 w-4" /> Watch Trailer
-            </button>
+              <Clapperboard className="h-4 w-4" /> Watch Trailers
+            </Link>
             <Link
               to="/movies"
               className="px-6 py-3 rounded-full glass font-semibold flex items-center gap-2 hover:neon-border transition"
@@ -198,12 +194,6 @@ export default function Home() {
         </section>
       )}
 
-      <TrailerModal
-        open={trailerOpen}
-        onOpenChange={setTrailerOpen}
-        movieId={heroMovie?.id}
-        movieTitle={heroMovie?.title}
-      />
       <TrailerModal
         open={!!trailerTarget}
         onOpenChange={(v) => !v && setTrailerTarget(null)}

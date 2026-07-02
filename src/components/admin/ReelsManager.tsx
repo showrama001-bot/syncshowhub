@@ -8,6 +8,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Trash2, Upload, Youtube, Film } from "lucide-react";
 import { toast } from "sonner";
 import { uploadToTelegram } from "@/lib/telegramUpload";
+import { MovieSearchPicker } from "./MovieSearchPicker";
 
 type Reel = {
   id: string;
@@ -32,7 +33,7 @@ export default function ReelsManager() {
   const { user } = useAuth();
   const [reels, setReels] = useState<Reel[]>([]);
   const [trailers, setTrailers] = useState<any[]>([]);
-  const [movies, setMovies] = useState<{ id: string; title: string }[]>([]);
+  const [movies, setMovies] = useState<{ id: string; title: string; poster_url: string | null }[]>([]);
 
   const [ytInput, setYtInput] = useState("");
   const [ytTitle, setYtTitle] = useState("");
@@ -47,7 +48,7 @@ export default function ReelsManager() {
     const [{ data: r }, { data: t }, { data: m }] = await Promise.all([
       (supabase.from("reels" as any) as any).select("*").order("created_at", { ascending: false }),
       (supabase.from("trailers" as any) as any).select("id, movie_title, youtube_url, movie_id").order("created_at", { ascending: false }).limit(50),
-      supabase.from("movies").select("id, title").order("title").limit(500),
+      supabase.from("movies").select("id, title, poster_url").order("title").limit(1000),
     ]);
     setReels((r || []) as any);
     setTrailers((t || []) as any);
@@ -150,7 +151,12 @@ export default function ReelsManager() {
             <Label>Title (optional)</Label>
             <Input value={ytTitle} onChange={(e) => setYtTitle(e.target.value)} />
           </div>
-          <MoviePicker movies={movies} value={ytMovieId} onChange={setYtMovieId} />
+          <MovieSearchPicker
+            label='Link to movie (for "Watch full movie" button)'
+            items={movies}
+            value={ytMovieId}
+            onChange={(id) => setYtMovieId(id)}
+          />
           <Button className="bg-gradient-red shadow-neon" onClick={addYouTube}>Add reel</Button>
         </TabsContent>
 
@@ -163,7 +169,12 @@ export default function ReelsManager() {
             <Label>Title</Label>
             <Input value={upTitle} onChange={(e) => setUpTitle(e.target.value)} />
           </div>
-          <MoviePicker movies={movies} value={upMovieId} onChange={setUpMovieId} />
+          <MovieSearchPicker
+            label='Link to movie (for "Watch full movie" button)'
+            items={movies}
+            value={upMovieId}
+            onChange={(id) => setUpMovieId(id)}
+          />
           <Button className="bg-gradient-red shadow-neon" onClick={uploadClip} disabled={uploading}>
             <Upload className="h-4 w-4 mr-1" /> {uploading ? "Uploading…" : "Upload reel"}
           </Button>
@@ -199,18 +210,3 @@ export default function ReelsManager() {
   );
 }
 
-function MoviePicker({ movies, value, onChange }: { movies: { id: string; title: string }[]; value: string; onChange: (v: string) => void }) {
-  return (
-    <div className="space-y-1">
-      <Label>Link to movie (for "Watch full movie" button)</Label>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full bg-secondary/50 rounded-md h-9 px-2 text-sm border border-border/40"
-      >
-        <option value="">— none —</option>
-        {movies.map((m) => <option key={m.id} value={m.id}>{m.title}</option>)}
-      </select>
-    </div>
-  );
-}

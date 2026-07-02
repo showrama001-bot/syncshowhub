@@ -393,6 +393,10 @@ export type Database = {
       }
       feed_posts: {
         Row: {
+          attachment_id: string | null
+          attachment_kind: string | null
+          attachment_thumb: string | null
+          attachment_title: string | null
           content: string | null
           created_at: string
           id: string
@@ -400,6 +404,10 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          attachment_id?: string | null
+          attachment_kind?: string | null
+          attachment_thumb?: string | null
+          attachment_title?: string | null
           content?: string | null
           created_at?: string
           id?: string
@@ -407,6 +415,10 @@ export type Database = {
           user_id: string
         }
         Update: {
+          attachment_id?: string | null
+          attachment_kind?: string | null
+          attachment_thumb?: string | null
+          attachment_title?: string | null
           content?: string | null
           created_at?: string
           id?: string

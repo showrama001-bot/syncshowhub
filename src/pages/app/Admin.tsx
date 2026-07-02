@@ -45,6 +45,7 @@ import SuperScraperDashboard from "@/components/admin/SuperScraperDashboard";
 import StorageModeToggle from "@/components/admin/StorageModeToggle";
 import CommunityUploadsQueue from "@/components/admin/CommunityUploadsQueue";
 import ReelsManager from "@/components/admin/ReelsManager";
+import { MovieSearchPicker } from "@/components/admin/MovieSearchPicker";
 import { useStorageMode } from "@/hooks/useStorageMode";
 
 type SourceType = "hls" | "iframe";
@@ -870,8 +871,6 @@ function TrailersTab() {
   const [seriesList, setSeriesList] = useState<any[]>([]);
   const [form, setForm] = useState<any>({ kind: "movie" });
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [tmdbQuery, setTmdbQuery] = useState("");
-  const [tmdbBusy, setTmdbBusy] = useState(false);
 
   // Accepts: raw 11-char YouTube IDs, watch URLs, youtu.be URLs, or embed/iframe paths.
   const normalizeYoutube = (input: string): string | null => {
@@ -884,29 +883,6 @@ function TrailersTab() {
     if (m) return `https://www.youtube.com/watch?v=${m[1]}`;
     if (/^[A-Za-z0-9_-]{6,15}$/.test(candidate)) return `https://www.youtube.com/watch?v=${candidate}`;
     return null;
-  };
-
-  const searchTmdbTrailer = async () => {
-    const q = tmdbQuery.trim();
-    if (!q) return toast.error("Type a movie or series title");
-    setTmdbBusy(true);
-    try {
-      const kind = form.kind ?? "movie";
-      const { data, error } = await supabase.functions.invoke("tmdb-fetch", {
-        body: { query: q, kind },
-      });
-      if (error || (data as any)?.error) {
-        throw new Error((data as any)?.error || error?.message || "TMDB lookup failed");
-      }
-      const yt = (data as any)?.youtube_trailer_url;
-      if (!yt) throw new Error(`No trailer found on TMDB for "${(data as any)?.title ?? q}"`);
-      setForm((f: any) => ({ ...f, youtube_url: yt }));
-      toast.success(`Trailer found for ${(data as any).title}`);
-    } catch (e: any) {
-      toast.error(e?.message || "TMDB search failed");
-    } finally {
-      setTmdbBusy(false);
-    }
   };
 
   const load = async () => {
@@ -980,23 +956,6 @@ function TrailersTab() {
 
   return (
     <div className="space-y-4">
-      <div className="glass rounded-2xl p-5 space-y-3">
-        <div className="text-sm font-medium">Find an official trailer via TMDB</div>
-        <p className="text-xs text-muted-foreground">
-          Search by title — the official YouTube trailer URL is auto-fetched and dropped into the form below.
-        </p>
-        <div className="flex gap-2">
-          <Input
-            placeholder={`Search ${form.kind === "series" ? "series" : "movies"} on TMDB…`}
-            value={tmdbQuery}
-            onChange={(e) => setTmdbQuery(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); searchTmdbTrailer(); } }}
-          />
-          <Button type="button" onClick={searchTmdbTrailer} disabled={tmdbBusy} className="bg-gradient-red shadow-neon">
-            {tmdbBusy ? "Searching…" : "Find trailer"}
-          </Button>
-        </div>
-      </div>
       <form onSubmit={submit} className="glass rounded-2xl p-5 grid sm:grid-cols-2 gap-4">
         {editingId && (
           <div className="sm:col-span-2 flex items-center justify-between text-sm">
@@ -1015,29 +974,25 @@ function TrailersTab() {
             </SelectContent>
           </Select>
         </Field>
-        {(form.kind ?? "movie") === "movie" ? (
-          <Field label="Movie *">
-            <Select value={form.movie_id ?? ""} onValueChange={(v) => setForm({ ...form, movie_id: v })}>
-              <SelectTrigger><SelectValue placeholder="Select a movie" /></SelectTrigger>
-              <SelectContent>
-                {movies.map((m) => (
-                  <SelectItem key={m.id} value={m.id}>{m.title}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-        ) : (
-          <Field label="Series *">
-            <Select value={form.series_id ?? ""} onValueChange={(v) => setForm({ ...form, series_id: v })}>
-              <SelectTrigger><SelectValue placeholder="Select a series" /></SelectTrigger>
-              <SelectContent>
-                {seriesList.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-        )}
+        <div className="sm:col-span-1">
+          {(form.kind ?? "movie") === "movie" ? (
+            <MovieSearchPicker
+              label="Movie * (search your catalog)"
+              items={movies}
+              value={form.movie_id ?? ""}
+              onChange={(id) => setForm({ ...form, movie_id: id })}
+              placeholder="Type a movie title from your uploads…"
+            />
+          ) : (
+            <MovieSearchPicker
+              label="Series * (search your catalog)"
+              items={seriesList}
+              value={form.series_id ?? ""}
+              onChange={(id) => setForm({ ...form, series_id: id })}
+              placeholder="Type a series title from your uploads…"
+            />
+          )}
+        </div>
         <div className="sm:col-span-2">
           <Field label="YouTube URL, video ID, or iframe embed path *">
             <Input
