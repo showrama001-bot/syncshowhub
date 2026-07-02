@@ -18,7 +18,6 @@ type Movie = {
 export default function Home() {
   const [movies, setMovies] = useState<Movie[]>([]);
   const [series, setSeries] = useState<any[]>([]);
-  const [trailerOpen, setTrailerOpen] = useState(false);
   const [trailerTarget, setTrailerTarget] = useState<{ kind: "movie" | "series"; id: string; title: string } | null>(null);
   const [seriesTrailerIds, setSeriesTrailerIds] = useState<Set<string>>(new Set());
 
@@ -197,12 +196,6 @@ export default function Home() {
         </section>
       )}
 
-      <TrailerModal
-        open={trailerOpen}
-        onOpenChange={setTrailerOpen}
-        movieId={heroMovie?.id}
-        movieTitle={heroMovie?.title}
-      />
       <TrailerModal
         open={!!trailerTarget}
         onOpenChange={(v) => !v && setTrailerTarget(null)}
