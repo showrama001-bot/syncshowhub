@@ -290,6 +290,7 @@ function MoviesScraper() {
       let stream_url: string | null = null;
       let chosenProvider: string | null = null;
       let sourceType: "iframe" | "hls" = mode === "embed" ? "iframe" : "hls";
+      let newSources: StreamSource[] = [];
 
       if (mode === "hls") {
         stream_url = hlsUrl.trim();
@@ -298,45 +299,71 @@ function MoviesScraper() {
           setSaving(false);
           return;
         }
+        newSources = [{ provider: "hls", url: stream_url }];
       } else {
-        toast.info("Checking all 5 embed providers…");
+        toast.info("Checking all 5 embed providers sequentially…");
         const result = await checkAllProviders("movie", details.tmdb_id);
-        if (result.verdict.available) {
-          chosenProvider = result.verdict.provider;
-          stream_url = result.verdict.url;
-          status = "published";
-          toast.success(
-            `Available on ${chosenProvider}${result.verdict.confidence === "low" ? " (firewall — assumed OK)" : ""}`,
-          );
-        } else {
+        // Collect EVERY provider that isn't a hard-miss (ok + unknown/firewall).
+        newSources = result.checks
+          .filter((c) => c.state === "ok" || c.state === "unknown")
+          .map((c) => ({ provider: c.provider, url: c.url }));
+        if (newSources.length === 0) {
           status = "missing_stream";
-          stream_url = null;
           sourceType = "iframe";
-          toast.warning(
-            "Not found on any of the 5 providers — routed to Suggested Movies / Missing Streams.",
-          );
+          toast.warning("Not found on any of the 5 providers — routed to Missing Streams.");
+        } else {
+          chosenProvider = newSources[0].provider;
+          stream_url = newSources[0].url;
+          toast.success(`Found on ${newSources.length}/5 providers`);
         }
       }
 
-      const { error } = await supabase.from("movies").insert({
-        title: details.title,
-        description: details.description,
-        poster_url: details.poster_url,
-        backdrop_url: details.backdrop_url,
-        year: details.year,
-        genre: details.genre,
-        category: details.category,
-        duration_minutes: details.duration_minutes,
-        imdb_rating: details.imdb_rating,
-        rating: details.rating,
-        tmdb_id: details.tmdb_id,
-        stream_url,
-        source_type: sourceType,
-        status,
-        provider: chosenProvider,
-        is_admin_upload: true,
-      } as any);
-      if (error) throw error;
+      // Duplicate-prevention: merge into existing movie with same tmdb_id.
+      const { data: existing } = await supabase
+        .from("movies")
+        .select("id, stream_sources, stream_url, provider")
+        .eq("tmdb_id", details.tmdb_id)
+        .maybeSingle();
+
+      if (existing) {
+        const merged = dedupeSources(
+          (existing.stream_sources as StreamSource[]) ?? [],
+          newSources,
+        );
+        const { error } = await supabase
+          .from("movies")
+          .update({
+            stream_sources: merged as any,
+            stream_url: existing.stream_url ?? stream_url,
+            provider: existing.provider ?? chosenProvider,
+            source_type: sourceType,
+            status: merged.length ? "published" : "missing_stream",
+          } as any)
+          .eq("id", existing.id);
+        if (error) throw error;
+        toast.success(`Merged into existing "${details.title}" — ${merged.length} unique server(s)`);
+      } else {
+        const { error } = await supabase.from("movies").insert({
+          title: details.title,
+          description: details.description,
+          poster_url: details.poster_url,
+          backdrop_url: details.backdrop_url,
+          year: details.year,
+          genre: details.genre,
+          category: details.category,
+          duration_minutes: details.duration_minutes,
+          imdb_rating: details.imdb_rating,
+          rating: details.rating,
+          tmdb_id: details.tmdb_id,
+          stream_url,
+          stream_sources: newSources as any,
+          source_type: sourceType,
+          status,
+          provider: chosenProvider,
+          is_admin_upload: true,
+        } as any);
+        if (error) throw error;
+      }
       setPicked(null);
       setDetails(null);
       setHlsUrl("");
