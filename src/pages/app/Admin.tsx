@@ -45,6 +45,7 @@ import SuperScraperDashboard from "@/components/admin/SuperScraperDashboard";
 import StorageModeToggle from "@/components/admin/StorageModeToggle";
 import CommunityUploadsQueue from "@/components/admin/CommunityUploadsQueue";
 import ReelsManager from "@/components/admin/ReelsManager";
+import { MovieSearchPicker } from "@/components/admin/MovieSearchPicker";
 import { useStorageMode } from "@/hooks/useStorageMode";
 
 type SourceType = "hls" | "iframe";
