@@ -25,6 +25,7 @@ export default function Player() {
   const [activeEpisodeId, setActiveEpisodeId] = useState<string | null>(null);
   const [allEpisodes, setAllEpisodes] = useState<any[]>([]);
   const [showAutoNext, setShowAutoNext] = useState(false);
+  const [serverIdx, setServerIdx] = useState(0);
 
   useEffect(() => {
     if (!id) return;
@@ -73,6 +74,23 @@ export default function Player() {
     [episodes, activeEpisodeId]
   );
 
+  // Build server list (Server 1, Server 2, …) from stream_sources on the
+  // active row (episode for series, item for movie/tv). Falls back to the
+  // legacy single stream_url so old records keep working.
+  const servers = useMemo(() => {
+    const raw = kind === "series" ? activeEpisode?.stream_sources : item?.stream_sources;
+    const list: { provider: string; url: string }[] = Array.isArray(raw)
+      ? raw.filter((s: any) => s && typeof s.url === "string" && s.url.trim())
+      : [];
+    if (list.length > 0) return list;
+    const fallback =
+      kind === "series" ? activeEpisode?.stream_url : item?.stream_url || item?.m3u_url;
+    return fallback ? [{ provider: item?.provider || "default", url: fallback }] : [];
+  }, [kind, item, activeEpisode]);
+
+  // Reset server selection whenever the active piece of content changes.
+  useEffect(() => { setServerIdx(0); }, [id, activeEpisodeId]);
+
   const nextEpisode = useMemo(() => {
     if (kind !== "series" || !activeEpisode || allEpisodes.length === 0) return null;
     const seasonNumberById: Record<string, number> = {};
@@ -105,11 +123,7 @@ export default function Player() {
   const title = item.title || item.name || `${item.home_team} vs ${item.away_team}`;
   const isMovie = kind === "movie";
   const isSeries = kind === "series";
-  const src = isMovie
-    ? item.stream_url
-    : isSeries
-      ? activeEpisode?.stream_url
-      : item.stream_url || item.m3u_url;
+  const src = servers[Math.min(serverIdx, Math.max(0, servers.length - 1))]?.url ?? null;
   const useIframePlayer = !isMovie && !isSeries && item.source_type === "iframe";
   const isTv = kind === "tv";
 
