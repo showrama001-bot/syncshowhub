@@ -113,6 +113,24 @@ async function checkAllProviders(kind: "movie" | "tv", tmdbId: number) {
   };
 }
 
+type StreamSource = { provider: string; url: string };
+
+/** Merge two source lists dropping duplicate URLs (case-insensitive on url). */
+function dedupeSources(...lists: StreamSource[][]): StreamSource[] {
+  const seen = new Set<string>();
+  const out: StreamSource[] = [];
+  for (const list of lists) {
+    for (const s of list) {
+      if (!s?.url) continue;
+      const key = s.url.trim().toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ provider: s.provider, url: s.url.trim() });
+    }
+  }
+  return out;
+}
+
 /* ───────── Shared title-search panel ───────── */
 function TitleSearch({
   kind,
