@@ -41,7 +41,6 @@ import {
 import AbuseReportsPanel from "@/components/admin/AbuseReportsPanel";
 import PlaybackReportsPanel from "@/components/admin/PlaybackReportsPanel";
 import AdsManager from "@/components/admin/AdsManager";
-import SuperScraperDashboard from "@/components/admin/SuperScraperDashboard";
 import StorageModeToggle from "@/components/admin/StorageModeToggle";
 import CommunityUploadsQueue from "@/components/admin/CommunityUploadsQueue";
 import ReelsManager from "@/components/admin/ReelsManager";
@@ -85,7 +84,6 @@ export default function Admin() {
           <TabsTrigger value="abuse">Abuse</TabsTrigger>
           <TabsTrigger value="playback">Playback Reports</TabsTrigger>
           <TabsTrigger value="ads">Ads Management</TabsTrigger>
-          <TabsTrigger value="scraper">Super Scraper</TabsTrigger>
           <TabsTrigger value="community">User Uploads Queue</TabsTrigger>
         </TabsList>
 
@@ -101,7 +99,6 @@ export default function Admin() {
         <TabsContent value="abuse"><AbuseReportsPanel /></TabsContent>
         <TabsContent value="playback"><PlaybackReportsPanel /></TabsContent>
         <TabsContent value="ads"><AdsManager /></TabsContent>
-        <TabsContent value="scraper"><SuperScraperDashboard /></TabsContent>
         <TabsContent value="community"><CommunityUploadsQueue /></TabsContent>
       </Tabs>
     </div>
