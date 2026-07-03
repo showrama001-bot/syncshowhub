@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { PlayCircle, Film, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAdsAssets, fetchAdsSettings, pickWeighted, type AdAsset } from "@/lib/ads";
@@ -25,16 +25,35 @@ export default function Reels() {
   const [adGate, setAdGate] = useState<AdAsset | null>(null);
   const [adCountdown, setAdCountdown] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [searchParams] = useSearchParams();
+  const targetId = searchParams.get("id");
 
   useEffect(() => {
     (async () => {
       const { data } = await (supabase.from("reels" as any) as any)
         .select("*").order("created_at", { ascending: false }).limit(80);
-      setReels((data || []) as any);
+      const list = (data || []) as Reel[];
+      // If a specific reel is requested, ensure it's included and moved to the front.
+      if (targetId) {
+        let target = list.find((r) => r.id === targetId);
+        if (!target) {
+          const { data: one } = await (supabase.from("reels" as any) as any)
+            .select("*").eq("id", targetId).maybeSingle();
+          if (one) target = one as Reel;
+        }
+        if (target) {
+          const rest = list.filter((r) => r.id !== target!.id);
+          setReels([target, ...rest]);
+        } else {
+          setReels(list);
+        }
+      } else {
+        setReels(list);
+      }
       const [a, s] = await Promise.all([fetchAdsAssets(), fetchAdsSettings()]);
       setAds(a); setAdsOn(!!s.master_enabled);
     })();
-  }, []);
+  }, [targetId]);
 
   // Enforce ad on scroll transitions.
   const showAdIfNeeded = (nextIdx: number) => {
