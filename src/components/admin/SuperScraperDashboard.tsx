@@ -232,7 +232,7 @@ function StreamModePicker({
       <RadioGroup value={mode} onValueChange={(v) => setMode(v as StreamMode)} className="flex flex-col sm:flex-row gap-3">
         <label className="flex items-center gap-2 cursor-pointer">
           <RadioGroupItem value="embed" id="m-embed" />
-          <span>External Embed (multi-provider iframe)</span>
+          <span>Auto-Resolve Direct Stream (JSON aggregators → .m3u8)</span>
         </label>
         <label className="flex items-center gap-2 cursor-pointer">
           <RadioGroupItem value="hls" id="m-hls" />
@@ -242,17 +242,12 @@ function StreamModePicker({
 
       {mode === "embed" ? (
         <div className="space-y-2">
-          <Label className="text-xs">Embed Provider</Label>
-          <Select value={provider} onValueChange={(v) => setProvider(v as ProviderId)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {EMBED_PROVIDERS.map((p) => (
-                <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
           <p className="text-xs text-muted-foreground">
-            Embed URL is auto-generated from the TMDB ID for each item.
+            The scraper calls a list of JSON aggregator APIs (configured via the
+            <code className="mx-1">SCRAPER_AGGREGATOR_URLS</code> secret) that return raw
+            <code className="mx-1">.m3u8</code>/<code className="mx-1">.mp4</code> URLs for a TMDB id.
+            Iframes are never used. If no aggregator returns a stream, the item is
+            routed to Missing Streams with a "No streamable source found" notice.
           </p>
         </div>
       ) : (
