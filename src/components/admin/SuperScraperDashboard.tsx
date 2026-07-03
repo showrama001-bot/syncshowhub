@@ -317,8 +317,8 @@ function MoviesScraper() {
         }
         newSources = [{ provider: "hls", url: stream_url }];
       } else {
-        // ── Auto direct-HLS resolver ──
-        toast.info("Probing providers for direct .m3u8 streams…");
+        // ── Direct-only auto resolver (no iframe fallback) ──
+        toast.info("Resolving direct .m3u8 / .mp4 stream…");
         const direct = await resolveDirectStreams("movie", details.tmdb_id);
         if (direct.length > 0) {
           newSources = direct.map((d) => ({ provider: d.provider, url: d.url }));
@@ -327,21 +327,12 @@ function MoviesScraper() {
           stream_url = direct[0].url;
           toast.success(`Found ${direct.length} direct stream(s) — native player`);
         } else {
-          // Fallback: keep iframe embeds so the item is still playable.
-          toast.info("No direct streams found — falling back to embed providers.");
-          const result = await checkAllProviders("movie", details.tmdb_id);
-          newSources = result.checks
-            .filter((c) => c.state === "ok" || c.state === "unknown")
-            .map((c) => ({ provider: c.provider, url: c.url }));
-          if (newSources.length === 0) {
-            status = "missing_stream";
-            sourceType = "iframe";
-            toast.warning("Not found on any provider — routed to Missing Streams.");
-          } else {
-            sourceType = "iframe";
-            chosenProvider = newSources[0].provider;
-            stream_url = newSources[0].url;
-          }
+          // Zero iframes policy: route to Missing Streams instead.
+          status = "missing_stream";
+          sourceType = "hls";
+          stream_url = null;
+          newSources = [];
+          toast.warning("No streamable source found — routed to Missing Streams.");
         }
       }
 
