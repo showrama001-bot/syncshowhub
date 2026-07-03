@@ -113,6 +113,22 @@ async function checkAllProviders(kind: "movie" | "tv", tmdbId: number) {
   };
 }
 
+async function resolveDirectStreams(
+  kind: "movie" | "tv",
+  tmdbId: number,
+  season?: number,
+  episode?: number,
+) {
+  const data = (await callScraper({
+    action: "resolve_direct",
+    kind,
+    tmdb_id: tmdbId,
+    season,
+    episode,
+  })) as { sources: { provider: string; url: string; kind: "hls" | "mp4" }[]; count: number };
+  return data.sources ?? [];
+}
+
 type StreamSource = { provider: string; url: string };
 
 /** Merge two source lists dropping duplicate URLs (case-insensitive on url). */
@@ -301,20 +317,31 @@ function MoviesScraper() {
         }
         newSources = [{ provider: "hls", url: stream_url }];
       } else {
-        toast.info("Checking all 5 embed providers sequentially…");
-        const result = await checkAllProviders("movie", details.tmdb_id);
-        // Collect EVERY provider that isn't a hard-miss (ok + unknown/firewall).
-        newSources = result.checks
-          .filter((c) => c.state === "ok" || c.state === "unknown")
-          .map((c) => ({ provider: c.provider, url: c.url }));
-        if (newSources.length === 0) {
-          status = "missing_stream";
-          sourceType = "iframe";
-          toast.warning("Not found on any of the 5 providers — routed to Missing Streams.");
+        // ── Auto direct-HLS resolver ──
+        toast.info("Probing providers for direct .m3u8 streams…");
+        const direct = await resolveDirectStreams("movie", details.tmdb_id);
+        if (direct.length > 0) {
+          newSources = direct.map((d) => ({ provider: d.provider, url: d.url }));
+          sourceType = "hls";
+          chosenProvider = direct[0].provider;
+          stream_url = direct[0].url;
+          toast.success(`Found ${direct.length} direct stream(s) — native player`);
         } else {
-          chosenProvider = newSources[0].provider;
-          stream_url = newSources[0].url;
-          toast.success(`Found on ${newSources.length}/5 providers`);
+          // Fallback: keep iframe embeds so the item is still playable.
+          toast.info("No direct streams found — falling back to embed providers.");
+          const result = await checkAllProviders("movie", details.tmdb_id);
+          newSources = result.checks
+            .filter((c) => c.state === "ok" || c.state === "unknown")
+            .map((c) => ({ provider: c.provider, url: c.url }));
+          if (newSources.length === 0) {
+            status = "missing_stream";
+            sourceType = "iframe";
+            toast.warning("Not found on any provider — routed to Missing Streams.");
+          } else {
+            sourceType = "iframe";
+            chosenProvider = newSources[0].provider;
+            stream_url = newSources[0].url;
+          }
         }
       }
 
