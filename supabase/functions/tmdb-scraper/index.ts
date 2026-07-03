@@ -126,23 +126,6 @@ Deno.serve(async (req) => {
         : { available: false };
       return json({ checks, verdict });
     }
-
-    /* ── Direct HLS / MP4 resolver ─────────────────────────────────
-       Server-side probes several embed providers, follows redirects,
-       extracts any `.m3u8` / `.mp4` URLs found in the response body,
-       and returns them so the client can save them as NATIVE stream
-       sources (played by our custom HLS player — no iframes).       */
-    if (action === "resolve_direct") {
-      const kindIn = (body: any) => (body === "tv" || body === "series" ? "tv" : "movie");
-      const k = kindIn(kind);
-      const tid = Number(tmdb_id);
-      const season = Number((await Promise.resolve((globalThis as any)))?.season) || null;
-      // NOTE: season/episode come from the outer destructure below.
-      // (kept for readability; real values come from `s` and `e`)
-      const s = (arguments as any); // placeholder — unused
-      return json({ error: "internal shape" }, 500);
-    }
-
     if (action === "search") {
       const r = await fetch(
         `${TMDB}/search/${type}?api_key=${key}&language=${LANG}&include_adult=false&query=${encodeURIComponent(query ?? "")}`,
