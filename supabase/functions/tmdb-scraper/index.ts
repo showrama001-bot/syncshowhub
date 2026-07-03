@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
       .from("user_roles").select("role").eq("user_id", u.user.id).eq("role", "admin").maybeSingle();
     if (!roleRow) return json({ error: "Admins only" }, 403);
 
-    const { action, kind, query, tmdb_id, urls } = await req.json();
+    const { action, kind, query, tmdb_id, urls, season, episode } = await req.json();
     const type = kind === "series" || kind === "tv" ? "tv" : "movie";
 
     /* ── Smart 5-provider availability check ─────────────────────────
@@ -126,6 +126,102 @@ Deno.serve(async (req) => {
         : { available: false };
       return json({ checks, verdict });
     }
+
+    /* ── Direct HLS / MP4 resolver ─────────────────────────────────
+       Server-side probes several embed providers, follows their
+       nested iframes one hop, and extracts any `.m3u8` / `.mp4`
+       URLs found in the HTML/JS. Returns unique direct sources so
+       the client can save them and stream natively in our custom
+       HLS player (no iframes, no sandbox issues).                 */
+    if (action === "resolve_direct") {
+      const isTv = type === "tv";
+      const s = Number(season) || 1;
+      const e = Number(episode) || 1;
+      const tid = Number(tmdb_id);
+      if (!tid) return json({ error: "tmdb_id required" }, 400);
+
+      const candidates: { provider: string; url: string }[] = isTv
+        ? [
+            { provider: "vidsrc.xyz", url: `https://vidsrc.xyz/embed/tv?tmdb=${tid}&season=${s}&episode=${e}` },
+            { provider: "vidsrc.to",  url: `https://vidsrc.to/embed/tv/${tid}/${s}/${e}` },
+            { provider: "embed.su",   url: `https://embed.su/embed/tv/${tid}/${s}/${e}` },
+            { provider: "autoembed",  url: `https://player.autoembed.cc/embed/tv/${tid}/${s}/${e}` },
+            { provider: "2embed",     url: `https://www.2embed.cc/embedtv/${tid}&s=${s}&e=${e}` },
+          ]
+        : [
+            { provider: "vidsrc.xyz", url: `https://vidsrc.xyz/embed/movie?tmdb=${tid}` },
+            { provider: "vidsrc.to",  url: `https://vidsrc.to/embed/movie/${tid}` },
+            { provider: "embed.su",   url: `https://embed.su/embed/movie/${tid}` },
+            { provider: "autoembed",  url: `https://player.autoembed.cc/embed/movie/${tid}` },
+            { provider: "2embed",     url: `https://www.2embed.cc/embed/${tid}` },
+          ];
+
+      const UA2 =
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
+      const MEDIA_RE = /https?:\/\/[^\s"'<>()\\]+?\.(?:m3u8|mp4)(?:\?[^\s"'<>()\\]*)?/gi;
+      const IFRAME_RE = /<iframe[^>]+src=["']([^"']+)["']/gi;
+
+      async function fetchPage(url: string, referer?: string): Promise<string> {
+        try {
+          const r = await fetch(url, {
+            method: "GET",
+            redirect: "follow",
+            headers: {
+              "User-Agent": UA2,
+              "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+              "Accept-Language": "en-US,en;q=0.9",
+              ...(referer ? { "Referer": referer } : {}),
+            },
+            signal: AbortSignal.timeout(9000),
+          });
+          if (!r.ok) return "";
+          return await r.text();
+        } catch { return ""; }
+      }
+
+      async function resolve(entry: { provider: string; url: string }) {
+        const found = new Set<string>();
+        const visited = new Set<string>();
+        const queue: { url: string; referer?: string; depth: number }[] = [
+          { url: entry.url, depth: 0 },
+        ];
+        while (queue.length > 0) {
+          const cur = queue.shift()!;
+          if (visited.has(cur.url) || cur.depth > 2) continue;
+          visited.add(cur.url);
+          const html = await fetchPage(cur.url, cur.referer);
+          if (!html) continue;
+          for (const m of html.matchAll(MEDIA_RE)) found.add(m[0]);
+          if (found.size === 0 && cur.depth < 2) {
+            for (const m of html.matchAll(IFRAME_RE)) {
+              try {
+                const child = new URL(m[1], cur.url).toString();
+                if (!visited.has(child)) queue.push({ url: child, referer: cur.url, depth: cur.depth + 1 });
+              } catch { /* ignore */ }
+            }
+          }
+          if (found.size > 0) break;
+        }
+        return [...found].map((u) => ({ provider: entry.provider, url: u }));
+      }
+
+      const results = await Promise.all(candidates.map(resolve));
+      const flat = results.flat();
+      const seen = new Set<string>();
+      const sources: { provider: string; url: string; kind: "hls" | "mp4" }[] = [];
+      for (const r of flat.sort((a) => (a.url.toLowerCase().includes(".m3u8") ? -1 : 1))) {
+        const key = r.url.split("?")[0].toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        sources.push({
+          provider: r.provider,
+          url: r.url,
+          kind: r.url.toLowerCase().includes(".m3u8") ? "hls" : "mp4",
+        });
+      }
+      return json({ sources, count: sources.length });
+    }
+
     if (action === "search") {
       const r = await fetch(
         `${TMDB}/search/${type}?api_key=${key}&language=${LANG}&include_adult=false&query=${encodeURIComponent(query ?? "")}`,
