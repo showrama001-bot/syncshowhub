@@ -19,7 +19,6 @@ export default defineTool({
       .from("movies")
       .select("id,title,year,genre,imdb_rating,poster_url,description,category")
       .ilike("title", `%${query}%`)
-      .eq("status", "active")
       .limit(limit);
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
     return {
