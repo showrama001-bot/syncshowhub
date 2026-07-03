@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Clapperboard } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,9 @@ export default function Trailers() {
   const [rows, setRows] = useState<Trailer[]>([]);
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(true);
+  const [searchParams] = useSearchParams();
+  const targetId = searchParams.get("id");
+  const targetRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -37,6 +41,15 @@ export default function Trailers() {
   const filtered = rows.filter((r) =>
     (r.movie_title ?? "").toLowerCase().includes(q.toLowerCase().trim()),
   );
+
+  useEffect(() => {
+    if (!targetId || loading) return;
+    // Wait a tick for the grid to render, then scroll into view.
+    const t = setTimeout(() => {
+      targetRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 50);
+    return () => clearTimeout(t);
+  }, [targetId, loading, rows]);
 
   return (
     <div className="pt-20 px-4 md:px-8 max-w-7xl mx-auto pb-16">
@@ -62,15 +75,19 @@ export default function Trailers() {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {filtered.map((t) => {
             const yt = youtubeId(t.youtube_url);
+            const isTarget = t.id === targetId;
             return (
               <div
                 key={t.id}
-                className="rounded-2xl overflow-hidden border border-border/40 bg-card hover:border-primary/60 transition-all"
+                ref={isTarget ? targetRef : undefined}
+                className={`rounded-2xl overflow-hidden border bg-card hover:border-primary/60 transition-all ${
+                  isTarget ? "border-primary shadow-neon ring-2 ring-primary/60" : "border-border/40"
+                }`}
               >
                 <div className="relative aspect-video bg-black">
                   {yt ? (
                     <iframe
-                      src={`https://www.youtube.com/embed/${yt}`}
+                      src={`https://www.youtube.com/embed/${yt}${isTarget ? "?autoplay=1" : ""}`}
                       title={t.movie_title ?? "Trailer"}
                       loading="lazy"
                       allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
