@@ -495,26 +495,11 @@ function SeriesScraper() {
     }
     setSaving(true);
     try {
-      // Which providers actually work for this series? Probe S1E1 once.
+      // In embed mode, we now try to resolve DIRECT HLS/MP4 URLs per
+      // episode (falls back to iframe embeds if none are found).
       let workingProviders: ProviderId[] = [...ALL_PROVIDER_IDS];
       if (mode === "embed") {
-        toast.info("Probing all 5 providers on S1E1…");
-        const probeUrls = ALL_PROVIDER_IDS.map((p) => ({
-          provider: p,
-          url: buildEmbedUrl(p, "tv", details.tmdb_id, 1, 1),
-        }));
-        const probe = (await callScraper({
-          action: "check_providers",
-          urls: probeUrls,
-        })) as { checks: { provider: ProviderId; state: string }[] };
-        workingProviders = probe.checks
-          .filter((c) => c.state === "ok" || c.state === "unknown")
-          .map((c) => c.provider as ProviderId);
-        if (workingProviders.length === 0) {
-          toast.warning("No providers responded — series will be saved without embed URLs.");
-        } else {
-          toast.success(`${workingProviders.length}/5 providers usable for this series`);
-        }
+        toast.info("Auto-resolving direct streams per episode…");
       }
 
       // Upsert-style: reuse existing series with same tmdb_id if any.
@@ -574,13 +559,27 @@ function SeriesScraper() {
         );
 
         for (const e of season.episodes) {
-          const generated: StreamSource[] =
-            mode === "embed"
-              ? workingProviders.map((p) => ({
-                  provider: p,
-                  url: buildEmbedUrl(p, "tv", details.tmdb_id, season.season_number, e.episode_number),
-                }))
-              : [{ provider: "hls", url: hlsUrl.trim() }];
+          let generated: StreamSource[];
+          if (mode === "hls") {
+            generated = [{ provider: "hls", url: hlsUrl.trim() }];
+          } else {
+            // Try direct HLS first, per episode.
+            const direct = await resolveDirectStreams(
+              "tv",
+              details.tmdb_id,
+              season.season_number,
+              e.episode_number,
+            ).catch(() => []);
+            if (direct.length > 0) {
+              generated = direct.map((d) => ({ provider: d.provider, url: d.url }));
+            } else {
+              // Fallback to iframe embeds so playback still works.
+              generated = workingProviders.map((p) => ({
+                provider: p,
+                url: buildEmbedUrl(p, "tv", details.tmdb_id, season.season_number, e.episode_number),
+              }));
+            }
+          }
 
           const existingEp = existingMap.get(e.episode_number);
           const merged = dedupeSources(
