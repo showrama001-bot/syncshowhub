@@ -128,11 +128,25 @@ Deno.serve(async (req) => {
     }
 
     /* ── Direct HLS / MP4 resolver ─────────────────────────────────
-       Server-side probes several embed providers, follows their
-       nested iframes one hop, and extracts any `.m3u8` / `.mp4`
-       URLs found in the HTML/JS. Returns unique direct sources so
-       the client can save them and stream natively in our custom
-       HLS player (no iframes, no sandbox issues).                 */
+       Calls a list of JSON aggregator endpoints (NOT the iframe
+       embed providers) that resolve a TMDB id into a raw .m3u8 or
+       .mp4 URL. Any URL found in the response body is extracted
+       and returned. If nothing resolves, we return an empty list —
+       the caller must show "No streamable source found" and MUST
+       NOT fall back to an iframe embed.
+
+       Add / replace endpoints without a redeploy by setting the
+       `SCRAPER_AGGREGATOR_URLS` secret to a JSON array of URL
+       templates. Supported placeholders:
+         {tmdb}     TMDB id
+         {kind}     "movie" or "tv"
+         {season}   Season number (tv only)
+         {episode}  Episode number (tv only)
+       Example value:
+         [
+           "https://your-flixquest-instance.vercel.app/showbox/watch-{kind}?tmdbId={tmdb}&season={season}&episode={episode}",
+           "https://your-streamprovider.example.com/?tmdbId={tmdb}&season={season}&episode={episode}"
+         ]                                                       */
     if (action === "resolve_direct") {
       const isTv = type === "tv";
       const s = Number(season) || 1;
@@ -140,86 +154,95 @@ Deno.serve(async (req) => {
       const tid = Number(tmdb_id);
       if (!tid) return json({ error: "tmdb_id required" }, 400);
 
-      const candidates: { provider: string; url: string }[] = isTv
+      // Default templates. Publicly-hosted aggregators are volatile —
+      // override with SCRAPER_AGGREGATOR_URLS to point at your own
+      // (or a currently-working public) instance.
+      const DEFAULT_TEMPLATES = isTv
         ? [
-            { provider: "vidsrc.xyz", url: `https://vidsrc.xyz/embed/tv?tmdb=${tid}&season=${s}&episode=${e}` },
-            { provider: "vidsrc.to",  url: `https://vidsrc.to/embed/tv/${tid}/${s}/${e}` },
-            { provider: "embed.su",   url: `https://embed.su/embed/tv/${tid}/${s}/${e}` },
-            { provider: "autoembed",  url: `https://player.autoembed.cc/embed/tv/${tid}/${s}/${e}` },
-            { provider: "2embed",     url: `https://www.2embed.cc/embedtv/${tid}&s=${s}&e=${e}` },
+            "https://streamprovider.byteful.me/?tmdbId={tmdb}&season={season}&episode={episode}",
+            "https://flixquest-api.vercel.app/showbox/watch-tv?tmdbId={tmdb}&season={season}&episode={episode}",
+            "https://flixquest-api.vercel.app/vidsrcto/watch-tv?tmdbId={tmdb}&season={season}&episode={episode}",
           ]
         : [
-            { provider: "vidsrc.xyz", url: `https://vidsrc.xyz/embed/movie?tmdb=${tid}` },
-            { provider: "vidsrc.to",  url: `https://vidsrc.to/embed/movie/${tid}` },
-            { provider: "embed.su",   url: `https://embed.su/embed/movie/${tid}` },
-            { provider: "autoembed",  url: `https://player.autoembed.cc/embed/movie/${tid}` },
-            { provider: "2embed",     url: `https://www.2embed.cc/embed/${tid}` },
+            "https://streamprovider.byteful.me/?tmdbId={tmdb}",
+            "https://flixquest-api.vercel.app/showbox/watch-movie?tmdbId={tmdb}",
+            "https://flixquest-api.vercel.app/vidsrcto/watch-movie?tmdbId={tmdb}",
           ];
+
+      let templates: string[] = DEFAULT_TEMPLATES;
+      const override = Deno.env.get("SCRAPER_AGGREGATOR_URLS");
+      if (override) {
+        try {
+          const parsed = JSON.parse(override);
+          if (Array.isArray(parsed) && parsed.every((t) => typeof t === "string")) {
+            templates = parsed as string[];
+          }
+        } catch { /* keep defaults on bad JSON */ }
+      }
 
       const UA2 =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36";
       const MEDIA_RE = /https?:\/\/[^\s"'<>()\\]+?\.(?:m3u8|mp4)(?:\?[^\s"'<>()\\]*)?/gi;
-      const IFRAME_RE = /<iframe[^>]+src=["']([^"']+)["']/gi;
 
-      async function fetchPage(url: string, referer?: string): Promise<string> {
+      function fillTemplate(tpl: string): string {
+        return tpl
+          .replaceAll("{tmdb}", String(tid))
+          .replaceAll("{kind}", isTv ? "tv" : "movie")
+          .replaceAll("{season}", String(s))
+          .replaceAll("{episode}", String(e));
+      }
+
+      function providerFrom(url: string): string {
+        try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return "aggregator"; }
+      }
+
+      async function callAggregator(tpl: string) {
+        const url = fillTemplate(tpl);
         try {
           const r = await fetch(url, {
             method: "GET",
             redirect: "follow",
             headers: {
               "User-Agent": UA2,
-              "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+              "Accept": "application/json,text/plain,*/*",
               "Accept-Language": "en-US,en;q=0.9",
-              ...(referer ? { "Referer": referer } : {}),
             },
-            signal: AbortSignal.timeout(9000),
+            signal: AbortSignal.timeout(12000),
           });
-          if (!r.ok) return "";
-          return await r.text();
-        } catch { return ""; }
-      }
-
-      async function resolve(entry: { provider: string; url: string }) {
-        const found = new Set<string>();
-        const visited = new Set<string>();
-        const queue: { url: string; referer?: string; depth: number }[] = [
-          { url: entry.url, depth: 0 },
-        ];
-        while (queue.length > 0) {
-          const cur = queue.shift()!;
-          if (visited.has(cur.url) || cur.depth > 2) continue;
-          visited.add(cur.url);
-          const html = await fetchPage(cur.url, cur.referer);
-          if (!html) continue;
-          for (const m of html.matchAll(MEDIA_RE)) found.add(m[0]);
-          if (found.size === 0 && cur.depth < 2) {
-            for (const m of html.matchAll(IFRAME_RE)) {
-              try {
-                const child = new URL(m[1], cur.url).toString();
-                if (!visited.has(child)) queue.push({ url: child, referer: cur.url, depth: cur.depth + 1 });
-              } catch { /* ignore */ }
-            }
-          }
-          if (found.size > 0) break;
+          if (!r.ok) return { url, ok: false, status: r.status, urls: [] as string[] };
+          const body = await r.text();
+          const urls = new Set<string>();
+          for (const m of body.matchAll(MEDIA_RE)) urls.add(m[0]);
+          return { url, ok: true, status: r.status, urls: [...urls] };
+        } catch {
+          return { url, ok: false, status: 0, urls: [] as string[] };
         }
-        return [...found].map((u) => ({ provider: entry.provider, url: u }));
       }
 
-      const results = await Promise.all(candidates.map(resolve));
-      const flat = results.flat();
+      const results = await Promise.all(templates.map(callAggregator));
+
+      // De-duplicate, prefer m3u8 first.
       const seen = new Set<string>();
       const sources: { provider: string; url: string; kind: "hls" | "mp4" }[] = [];
-      for (const r of flat.sort((a) => (a.url.toLowerCase().includes(".m3u8") ? -1 : 1))) {
-        const key = r.url.split("?")[0].toLowerCase();
-        if (seen.has(key)) continue;
-        seen.add(key);
-        sources.push({
-          provider: r.provider,
-          url: r.url,
-          kind: r.url.toLowerCase().includes(".m3u8") ? "hls" : "mp4",
-        });
+      for (const r of results) {
+        const sorted = r.urls.sort((a) => (a.toLowerCase().includes(".m3u8") ? -1 : 1));
+        for (const u of sorted) {
+          const key = u.split("?")[0].toLowerCase();
+          if (seen.has(key)) continue;
+          seen.add(key);
+          sources.push({
+            provider: providerFrom(r.url),
+            url: u,
+            kind: u.toLowerCase().includes(".m3u8") ? "hls" : "mp4",
+          });
+        }
       }
-      return json({ sources, count: sources.length });
+
+      return json({
+        sources,
+        count: sources.length,
+        probed: results.map((r) => ({ endpoint: r.url, ok: r.ok, status: r.status, matches: r.urls.length })),
+      });
     }
 
     if (action === "search") {

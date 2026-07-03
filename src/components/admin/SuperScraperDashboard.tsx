@@ -232,7 +232,7 @@ function StreamModePicker({
       <RadioGroup value={mode} onValueChange={(v) => setMode(v as StreamMode)} className="flex flex-col sm:flex-row gap-3">
         <label className="flex items-center gap-2 cursor-pointer">
           <RadioGroupItem value="embed" id="m-embed" />
-          <span>External Embed (multi-provider iframe)</span>
+          <span>Auto-Resolve Direct Stream (JSON aggregators → .m3u8)</span>
         </label>
         <label className="flex items-center gap-2 cursor-pointer">
           <RadioGroupItem value="hls" id="m-hls" />
@@ -242,17 +242,12 @@ function StreamModePicker({
 
       {mode === "embed" ? (
         <div className="space-y-2">
-          <Label className="text-xs">Embed Provider</Label>
-          <Select value={provider} onValueChange={(v) => setProvider(v as ProviderId)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {EMBED_PROVIDERS.map((p) => (
-                <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
           <p className="text-xs text-muted-foreground">
-            Embed URL is auto-generated from the TMDB ID for each item.
+            The scraper calls a list of JSON aggregator APIs (configured via the
+            <code className="mx-1">SCRAPER_AGGREGATOR_URLS</code> secret) that return raw
+            <code className="mx-1">.m3u8</code>/<code className="mx-1">.mp4</code> URLs for a TMDB id.
+            Iframes are never used. If no aggregator returns a stream, the item is
+            routed to Missing Streams with a "No streamable source found" notice.
           </p>
         </div>
       ) : (
@@ -317,8 +312,8 @@ function MoviesScraper() {
         }
         newSources = [{ provider: "hls", url: stream_url }];
       } else {
-        // ── Auto direct-HLS resolver ──
-        toast.info("Probing providers for direct .m3u8 streams…");
+        // ── Direct-only auto resolver (no iframe fallback) ──
+        toast.info("Resolving direct .m3u8 / .mp4 stream…");
         const direct = await resolveDirectStreams("movie", details.tmdb_id);
         if (direct.length > 0) {
           newSources = direct.map((d) => ({ provider: d.provider, url: d.url }));
@@ -327,21 +322,12 @@ function MoviesScraper() {
           stream_url = direct[0].url;
           toast.success(`Found ${direct.length} direct stream(s) — native player`);
         } else {
-          // Fallback: keep iframe embeds so the item is still playable.
-          toast.info("No direct streams found — falling back to embed providers.");
-          const result = await checkAllProviders("movie", details.tmdb_id);
-          newSources = result.checks
-            .filter((c) => c.state === "ok" || c.state === "unknown")
-            .map((c) => ({ provider: c.provider, url: c.url }));
-          if (newSources.length === 0) {
-            status = "missing_stream";
-            sourceType = "iframe";
-            toast.warning("Not found on any provider — routed to Missing Streams.");
-          } else {
-            sourceType = "iframe";
-            chosenProvider = newSources[0].provider;
-            stream_url = newSources[0].url;
-          }
+          // Zero iframes policy: route to Missing Streams instead.
+          status = "missing_stream";
+          sourceType = "hls";
+          stream_url = null;
+          newSources = [];
+          toast.warning("No streamable source found — routed to Missing Streams.");
         }
       }
 
@@ -495,12 +481,12 @@ function SeriesScraper() {
     }
     setSaving(true);
     try {
-      // In embed mode, we now try to resolve DIRECT HLS/MP4 URLs per
-      // episode (falls back to iframe embeds if none are found).
-      let workingProviders: ProviderId[] = [...ALL_PROVIDER_IDS];
+      // Direct-only auto resolver per episode. No iframe fallback.
       if (mode === "embed") {
         toast.info("Auto-resolving direct streams per episode…");
       }
+      let missingCount = 0;
+      let resolvedCount = 0;
 
       // Upsert-style: reuse existing series with same tmdb_id if any.
       const { data: existingSeries } = await supabase
@@ -563,7 +549,6 @@ function SeriesScraper() {
           if (mode === "hls") {
             generated = [{ provider: "hls", url: hlsUrl.trim() }];
           } else {
-            // Try direct HLS first, per episode.
             const direct = await resolveDirectStreams(
               "tv",
               details.tmdb_id,
@@ -572,12 +557,11 @@ function SeriesScraper() {
             ).catch(() => []);
             if (direct.length > 0) {
               generated = direct.map((d) => ({ provider: d.provider, url: d.url }));
+              resolvedCount++;
             } else {
-              // Fallback to iframe embeds so playback still works.
-              generated = workingProviders.map((p) => ({
-                provider: p,
-                url: buildEmbedUrl(p, "tv", details.tmdb_id, season.season_number, e.episode_number),
-              }));
+              // Zero-iframe policy: leave this episode without sources.
+              generated = [];
+              missingCount++;
             }
           }
 
@@ -610,7 +594,14 @@ function SeriesScraper() {
           }
         }
       }
-      toast.success(`Injected "${details.title}" — ${structure.length} seasons / ${totalEpisodes} episodes`);
+      if (mode === "embed") {
+        toast.success(
+          `Injected "${details.title}" — ${resolvedCount} episode(s) with direct streams` +
+            (missingCount > 0 ? `, ${missingCount} with no streamable source` : ""),
+        );
+      } else {
+        toast.success(`Injected "${details.title}" — ${structure.length} seasons / ${totalEpisodes} episodes`);
+      }
       setPicked(null);
       setDetails(null);
       setStructure([]);
