@@ -486,12 +486,12 @@ function SeriesScraper() {
     }
     setSaving(true);
     try {
-      // In embed mode, we now try to resolve DIRECT HLS/MP4 URLs per
-      // episode (falls back to iframe embeds if none are found).
-      let workingProviders: ProviderId[] = [...ALL_PROVIDER_IDS];
+      // Direct-only auto resolver per episode. No iframe fallback.
       if (mode === "embed") {
         toast.info("Auto-resolving direct streams per episode…");
       }
+      let missingCount = 0;
+      let resolvedCount = 0;
 
       // Upsert-style: reuse existing series with same tmdb_id if any.
       const { data: existingSeries } = await supabase
@@ -554,7 +554,6 @@ function SeriesScraper() {
           if (mode === "hls") {
             generated = [{ provider: "hls", url: hlsUrl.trim() }];
           } else {
-            // Try direct HLS first, per episode.
             const direct = await resolveDirectStreams(
               "tv",
               details.tmdb_id,
@@ -563,12 +562,11 @@ function SeriesScraper() {
             ).catch(() => []);
             if (direct.length > 0) {
               generated = direct.map((d) => ({ provider: d.provider, url: d.url }));
+              resolvedCount++;
             } else {
-              // Fallback to iframe embeds so playback still works.
-              generated = workingProviders.map((p) => ({
-                provider: p,
-                url: buildEmbedUrl(p, "tv", details.tmdb_id, season.season_number, e.episode_number),
-              }));
+              // Zero-iframe policy: leave this episode without sources.
+              generated = [];
+              missingCount++;
             }
           }
 
@@ -601,7 +599,14 @@ function SeriesScraper() {
           }
         }
       }
-      toast.success(`Injected "${details.title}" — ${structure.length} seasons / ${totalEpisodes} episodes`);
+      if (mode === "embed") {
+        toast.success(
+          `Injected "${details.title}" — ${resolvedCount} episode(s) with direct streams` +
+            (missingCount > 0 ? `, ${missingCount} with no streamable source` : ""),
+        );
+      } else {
+        toast.success(`Injected "${details.title}" — ${structure.length} seasons / ${totalEpisodes} episodes`);
+      }
       setPicked(null);
       setDetails(null);
       setStructure([]);
