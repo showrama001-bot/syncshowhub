@@ -91,7 +91,12 @@ export default function Profile() {
   return (
     <div className="pt-20 px-6 max-w-2xl mx-auto pb-16">
       <h1 className="font-display text-3xl md:text-5xl tracking-wider neon-text mb-2">Profile</h1>
-      <p className="text-sm text-muted-foreground mb-8">{user?.email} {isAdmin && <span className="ml-2 text-primary">· Admin</span>}</p>
+      <p className="text-sm text-muted-foreground mb-8">
+        {p.display_name || p.username
+          ? <>{p.display_name || p.username}{p.username && <span className="opacity-70"> · @{p.username}</span>}</>
+          : <span className="text-primary">Set a username below</span>}
+        {isAdmin && <span className="ml-2 text-primary">· Admin</span>}
+      </p>
       <div className="glass rounded-2xl p-6 mb-6">
         <h2 className="font-display text-xl tracking-wider mb-4">Watch Stats</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -130,7 +135,7 @@ export default function Profile() {
         <div className="flex items-center gap-4">
           <Avatar className="h-20 w-20 ring-2 ring-primary/40">
             <AvatarImage src={p.avatar_url} />
-            <AvatarFallback>{(p.display_name || p.username || user?.email || "?").slice(0,1).toUpperCase()}</AvatarFallback>
+            <AvatarFallback>{(p.display_name || p.username || "?").slice(0,1).toUpperCase()}</AvatarFallback>
           </Avatar>
           <div>
             {(p.display_name || p.username) && (
