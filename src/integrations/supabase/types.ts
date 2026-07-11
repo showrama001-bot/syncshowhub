@@ -1292,6 +1292,36 @@ export type Database = {
           },
         ]
       }
+      watch_history: {
+        Row: {
+          content_id: string
+          content_kind: string
+          content_title: string | null
+          created_at: string
+          genre: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          content_id: string
+          content_kind: string
+          content_title?: string | null
+          created_at?: string
+          genre?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          content_id?: string
+          content_kind?: string
+          content_title?: string | null
+          created_at?: string
+          genre?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       watch_room_reminders: {
         Row: {
           created_at: string

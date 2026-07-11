@@ -16,12 +16,43 @@ export default function Profile() {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [stats, setStats] = useState<{ total: number; genres: [string, number][]; last: { title: string | null; at: string } | null }>({
+    total: 0,
+    genres: [],
+    last: null,
+  });
 
   useEffect(() => {
     if (!user) return;
     supabase.from("profiles").select("*").eq("id", user.id).maybeSingle().then(({ data }) => {
       if (data) setP(data);
     });
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data, error } = await supabase
+        .from("watch_history" as any)
+        .select("content_title, genre, created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(500);
+      if (error || !data) return;
+      const rows = data as any[];
+      const counts: Record<string, number> = {};
+      rows.forEach((r) => {
+        if (!r.genre) return;
+        String(r.genre)
+          .split(/[,/|]/)
+          .map((g) => g.trim())
+          .filter(Boolean)
+          .forEach((g) => { counts[g] = (counts[g] ?? 0) + 1; });
+      });
+      const genres = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+      const last = rows[0] ? { title: rows[0].content_title ?? "Untitled", at: rows[0].created_at } : null;
+      setStats({ total: rows.length, genres, last });
+    })();
   }, [user]);
 
   const save = async () => {
@@ -61,6 +92,40 @@ export default function Profile() {
     <div className="pt-20 px-6 max-w-2xl mx-auto pb-16">
       <h1 className="font-display text-3xl md:text-5xl tracking-wider neon-text mb-2">Profile</h1>
       <p className="text-sm text-muted-foreground mb-8">{user?.email} {isAdmin && <span className="ml-2 text-primary">· Admin</span>}</p>
+      <div className="glass rounded-2xl p-6 mb-6">
+        <h2 className="font-display text-xl tracking-wider mb-4">Watch Stats</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="rounded-xl bg-secondary/40 p-4">
+            <div className="text-xs uppercase text-muted-foreground">Total sessions</div>
+            <div className="text-3xl font-display mt-1">{stats.total}</div>
+          </div>
+          <div className="rounded-xl bg-secondary/40 p-4">
+            <div className="text-xs uppercase text-muted-foreground mb-2">Favorite genres</div>
+            {stats.genres.length === 0 ? (
+              <div className="text-sm text-muted-foreground">No data yet</div>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {stats.genres.map(([g, n]) => (
+                  <span key={g} className="text-xs px-2 py-1 rounded-full bg-primary/15 text-primary">
+                    {g} · {n}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="rounded-xl bg-secondary/40 p-4">
+            <div className="text-xs uppercase text-muted-foreground">Last watched</div>
+            {stats.last ? (
+              <>
+                <div className="text-sm font-medium mt-1 truncate">{stats.last.title}</div>
+                <div className="text-xs text-muted-foreground">{new Date(stats.last.at).toLocaleString()}</div>
+              </>
+            ) : (
+              <div className="text-sm text-muted-foreground mt-1">Nothing yet</div>
+            )}
+          </div>
+        </div>
+      </div>
       <div className="glass rounded-2xl p-6 space-y-4">
         <div className="flex items-center gap-4">
           <Avatar className="h-20 w-20 ring-2 ring-primary/40">

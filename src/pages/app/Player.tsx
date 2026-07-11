@@ -116,6 +116,25 @@ export default function Player() {
     }
   };
 
+  // Log a watch-history session (once per player load per content)
+  useEffect(() => {
+    if (!item || !id || !kind) return;
+    let cancelled = false;
+    (async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      const uid = auth.user?.id;
+      if (!uid || cancelled) return;
+      await supabase.from("watch_history" as any).insert({
+        user_id: uid,
+        content_kind: kind,
+        content_id: id,
+        content_title: item.title || item.name || `${item.home_team ?? ""} vs ${item.away_team ?? ""}`.trim(),
+        genre: (item as any).genre ?? null,
+      });
+    })();
+    return () => { cancelled = true; };
+  }, [id, kind, item]);
+
   if (!item) {
     return <div className="pt-24 px-6 text-muted-foreground">Loading…</div>;
   }
