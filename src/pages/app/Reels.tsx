@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { PlayCircle, Film, X } from "lucide-react";
+import { PlayCircle, Film, X, Heart, MessageCircle, Share2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAdsAssets, fetchAdsSettings, pickWeighted, type AdAsset } from "@/lib/ads";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/hooks/use-toast";
 
 type Reel = {
   id: string;
@@ -167,6 +168,32 @@ function ReelSlide({ reel, active }: { reel: Reel; active: boolean }) {
   const ytEmbed = reel.youtube_id
     ? `https://www.youtube.com/embed/${reel.youtube_id}?autoplay=${active ? 1 : 0}&mute=1&loop=1&playlist=${reel.youtube_id}&controls=0&modestbranding=1&playsinline=1`
     : null;
+  const [liked, setLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(() => 20 + Math.floor(Math.random() * 400));
+
+  const onShare = async () => {
+    const url = `${window.location.origin}/reels?id=${reel.id}`;
+    const title = reel.title || "Check out this reel";
+    try {
+      if (navigator.share) {
+        await navigator.share({ title, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        toast({ title: "Link copied", description: "Share it with friends." });
+      }
+    } catch { /* user cancelled */ }
+  };
+
+  const onLike = () => {
+    setLiked((v) => {
+      setLikeCount((c) => c + (v ? -1 : 1));
+      return !v;
+    });
+  };
+
+  const onComment = () => {
+    toast({ title: "Comments coming soon", description: "Reel comments will be enabled shortly." });
+  };
 
   return (
     <section className="w-full h-[100dvh] snap-start relative flex items-center justify-center bg-black" style={{ scrollSnapAlign: "start" }}>
@@ -195,6 +222,28 @@ function ReelSlide({ reel, active }: { reel: Reel; active: boolean }) {
       ) : (
         <div className="text-white/60">No source</div>
       )}
+
+      {/* Right-side action rail */}
+      <div className="absolute right-3 bottom-32 md:bottom-24 z-10 flex flex-col items-center gap-5">
+        <button onClick={onLike} className="flex flex-col items-center text-white/90 hover:text-primary transition">
+          <div className={`h-11 w-11 rounded-full grid place-items-center backdrop-blur bg-black/40 ${liked ? "text-red-500" : ""}`}>
+            <Heart className="h-6 w-6" fill={liked ? "currentColor" : "none"} />
+          </div>
+          <span className="text-[11px] mt-1 drop-shadow">{likeCount}</span>
+        </button>
+        <button onClick={onComment} className="flex flex-col items-center text-white/90 hover:text-primary transition">
+          <div className="h-11 w-11 rounded-full grid place-items-center backdrop-blur bg-black/40">
+            <MessageCircle className="h-6 w-6" />
+          </div>
+          <span className="text-[11px] mt-1 drop-shadow">Comment</span>
+        </button>
+        <button onClick={onShare} className="flex flex-col items-center text-white/90 hover:text-primary transition">
+          <div className="h-11 w-11 rounded-full grid place-items-center backdrop-blur bg-black/40">
+            <Share2 className="h-6 w-6" />
+          </div>
+          <span className="text-[11px] mt-1 drop-shadow">Share</span>
+        </button>
+      </div>
 
       {/* Overlay UI */}
       <div className="absolute inset-x-0 bottom-0 p-4 pb-8 bg-gradient-to-t from-black/85 via-black/40 to-transparent">
