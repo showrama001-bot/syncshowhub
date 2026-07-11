@@ -10,6 +10,14 @@ import { lovable } from "@/integrations/lovable";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import heroBg from "@/assets/hero-bg.jpg";
+import {
+  validatePasswordStrength,
+  PASSWORD_POLICY_MESSAGE,
+  getLoginLockRemainingMs,
+  recordLoginFailure,
+  resetLoginFailures,
+  formatLockoutMessage,
+} from "@/lib/passwordPolicy";
 
 export default function Auth() {
   const nav = useNavigate();
@@ -24,22 +32,34 @@ export default function Auth() {
 
   useEffect(() => {
     if (user && !roleLoading) {
-      nav(isAdmin ? "/admin/dashboard" : "/", { replace: true });
+      nav(isAdmin ? "/admin/dashboard/hub-secure-2026" : "/", { replace: true });
     }
   }, [user, isAdmin, roleLoading, nav]);
 
   const signIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    const lockMs = getLoginLockRemainingMs();
+    if (lockMs > 0) {
+      toast.error(formatLockoutMessage(lockMs));
+      return;
+    }
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
-    if (error) return toast.error(error.message);
+    if (error) {
+      const { locked, remainingMs } = recordLoginFailure();
+      if (locked) return toast.error(formatLockoutMessage(remainingMs));
+      return toast.error(error.message);
+    }
+    resetLoginFailures();
     toast.success("Welcome back!");
     // redirect handled by useEffect based on isAdmin
   };
 
   const signUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    const pwErr = validatePasswordStrength(password);
+    if (pwErr) return toast.error(pwErr);
     setLoading(true);
     const { error } = await supabase.auth.signUp({
       email,
@@ -139,7 +159,8 @@ export default function Auth() {
               </div>
               <div>
                 <Label>Password</Label>
-                <Input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
+                <Input type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} />
+                <p className="text-[11px] text-muted-foreground mt-1">{PASSWORD_POLICY_MESSAGE}</p>
               </div>
               <Button type="submit" disabled={loading} className="w-full bg-gradient-red shadow-neon">
                 Create account
