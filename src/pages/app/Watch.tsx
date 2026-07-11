@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useDisplayIdentity } from "@/hooks/useDisplayIdentity";
 import { toast } from "sonner";
 import { sha256Hex } from "@/lib/watchRooms";
 import { FriendsSidebar } from "@/components/friends/FriendsSidebar";
@@ -45,6 +46,7 @@ type Room = {
 export default function Watch() {
   const { roomId } = useParams();
   const { user } = useAuth();
+  const identity = useDisplayIdentity();
   const navigate = useNavigate();
 
   const [room, setRoom] = useState<Room | null>(null);
@@ -136,7 +138,7 @@ export default function Watch() {
     });
     ch.subscribe(async (status) => {
       if (status === "SUBSCRIBED") {
-        await ch.track({ user: user?.email?.split("@")[0] || "guest", joined_at: Date.now() });
+        await ch.track({ user: identity.displayName || "Guest", joined_at: Date.now() });
       }
     });
     channelRef.current = ch;
@@ -172,7 +174,7 @@ export default function Watch() {
     if (!msg.trim()) return;
     const payload = {
       id: crypto.randomUUID(),
-      user: user?.email?.split("@")[0] || "guest",
+      user: identity.displayName || "Guest",
       text: msg.slice(0, 500),
       ts: Date.now(),
     };

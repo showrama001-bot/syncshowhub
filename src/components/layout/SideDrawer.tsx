@@ -28,6 +28,7 @@ import {
   Clapperboard,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useDisplayIdentity } from "@/hooks/useDisplayIdentity";
 import { useState } from "react";
 
 const items = [
@@ -50,6 +51,7 @@ const items = [
 
 export const SideDrawer = () => {
   const { signOut, user } = useAuth();
+  const { displayName, handle } = useDisplayIdentity();
   const [open, setOpen] = useState(false);
 
   return (
@@ -71,7 +73,9 @@ export const SideDrawer = () => {
           <SheetTitle className="font-display text-2xl tracking-widest neon-text">
             SYNCSHOW
           </SheetTitle>
-          <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+          <p className="text-xs text-muted-foreground truncate">
+            {user ? <>{displayName} <span className="opacity-70">@{handle}</span></> : null}
+          </p>
         </SheetHeader>
         <nav className="flex flex-col gap-1 p-4 overflow-y-auto scrollbar-hide max-h-[calc(100vh-9rem)]">
           {items.map((it) => (
