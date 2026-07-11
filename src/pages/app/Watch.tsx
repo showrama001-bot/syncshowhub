@@ -136,7 +136,7 @@ export default function Watch() {
     });
     ch.subscribe(async (status) => {
       if (status === "SUBSCRIBED") {
-        await ch.track({ user: user?.email?.split("@")[0] || "guest", joined_at: Date.now() });
+        await ch.track({ user: identity.displayName || "Guest", joined_at: Date.now() });
       }
     });
     channelRef.current = ch;
@@ -172,7 +172,7 @@ export default function Watch() {
     if (!msg.trim()) return;
     const payload = {
       id: crypto.randomUUID(),
-      user: user?.email?.split("@")[0] || "guest",
+      user: identity.displayName || "Guest",
       text: msg.slice(0, 500),
       ts: Date.now(),
     };
