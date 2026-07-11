@@ -27,6 +27,9 @@ export const HlsPlayer = ({ src, poster }: { src: string; poster?: string }) => 
       controls
       playsInline
       poster={poster}
+      controlsList="nodownload noremoteplayback noplaybackrate"
+      disablePictureInPicture
+      onContextMenu={(e) => e.preventDefault()}
       className="w-full aspect-video rounded-2xl bg-black shadow-card"
     />
   );
