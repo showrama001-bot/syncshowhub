@@ -16,7 +16,7 @@ export default function AdminLogin() {
 
   useEffect(() => {
     if (!loading && isAdmin) {
-      nav("/admin/dashboard", { replace: true });
+      nav("/admin/dashboard/hub-secure-2026", { replace: true });
     }
   }, [loading, isAdmin, nav]);
 
@@ -48,8 +48,8 @@ export default function AdminLogin() {
       toast.error("Admin role not assigned. Please try again.");
       return;
     }
-    // Hard reload to /admin/dashboard so AuthProvider re-fetches the role state
-    window.location.replace("/admin/dashboard");
+    // Hard reload so AuthProvider re-fetches the role state
+    window.location.replace("/admin/dashboard/hub-secure-2026");
   };
 
   if (loading) return null;
