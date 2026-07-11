@@ -123,6 +123,27 @@ export default function Player() {
   const title = item.title || item.name || `${item.home_team} vs ${item.away_team}`;
   const isMovie = kind === "movie";
   const isSeries = kind === "series";
+
+  // Log a watch-history session (once per player load per content)
+  useEffect(() => {
+    if (!item || !id || !kind) return;
+    let cancelled = false;
+    (async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      const uid = auth.user?.id;
+      if (!uid || cancelled) return;
+      await supabase.from("watch_history" as any).insert({
+        user_id: uid,
+        content_kind: kind,
+        content_id: id,
+        content_title: title,
+        genre: (item as any).genre ?? null,
+      });
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, kind, item?.id]);
+
   const src = servers[Math.min(serverIdx, Math.max(0, servers.length - 1))]?.url ?? null;
   const useIframePlayer = !isMovie && !isSeries && item.source_type === "iframe";
   const isTv = kind === "tv";
