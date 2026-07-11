@@ -116,14 +116,6 @@ export default function Player() {
     }
   };
 
-  if (!item) {
-    return <div className="pt-24 px-6 text-muted-foreground">Loading…</div>;
-  }
-
-  const title = item.title || item.name || `${item.home_team} vs ${item.away_team}`;
-  const isMovie = kind === "movie";
-  const isSeries = kind === "series";
-
   // Log a watch-history session (once per player load per content)
   useEffect(() => {
     if (!item || !id || !kind) return;
@@ -136,14 +128,20 @@ export default function Player() {
         user_id: uid,
         content_kind: kind,
         content_id: id,
-        content_title: title,
+        content_title: item.title || item.name || `${item.home_team ?? ""} vs ${item.away_team ?? ""}`.trim(),
         genre: (item as any).genre ?? null,
       });
     })();
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, kind, item?.id]);
+  }, [id, kind, item]);
 
+  if (!item) {
+    return <div className="pt-24 px-6 text-muted-foreground">Loading…</div>;
+  }
+
+  const title = item.title || item.name || `${item.home_team} vs ${item.away_team}`;
+  const isMovie = kind === "movie";
+  const isSeries = kind === "series";
   const src = servers[Math.min(serverIdx, Math.max(0, servers.length - 1))]?.url ?? null;
   const useIframePlayer = !isMovie && !isSeries && item.source_type === "iframe";
   const isTv = kind === "tv";
