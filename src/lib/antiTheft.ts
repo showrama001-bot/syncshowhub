@@ -3,6 +3,8 @@
  * drag-and-drop on images/videos, and text selection on media wrappers.
  * Note: this is a deterrent, not real DRM — a determined user can still inspect.
  */
+import { installRateGuard } from "./rateGuard";
+
 export function installAntiTheft() {
   if (typeof window === "undefined") return;
   if ((window as any).__antiTheftInstalled) return;
@@ -45,8 +47,13 @@ export function installAntiTheft() {
       e.preventDefault();
       return;
     }
-    // Ctrl/Cmd + Shift + I/J/C  -> devtools / console / inspector
-    if ((e.ctrlKey || e.metaKey) && e.shiftKey && ["i", "j", "c"].includes(key)) {
+    // Ctrl/Cmd + P  -> print
+    if ((e.ctrlKey || e.metaKey) && key === "p") {
+      e.preventDefault();
+      return;
+    }
+    // Ctrl/Cmd + Shift + I/J/C/K  -> devtools / console / inspector
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && ["i", "j", "c", "k"].includes(key)) {
       e.preventDefault();
       return;
     }
@@ -65,4 +72,7 @@ export function installAntiTheft() {
   document.addEventListener("contextmenu", onContext);
   document.addEventListener("keydown", onKey);
   document.addEventListener("dragstart", onDragStart);
+
+  // Detect abnormal automated request bursts → 5-minute cooldown.
+  installRateGuard();
 }
