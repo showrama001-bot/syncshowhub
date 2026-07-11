@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { validatePasswordStrength, PASSWORD_POLICY_MESSAGE } from "@/lib/passwordPolicy";
 
 export default function ResetPassword() {
   const nav = useNavigate();
@@ -26,6 +27,8 @@ export default function ResetPassword() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const pwErr = validatePasswordStrength(password);
+    if (pwErr) return toast.error(pwErr);
     setLoading(true);
     const { error } = await supabase.auth.updateUser({ password });
     setLoading(false);
@@ -46,7 +49,8 @@ export default function ResetPassword() {
           <form onSubmit={submit} className="space-y-4">
             <div>
               <Label>New password</Label>
-              <Input type="password" minLength={6} required value={password} onChange={(e) => setPassword(e.target.value)} />
+              <Input type="password" minLength={8} required value={password} onChange={(e) => setPassword(e.target.value)} />
+              <p className="text-[11px] text-muted-foreground mt-1">{PASSWORD_POLICY_MESSAGE}</p>
             </div>
             <Button type="submit" disabled={loading} className="w-full bg-gradient-red shadow-neon">
               Update password
