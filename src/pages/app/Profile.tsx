@@ -68,6 +68,16 @@ export default function Profile() {
             <AvatarFallback>{(p.display_name || p.username || user?.email || "?").slice(0,1).toUpperCase()}</AvatarFallback>
           </Avatar>
           <div>
+            {(p.display_name || p.username) && (
+              <div className="mb-2">
+                {p.display_name && (
+                  <div className="font-display text-lg leading-tight">{p.display_name}</div>
+                )}
+                {p.username && (
+                  <div className="text-sm text-muted-foreground">@{p.username}</div>
+                )}
+              </div>
+            )}
             <input ref={fileRef} type="file" accept="image/*" hidden onChange={onPickFile} />
             <Button type="button" variant="outline" onClick={() => fileRef.current?.click()} disabled={uploading}>
               <Upload className="h-4 w-4 mr-1" /> {uploading ? "Uploading…" : "Change photo"}
