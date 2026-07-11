@@ -70,6 +70,7 @@ const App = () => {
               <Route path="/watch-together" element={<Navigate to="/rooms" replace />} />
               <Route path="/watch" element={<Navigate to="/rooms" replace />} />
               <Route path="/watch/:roomId" element={<Watch />} />
+              <Route path="/watch/room/:roomId" element={<Watch />} />
               <Route path="/dms" element={<DMs />} />
               <Route path="/friends" element={<Friends />} />
               <Route path="/profile" element={<Profile />} />
