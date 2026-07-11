@@ -115,7 +115,7 @@ export default function Watch() {
       setChat((c) => [...c, payload as any]);
     });
     ch.on("broadcast", { event: "kick" }, ({ payload }) => {
-      if (payload?.userId && user && payload.userId === user.id) {
+      if (payload?.userId && user && (payload.userId === user.id || payload.userId === "*")) {
         toast.error("You were removed from this room by the host.");
         setTimeout(() => navigate("/rooms"), 400);
       }
