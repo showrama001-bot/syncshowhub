@@ -78,8 +78,9 @@ const App = () => {
               <Route path="/accueil" element={<Accueil />} />
               <Route path="/reels" element={<Reels />} />
               <Route path="/trailers" element={<Trailers />} />
-              <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
-              <Route path="/admin/dashboard" element={<Admin />} />
+              <Route path="/admin" element={<Navigate to="/admin/dashboard/hub-secure-2026" replace />} />
+              <Route path="/admin/dashboard" element={<Navigate to="/admin/dashboard/hub-secure-2026" replace />} />
+              <Route path="/admin/dashboard/hub-secure-2026" element={<Admin />} />
               <Route
                 path="/play/:kind/:id"
                 element={
