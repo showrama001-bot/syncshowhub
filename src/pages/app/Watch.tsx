@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import {
   Calendar, Send, Search, Settings, Lock,
-  Copy, Bell, BellOff, Play, Users, UserX,
+  Copy, Bell, BellOff, Play, Users, UserX, Trash2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -200,6 +200,17 @@ export default function Watch() {
     if (error) toast.error(error.message);
   };
 
+  const deleteRoom = async () => {
+    if (!room || !isHost) return;
+    if (!confirm("Close and delete this watch room? Everyone will be removed.")) return;
+    // Notify all participants to leave
+    channelRef.current?.send({ type: "broadcast", event: "kick", payload: { userId: "*" } });
+    const { error } = await (supabase.from("watch_rooms" as any) as any).delete().eq("id", room.id);
+    if (error) return toast.error(error.message);
+    toast.success("Room closed");
+    navigate("/rooms");
+  };
+
   const countdown = useMemo(() => {
     if (!room?.scheduled_at) return null;
     const diff = new Date(room.scheduled_at).getTime() - now;
@@ -265,6 +276,11 @@ export default function Watch() {
         </Button>
         <FriendsSidebar roomId={room.id} />
         {isHost && <HostSettings room={room} update={updateRoom} />}
+        {isHost && (
+          <Button size="sm" variant="destructive" onClick={deleteRoom}>
+            <Trash2 className="h-4 w-4 mr-1" /> Close room
+          </Button>
+        )}
         {!isHost && room.status === "scheduled" && (
           <Button size="sm" variant="outline" onClick={toggleReminder}>
             {reminded ? <BellOff className="h-4 w-4 mr-1" /> : <Bell className="h-4 w-4 mr-1" />}
