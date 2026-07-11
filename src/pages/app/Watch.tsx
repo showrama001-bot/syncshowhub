@@ -117,7 +117,7 @@ export default function Watch() {
     ch.on("broadcast", { event: "kick" }, ({ payload }) => {
       if (payload?.userId && user && (payload.userId === user.id || payload.userId === "*")) {
         toast.error("You were removed from this room by the host.");
-        setTimeout(() => navigate("/rooms"), 400);
+        setTimeout(() => navigate("/"), 400);
       }
     });
     ch.on("presence", { event: "sync" }, () => {
@@ -154,7 +154,7 @@ export default function Watch() {
       .then(({ data }: any) => {
         if (data) {
           toast.error("You are banned from this room.");
-          navigate("/rooms");
+          navigate("/");
         }
       });
   }, [user?.id, roomId, navigate]);
@@ -319,15 +319,17 @@ export default function Watch() {
           {/* Host content picker */}
           {isHost && <ContentSearch room={room} update={updateRoom} />}
 
-          {/* In-app WebRTC video + voice */}
+          {/* In-app WebRTC video + voice — mobile/tablet only; desktop shows it in the sidebar */}
           {user && (
-            <MediaChat
-              roomId={room.id}
-              userId={user.id}
-              hostId={room.host_id}
-              isHost={isHost}
-              onKick={(uid) => kickUser(uid)}
-            />
+            <div className="lg:hidden">
+              <MediaChat
+                roomId={room.id}
+                userId={user.id}
+                hostId={room.host_id}
+                isHost={isHost}
+                onKick={(uid) => kickUser(uid)}
+              />
+            </div>
           )}
 
           {/* Participants + host kick */}
@@ -361,7 +363,20 @@ export default function Watch() {
 
         {/* Sidebar / Chat */}
         <aside className="lg:sticky lg:top-20 self-start w-full">
-          <div className="glass rounded-2xl flex flex-col h-[60vh] lg:h-[calc(100vh-110px)] min-h-[360px]">
+          <div className="flex flex-col gap-3 lg:h-[calc(100vh-110px)]">
+            {/* Desktop: video/voice tiles above chat */}
+            {user && (
+              <div className="hidden lg:block">
+                <MediaChat
+                  roomId={room.id}
+                  userId={user.id}
+                  hostId={room.host_id}
+                  isHost={isHost}
+                  onKick={(uid) => kickUser(uid)}
+                />
+              </div>
+            )}
+            <div className="glass rounded-2xl flex flex-col h-[60vh] lg:h-auto lg:flex-1 min-h-[320px]">
             <div className="px-4 py-2 text-xs uppercase tracking-widest text-muted-foreground border-b border-border/40 flex items-center justify-between">
               <span>Group Chat</span>
               <span className="normal-case tracking-normal text-[10px]">Room {room.id.slice(0, 8)}</span>
@@ -383,6 +398,7 @@ export default function Watch() {
                 className="bg-secondary/50"
               />
               <Button size="icon" onClick={sendChat} className="bg-gradient-red shadow-neon"><Send className="h-4 w-4" /></Button>
+            </div>
             </div>
           </div>
         </aside>
