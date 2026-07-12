@@ -161,10 +161,18 @@ function UsersTab() {
 
   const load = async () => {
     const [{ data: profs }, { data: roles }] = await Promise.all([
-      supabase.from("profiles").select("*").order("created_at", { ascending: false }),
+      supabase
+        .from("profiles")
+        .select("id, username, display_name, avatar_url, bio, created_at, updated_at")
+        .order("created_at", { ascending: false }),
       supabase.from("user_roles").select("user_id, role"),
     ]);
-    setUsers(profs ?? []);
+    const ids = (profs ?? []).map((p: any) => p.id);
+    const { data: bans } = ids.length
+      ? await supabase.rpc("admin_get_ban_status", { _ids: ids })
+      : { data: [] as any[] };
+    const banMap = new Map<string, any>((bans ?? []).map((b: any) => [b.id, b]));
+    setUsers((profs ?? []).map((p: any) => ({ ...p, ...(banMap.get(p.id) ?? {}) })));
     setAdmins(new Set((roles ?? []).filter((r: any) => r.role === "admin").map((r: any) => r.user_id)));
   };
   useEffect(() => { load(); }, []);
