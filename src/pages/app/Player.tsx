@@ -147,6 +147,13 @@ export default function Player() {
   const useIframePlayer = !isMovie && !isSeries && item.source_type === "iframe";
   const isTv = kind === "tv";
   const activeSubs = (kind === "series" ? activeEpisode?.subtitles : item?.subtitles) ?? [];
+  const introStart = (kind === "series" ? activeEpisode?.intro_start_seconds : (item as any)?.intro_start_seconds) ?? null;
+  const introEnd = (kind === "series" ? activeEpisode?.intro_end_seconds : (item as any)?.intro_end_seconds) ?? null;
+  const reactionChannel = kind === "tv"
+    ? `tv:${id}`
+    : isSeries && activeEpisode
+    ? `episode:${activeEpisode.id}`
+    : `${kind}:${id}`;
 
   if (isTv) {
     return (
@@ -173,7 +180,7 @@ export default function Player() {
                   {useIframePlayer || isEmbedUrl(src) ? (
                     <EmbedPlayer src={src} title={title} />
                   ) : (
-                    <HlsPlayer src={src} poster={item.logo_url} subtitles={activeSubs} />
+                    <HlsPlayer src={src} poster={item.logo_url} subtitles={activeSubs} reactionChannelKey={reactionChannel} />
                   )}
                 </VideoAdPlayer>
                 <FloatingReactions channelKey={`tv:${id}`} />
@@ -302,6 +309,9 @@ export default function Player() {
                   title={title}
                   onEnded={isSeries && nextEpisode ? () => setShowAutoNext(true) : undefined}
                   subtitles={activeSubs}
+                  introStart={introStart}
+                  introEnd={introEnd}
+                  reactionChannelKey={reactionChannel}
                 />
                 {isSeries && showAutoNext && nextEpisode && (
                   <AutoNextOverlay
@@ -315,10 +325,10 @@ export default function Player() {
           ) : useIframePlayer ? (
             <EmbedPlayer src={src} title={title} />
           ) : (
-            <HlsPlayer src={src} poster={item.backdrop_url || item.poster_url} subtitles={activeSubs} />
+            <HlsPlayer src={src} poster={item.backdrop_url || item.poster_url} subtitles={activeSubs} introStart={introStart} introEnd={introEnd} reactionChannelKey={reactionChannel} />
           )}
         </VideoAdPlayer>
-        <FloatingReactions />
+        <FloatingReactions channelKey={reactionChannel} />
         </div>
       ) : (
         <div className="aspect-video glass rounded-2xl grid place-items-center text-muted-foreground">
