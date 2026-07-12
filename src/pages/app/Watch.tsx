@@ -350,11 +350,16 @@ export default function Watch() {
           {isHost ? (
             <ContentSearch room={room} update={updateRoom} />
           ) : (
-            <div className="glass rounded-2xl p-3 flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="glass rounded-2xl p-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <Lock className="h-3.5 w-3.5 text-primary" />
-              <span>
+              <span className="flex-1 min-w-[180px]">
                 Only the host can switch the movie, episode, or live TV channel in this room.
               </span>
+              <RequestChannelChange
+                channel={channelRef}
+                fromName={identity.displayName || "A viewer"}
+                userId={user?.id ?? ""}
+              />
             </div>
           )}
 
