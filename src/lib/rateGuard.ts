@@ -3,8 +3,11 @@
 // the user to a cooldown page. This is a deterrent, not real DDoS protection.
 
 const LS_KEY = "syncshow.cooldown.until";
-const WINDOW_MS = 10_000;   // 10 seconds
-const MAX_REQUESTS = 80;    // threshold across the sliding window
+// Tuned to only catch clearly-automated bursts. Legitimate flows (admin
+// dashboard, reels, chunked uploads, realtime reconnects) can easily fire
+// dozens of fetches in a short interval, so keep the threshold generous.
+const WINDOW_MS = 5_000;    // 5 seconds
+const MAX_REQUESTS = 400;   // threshold across the sliding window
 const COOLDOWN_MS = 5 * 60 * 1000;
 
 export function getCooldownRemainingMs(): number {
