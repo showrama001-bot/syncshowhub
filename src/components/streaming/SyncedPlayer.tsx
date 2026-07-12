@@ -100,10 +100,12 @@ export function SyncedPlayer({ roomId, src, poster, isHost, subtitles, introStar
     const onError = () => setStatus("failed");
     v.addEventListener("canplay", onCanPlay, { once: true });
     v.addEventListener("error", onError);
-    // Playback timeout: 15s to reach canplay, else mark failed.
+    // Playback timeout: give slower connections and live HLS streams plenty
+    // of time to buffer enough segments to reach HAVE_FUTURE_DATA before
+    // declaring the stream failed.
     const timeoutId = window.setTimeout(() => {
       if (v.readyState < 3) setStatus((s) => (s === "ready" ? s : "failed"));
-    }, 15000);
+    }, 45000);
     return () => {
       v.removeEventListener("canplay", onCanPlay);
       v.removeEventListener("error", onError);
