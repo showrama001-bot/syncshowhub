@@ -148,3 +148,14 @@ html { scrollbar-width: thin; scrollbar-color: hsl(var(--primary) / 0.35) transp
 }
 *::-webkit-scrollbar-thumb:hover { background-color: hsl(var(--primary) / 0.55); }
 *::-webkit-scrollbar-corner { background: transparent; }
+
+/* ===== Floating reactions ===== */
+@keyframes reaction-float {
+  0%   { transform: translateY(0) scale(0.8); opacity: 0; }
+  15%  { opacity: 1; }
+  100% { transform: translateY(-260px) scale(1.4) rotate(6deg); opacity: 0; }
+}
+.reaction-float {
+  animation: reaction-float 2.4s ease-out forwards;
+  will-change: transform, opacity;
+}
