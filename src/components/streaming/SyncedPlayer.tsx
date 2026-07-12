@@ -20,7 +20,8 @@ export function SyncedPlayer({ roomId, src, poster, isHost }: Props) {
   const suppressRef = useRef(false); // ignore events we just applied
   const [needsTap, setNeedsTap] = useState(false); // guest autoplay blocked
   const [muted, setMuted] = useState(!isHost); // guests start muted so autoplay works
-  const [status, setStatus] = useState<"loading" | "ready">("loading");
+  const [status, setStatus] = useState<"loading" | "ready" | "failed">("loading");
+  const [retryNonce, setRetryNonce] = useState(0);
   const [readyCount, setReadyCount] = useState(1);
   const [totalCount, setTotalCount] = useState(1);
   const viewerIdRef = useRef<string>(
@@ -38,6 +39,9 @@ export function SyncedPlayer({ roomId, src, poster, isHost }: Props) {
       hls = new Hls({ enableWorker: true });
       hls.loadSource(src);
       hls.attachMedia(v);
+      hls.on(Hls.Events.ERROR, (_e, data) => {
+        if (data?.fatal) setStatus("failed");
+      });
     } else {
       v.src = src;
     }
@@ -74,12 +78,20 @@ export function SyncedPlayer({ roomId, src, poster, isHost }: Props) {
         payload: { viewerId: viewerIdRef.current, src },
       });
     };
+    const onError = () => setStatus("failed");
     v.addEventListener("canplay", onCanPlay, { once: true });
+    v.addEventListener("error", onError);
+    // Playback timeout: 15s to reach canplay, else mark failed.
+    const timeoutId = window.setTimeout(() => {
+      if (v.readyState < 3) setStatus((s) => (s === "ready" ? s : "failed"));
+    }, 15000);
     return () => {
       v.removeEventListener("canplay", onCanPlay);
+      v.removeEventListener("error", onError);
+      window.clearTimeout(timeoutId);
       hls?.destroy();
     };
-  }, [src, isHost]);
+  }, [src, isHost, retryNonce]);
 
   // Realtime sync channel.
   useEffect(() => {
@@ -197,6 +209,11 @@ export function SyncedPlayer({ roomId, src, poster, isHost }: Props) {
     v.play().catch(() => {});
   };
 
+  const retry = () => {
+    setStatus("loading");
+    setRetryNonce((n) => n + 1);
+  };
+
   return (
     <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-black shadow-card player-shell">
       <video
@@ -216,6 +233,8 @@ export function SyncedPlayer({ roomId, src, poster, isHost }: Props) {
         className={`absolute top-2 right-2 z-30 px-2.5 py-1 rounded-full text-[10px] uppercase tracking-widest flex items-center gap-1.5 backdrop-blur ${
           status === "loading"
             ? "bg-amber-500/25 text-amber-200 border border-amber-400/40"
+            : status === "failed"
+            ? "bg-red-500/25 text-red-200 border border-red-400/40"
             : "bg-emerald-500/20 text-emerald-200 border border-emerald-400/40"
         }`}
         aria-live="polite"
@@ -224,6 +243,11 @@ export function SyncedPlayer({ roomId, src, poster, isHost }: Props) {
           <>
             <span className="h-1.5 w-1.5 rounded-full bg-amber-300 animate-pulse" />
             Loading channel… {readyCount}/{totalCount} ready
+          </>
+        ) : status === "failed" ? (
+          <>
+            <span className="h-1.5 w-1.5 rounded-full bg-red-300" />
+            Stream failed
           </>
         ) : readyCount < totalCount ? (
           <>
@@ -243,6 +267,21 @@ export function SyncedPlayer({ roomId, src, poster, isHost }: Props) {
             <span className="h-3 w-3 rounded-full border-2 border-white/40 border-t-white animate-spin" />
             {isHost ? "Loading new channel…" : "Host switched channel — loading…"}
           </div>
+        </div>
+      )}
+      {status === "failed" && (
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-black/80 text-center p-4">
+          <div className="text-white font-semibold">Stream failed to load</div>
+          <div className="text-xs text-white/70 max-w-xs">
+            The live stream didn't respond in time. Retry, or ask the host to switch to a different channel.
+          </div>
+          <button
+            type="button"
+            onClick={retry}
+            className="px-4 py-2 rounded-full bg-primary text-primary-foreground text-sm font-semibold shadow-neon hover:opacity-90"
+          >
+            Retry playback
+          </button>
         </div>
       )}
       {!isHost && (
