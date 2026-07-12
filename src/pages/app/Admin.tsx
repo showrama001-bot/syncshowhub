@@ -45,6 +45,7 @@ import StorageModeToggle from "@/components/admin/StorageModeToggle";
 import CommunityUploadsQueue from "@/components/admin/CommunityUploadsQueue";
 import ReelsManager from "@/components/admin/ReelsManager";
 import { MovieSearchPicker } from "@/components/admin/MovieSearchPicker";
+import { SubtitlesManager } from "@/components/admin/SubtitlesManager";
 import { useStorageMode } from "@/hooks/useStorageMode";
 
 type SourceType = "hls" | "iframe";
@@ -524,6 +525,12 @@ function MoviesTab() {
                 placeholder="https://syncshow.b-cdn.net/…"
               />
             </Field>
+          </div>
+        )}
+
+        {editingId && (
+          <div className="sm:col-span-2">
+            <SubtitlesManager contentId={editingId} table="movies" />
           </div>
         )}
 

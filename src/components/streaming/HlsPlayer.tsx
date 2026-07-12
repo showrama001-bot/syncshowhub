@@ -1,8 +1,12 @@
 import { useEffect, useRef } from "react";
 import Hls from "hls.js";
+import { useSubtitleTracks, SubtitleTrack } from "@/lib/subtitles";
 
-export const HlsPlayer = ({ src, poster }: { src: string; poster?: string }) => {
+export const HlsPlayer = ({
+  src, poster, subtitles,
+}: { src: string; poster?: string; subtitles?: SubtitleTrack[] }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const tracks = useSubtitleTracks(subtitles);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -31,6 +35,16 @@ export const HlsPlayer = ({ src, poster }: { src: string; poster?: string }) => 
       disablePictureInPicture
       onContextMenu={(e) => e.preventDefault()}
       className="w-full aspect-video rounded-2xl bg-black shadow-card"
-    />
+    >
+      {tracks.map((t) => (
+        <track
+          key={`${t.lang}-${t.url}`}
+          kind="subtitles"
+          src={t.url}
+          srcLang={t.lang}
+          label={t.label}
+        />
+      ))}
+    </video>
   );
 };

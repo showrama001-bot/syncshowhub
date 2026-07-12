@@ -299,6 +299,7 @@ export type Database = {
           stream_sources: Json
           stream_url: string | null
           streamtape_url: string | null
+          subtitles: Json
           title: string
           voe_sx_url: string | null
         }
@@ -311,6 +312,7 @@ export type Database = {
           stream_sources?: Json
           stream_url?: string | null
           streamtape_url?: string | null
+          subtitles?: Json
           title: string
           voe_sx_url?: string | null
         }
@@ -323,6 +325,7 @@ export type Database = {
           stream_sources?: Json
           stream_url?: string | null
           streamtape_url?: string | null
+          subtitles?: Json
           title?: string
           voe_sx_url?: string | null
         }
@@ -679,6 +682,7 @@ export type Database = {
           stream_sources: Json
           stream_url: string | null
           streamtape_url: string | null
+          subtitles: Json
           title: string
           tmdb_id: number | null
           voe_sx_url: string | null
@@ -705,6 +709,7 @@ export type Database = {
           stream_sources?: Json
           stream_url?: string | null
           streamtape_url?: string | null
+          subtitles?: Json
           title: string
           tmdb_id?: number | null
           voe_sx_url?: string | null
@@ -731,6 +736,7 @@ export type Database = {
           stream_sources?: Json
           stream_url?: string | null
           streamtape_url?: string | null
+          subtitles?: Json
           title?: string
           tmdb_id?: number | null
           voe_sx_url?: string | null
