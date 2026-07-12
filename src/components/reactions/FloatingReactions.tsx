@@ -31,6 +31,8 @@ export function FloatingReactions({
       born: Date.now(),
     };
     setItems((it) => [...it, r]);
+    // Notify heatmap listeners in the same window (local reactions).
+    try { window.dispatchEvent(new CustomEvent("floating-reaction", { detail: { emoji } })); } catch {}
     window.setTimeout(() => {
       setItems((it) => it.filter((x) => x.id !== r.id));
     }, 2600);
