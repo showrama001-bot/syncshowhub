@@ -64,6 +64,22 @@ export default function Watch() {
 
   const isHost = !!user && !!room && user.id === room.host_id;
 
+  // Load subtitle tracks for the currently-playing movie/episode.
+  const [subtitles, setSubtitles] = useState<any[]>([]);
+  useEffect(() => {
+    setSubtitles([]);
+    if (!room?.content_id || !room?.content_kind) return;
+    const table =
+      room.content_kind === "episode" ? "episodes" :
+      room.content_kind === "movie" ? "movies" : null;
+    if (!table) return;
+    (supabase.from(table as any) as any)
+      .select("subtitles").eq("id", room.content_id).maybeSingle()
+      .then(({ data }: any) => {
+        setSubtitles(Array.isArray(data?.subtitles) ? data.subtitles : []);
+      });
+  }, [room?.content_id, room?.content_kind]);
+
   // Load room + subscribe to changes
   useEffect(() => {
     if (!roomId) return;
@@ -339,6 +355,7 @@ export default function Watch() {
               src={src}
               poster={room.poster_url || undefined}
               isHost={isHost}
+              subtitles={subtitles}
             />
           ) : (
             <div className="aspect-video rounded-2xl glass grid place-items-center text-muted-foreground text-center px-4">
