@@ -295,6 +295,8 @@ export type Database = {
           doodstream_url: string | null
           episode_number: number
           id: string
+          intro_end_seconds: number | null
+          intro_start_seconds: number | null
           season_id: string
           stream_sources: Json
           stream_url: string | null
@@ -308,6 +310,8 @@ export type Database = {
           doodstream_url?: string | null
           episode_number: number
           id?: string
+          intro_end_seconds?: number | null
+          intro_start_seconds?: number | null
           season_id: string
           stream_sources?: Json
           stream_url?: string | null
@@ -321,6 +325,8 @@ export type Database = {
           doodstream_url?: string | null
           episode_number?: number
           id?: string
+          intro_end_seconds?: number | null
+          intro_start_seconds?: number | null
           season_id?: string
           stream_sources?: Json
           stream_url?: string | null
@@ -673,6 +679,8 @@ export type Database = {
           genre: string | null
           id: string
           imdb_rating: number | null
+          intro_end_seconds: number | null
+          intro_start_seconds: number | null
           is_admin_upload: boolean
           poster_url: string | null
           provider: string | null
@@ -700,6 +708,8 @@ export type Database = {
           genre?: string | null
           id?: string
           imdb_rating?: number | null
+          intro_end_seconds?: number | null
+          intro_start_seconds?: number | null
           is_admin_upload?: boolean
           poster_url?: string | null
           provider?: string | null
@@ -727,6 +737,8 @@ export type Database = {
           genre?: string | null
           id?: string
           imdb_rating?: number | null
+          intro_end_seconds?: number | null
+          intro_start_seconds?: number | null
           is_admin_upload?: boolean
           poster_url?: string | null
           provider?: string | null

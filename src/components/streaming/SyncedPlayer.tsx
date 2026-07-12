@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useSubtitleTracks, SubtitleTrack } from "@/lib/subtitles";
 import { useLocalPref } from "@/hooks/useLocalPref";
 import { PopoutButton } from "@/components/miniplayer/MiniPlayerProvider";
+import { SkipIntroButton } from "@/components/player/SkipIntroButton";
+import { ReactionHeatmap } from "@/components/player/ReactionHeatmap";
 
 interface Props {
   roomId: string;
@@ -11,6 +13,10 @@ interface Props {
   poster?: string;
   isHost: boolean;
   subtitles?: SubtitleTrack[];
+  introStart?: number | null;
+  introEnd?: number | null;
+  onEnded?: () => void;
+  reactionChannelKey?: string;
 }
 
 /**
@@ -18,7 +24,7 @@ interface Props {
  * Supabase Realtime broadcast channel. Host is authoritative — guests apply
  * events with drift correction.
  */
-export function SyncedPlayer({ roomId, src, poster, isHost, subtitles }: Props) {
+export function SyncedPlayer({ roomId, src, poster, isHost, subtitles, introStart, introEnd, onEnded, reactionChannelKey }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const tracks = useSubtitleTracks(subtitles);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -34,6 +40,14 @@ export function SyncedPlayer({ roomId, src, poster, isHost, subtitles }: Props) 
   );
   const readyPeersRef = useRef<Set<string>>(new Set());
   const srcTokenRef = useRef<string>("");
+
+  // Fire onEnded callback for parent (end-of-movie celebration, etc.).
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || !onEnded) return;
+    v.addEventListener("ended", onEnded);
+    return () => v.removeEventListener("ended", onEnded);
+  }, [onEnded, src]);
 
   // Attach source (HLS or native).
   useEffect(() => {
@@ -261,6 +275,8 @@ export function SyncedPlayer({ roomId, src, poster, isHost, subtitles }: Props) 
           />
         ))}
       </video>
+      <SkipIntroButton videoRef={videoRef} introStart={introStart} introEnd={introEnd} />
+      {reactionChannelKey && <ReactionHeatmap channelKey={reactionChannelKey} videoRef={videoRef} />}
 
       {/* Per-user Subtitles / CC menu */}
       {tracks.length > 0 && (

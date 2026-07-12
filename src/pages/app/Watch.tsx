@@ -28,6 +28,7 @@ import { sha256Hex } from "@/lib/watchRooms";
 import { FriendsSidebar } from "@/components/friends/FriendsSidebar";
 import { RoomInvitePopover } from "@/components/rooms/RoomInvitePopover";
 import { FloatingReactions } from "@/components/reactions/FloatingReactions";
+import confetti from "canvas-confetti";
 
 type Room = {
   id: string;
@@ -68,19 +69,59 @@ export default function Watch() {
 
   // Load subtitle tracks for the currently-playing movie/episode.
   const [subtitles, setSubtitles] = useState<any[]>([]);
+  const [introStart, setIntroStart] = useState<number | null>(null);
+  const [introEnd, setIntroEnd] = useState<number | null>(null);
   useEffect(() => {
     setSubtitles([]);
+    setIntroStart(null);
+    setIntroEnd(null);
     if (!room?.content_id || !room?.content_kind) return;
     const table =
       room.content_kind === "episode" ? "episodes" :
       room.content_kind === "movie" ? "movies" : null;
     if (!table) return;
     (supabase.from(table as any) as any)
-      .select("subtitles").eq("id", room.content_id).maybeSingle()
+      .select("subtitles, intro_start_seconds, intro_end_seconds").eq("id", room.content_id).maybeSingle()
       .then(({ data }: any) => {
         setSubtitles(Array.isArray(data?.subtitles) ? data.subtitles : []);
+        setIntroStart(typeof data?.intro_start_seconds === "number" ? data.intro_start_seconds : null);
+        setIntroEnd(typeof data?.intro_end_seconds === "number" ? data.intro_end_seconds : null);
       });
   }, [room?.content_id, room?.content_kind]);
+  // End-of-movie celebration — plays for everyone in the room the moment
+  // the shared video reaches its end event.
+  const celebrate = () => {
+    try {
+      const end = Date.now() + 1400;
+      const colors = ["#ef4444", "#f59e0b", "#22d3ee", "#a855f7", "#ffffff"];
+      (function frame() {
+        confetti({ particleCount: 4, angle: 60, spread: 65, origin: { x: 0, y: 0.75 }, colors });
+        confetti({ particleCount: 4, angle: 120, spread: 65, origin: { x: 1, y: 0.75 }, colors });
+        if (Date.now() < end) requestAnimationFrame(frame);
+      })();
+    } catch {}
+    try {
+      const AC = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (!AC) return;
+      const ctx = new AC();
+      const notes = [523.25, 659.25, 783.99, 1046.5]; // C E G C
+      notes.forEach((f, i) => {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = "triangle";
+        o.frequency.value = f;
+        const t0 = ctx.currentTime + i * 0.12;
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.exponentialRampToValueAtTime(0.18, t0 + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.35);
+        o.connect(g).connect(ctx.destination);
+        o.start(t0);
+        o.stop(t0 + 0.4);
+      });
+      setTimeout(() => ctx.close().catch(() => {}), 1600);
+    } catch {}
+  };
+
 
   // Load room + subscribe to changes
   useEffect(() => {
@@ -351,6 +392,10 @@ export default function Watch() {
                 poster={room.poster_url || undefined}
                 isHost={isHost}
                 subtitles={subtitles}
+                introStart={introStart}
+                introEnd={introEnd}
+                onEnded={celebrate}
+                reactionChannelKey={`room:${room.id}`}
               />
               <FloatingReactions channelKey={`room:${room.id}`} />
             </div>

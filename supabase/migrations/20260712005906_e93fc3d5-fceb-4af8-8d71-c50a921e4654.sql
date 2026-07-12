@@ -1,0 +1,2 @@
+ALTER TABLE public.movies ADD COLUMN IF NOT EXISTS intro_start_seconds INTEGER, ADD COLUMN IF NOT EXISTS intro_end_seconds INTEGER;
+ALTER TABLE public.episodes ADD COLUMN IF NOT EXISTS intro_start_seconds INTEGER, ADD COLUMN IF NOT EXISTS intro_end_seconds INTEGER;

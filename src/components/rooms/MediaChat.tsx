@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, Video, VideoOff, PhoneOff, Phone, UserX } from "lucide-react";
+import { Mic, MicOff, Video, VideoOff, PhoneOff, Phone, UserX, Radio } from "lucide-react";
 import { toast } from "sonner";
 
 interface Props {
@@ -23,6 +23,8 @@ export function MediaChat({ roomId, userId, hostId, isHost, onKick }: Props) {
   const [joined, setJoined] = useState(false);
   const [muted, setMuted] = useState(false);
   const [camOn, setCamOn] = useState(true);
+  const [pttEnabled, setPttEnabled] = useState(false);
+  const [pttActive, setPttActive] = useState(false);
   const [peers, setPeers] = useState<PeerState[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const pcsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
@@ -164,6 +166,48 @@ export function MediaChat({ roomId, userId, hostId, isHost, onKick }: Props) {
     setCamOn(next);
   };
 
+  /** Apply audio track enabled state based on mute + PTT rules. */
+  const applyAudioState = (opts?: { forceActive?: boolean }) => {
+    const s = streamRef.current;
+    if (!s) return;
+    const active = opts?.forceActive ?? pttActive;
+    const shouldTransmit = !muted && (!pttEnabled || active);
+    s.getAudioTracks().forEach((t) => (t.enabled = shouldTransmit));
+  };
+
+  // Re-apply whenever mute / PTT state changes.
+  useEffect(() => { applyAudioState(); }, [muted, pttEnabled, pttActive]);
+
+  // Global spacebar listener for push-to-talk.
+  useEffect(() => {
+    if (!joined || !pttEnabled) return;
+    const isTypingTarget = (el: EventTarget | null) => {
+      const t = el as HTMLElement | null;
+      if (!t) return false;
+      const tag = t.tagName;
+      return tag === "INPUT" || tag === "TEXTAREA" || (t as any).isContentEditable;
+    };
+    const onDown = (e: KeyboardEvent) => {
+      if (e.code !== "Space" || e.repeat) return;
+      if (isTypingTarget(e.target)) return;
+      e.preventDefault();
+      setPttActive(true);
+    };
+    const onUp = (e: KeyboardEvent) => {
+      if (e.code !== "Space") return;
+      if (isTypingTarget(e.target)) return;
+      e.preventDefault();
+      setPttActive(false);
+    };
+    window.addEventListener("keydown", onDown);
+    window.addEventListener("keyup", onUp);
+    return () => {
+      window.removeEventListener("keydown", onDown);
+      window.removeEventListener("keyup", onUp);
+      setPttActive(false);
+    };
+  }, [joined, pttEnabled]);
+
   return (
     <div className="glass rounded-2xl p-3 space-y-3">
       <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -201,6 +245,31 @@ export function MediaChat({ roomId, userId, hostId, isHost, onKick }: Props) {
           )}
         </div>
       </div>
+
+      {joined && (
+        <div className="flex items-center justify-between gap-2 rounded-xl bg-secondary/40 px-3 py-2 text-xs">
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={pttEnabled}
+              onChange={(e) => setPttEnabled(e.target.checked)}
+              className="accent-primary"
+            />
+            <Radio className="h-3.5 w-3.5 text-primary" />
+            <span className="font-semibold">Push-to-Talk</span>
+            <span className="text-muted-foreground">Hold <kbd className="px-1 rounded bg-black/40 text-white">Space</kbd> to talk</span>
+          </label>
+          {pttEnabled && (
+            <span
+              className={`px-2 py-0.5 rounded-full text-[10px] uppercase tracking-widest ${
+                pttActive ? "bg-emerald-500/25 text-emerald-200" : "bg-black/40 text-muted-foreground"
+              }`}
+            >
+              {pttActive ? "● Live" : "Muted"}
+            </span>
+          )}
+        </div>
+      )}
 
       {joined && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">

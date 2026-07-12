@@ -3,10 +3,15 @@ import Hls from "hls.js";
 import { useSubtitleTracks, SubtitleTrack } from "@/lib/subtitles";
 import { CcMenu } from "./CcMenu";
 import { PopoutButton } from "@/components/miniplayer/MiniPlayerProvider";
+import { SkipIntroButton } from "@/components/player/SkipIntroButton";
+import { ReactionHeatmap } from "@/components/player/ReactionHeatmap";
 
 export const HlsPlayer = ({
-  src, poster, subtitles,
-}: { src: string; poster?: string; subtitles?: SubtitleTrack[] }) => {
+  src, poster, subtitles, introStart, introEnd, reactionChannelKey,
+}: {
+  src: string; poster?: string; subtitles?: SubtitleTrack[];
+  introStart?: number | null; introEnd?: number | null; reactionChannelKey?: string;
+}) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const tracks = useSubtitleTracks(subtitles);
 
@@ -50,6 +55,8 @@ export const HlsPlayer = ({
         ))}
       </video>
       <CcMenu videoRef={videoRef} tracks={tracks} />
+      <SkipIntroButton videoRef={videoRef} introStart={introStart} introEnd={introEnd} />
+      {reactionChannelKey && <ReactionHeatmap channelKey={reactionChannelKey} videoRef={videoRef} />}
       <div className="absolute top-2 right-2 z-20">
         <PopoutButton get={() => ({ src, poster, currentTime: videoRef.current?.currentTime ?? 0, href: window.location.pathname })} />
       </div>

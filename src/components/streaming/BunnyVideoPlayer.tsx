@@ -2,6 +2,8 @@ import { useEffect, useRef } from "react";
 import { useSubtitleTracks, SubtitleTrack } from "@/lib/subtitles";
 import { CcMenu } from "./CcMenu";
 import { PopoutButton } from "@/components/miniplayer/MiniPlayerProvider";
+import { SkipIntroButton } from "@/components/player/SkipIntroButton";
+import { ReactionHeatmap } from "@/components/player/ReactionHeatmap";
 
 interface Props {
   src: string;
@@ -9,9 +11,12 @@ interface Props {
   title?: string;
   onEnded?: () => void;
   subtitles?: SubtitleTrack[];
+  introStart?: number | null;
+  introEnd?: number | null;
+  reactionChannelKey?: string;
 }
 
-export const BunnyVideoPlayer = ({ src, poster, title: _title, onEnded, subtitles }: Props) => {
+export const BunnyVideoPlayer = ({ src, poster, title: _title, onEnded, subtitles, introStart, introEnd, reactionChannelKey }: Props) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const tracks = useSubtitleTracks(subtitles);
   // Reset on src change (autoplay-safe, best-effort).
@@ -54,6 +59,8 @@ export const BunnyVideoPlayer = ({ src, poster, title: _title, onEnded, subtitle
         onClick={(e) => e.stopPropagation()}
       />
       <CcMenu videoRef={videoRef} tracks={tracks} />
+      <SkipIntroButton videoRef={videoRef} introStart={introStart} introEnd={introEnd} />
+      {reactionChannelKey && <ReactionHeatmap channelKey={reactionChannelKey} videoRef={videoRef} />}
       <div className="absolute top-2 right-2 z-20">
         <PopoutButton get={() => ({ src, poster, title: _title, currentTime: videoRef.current?.currentTime ?? 0, href: window.location.pathname })} />
       </div>
