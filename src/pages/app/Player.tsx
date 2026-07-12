@@ -289,6 +289,7 @@ export default function Player() {
         </div>
       )}
       {src ? (
+        <div className="relative">
         <VideoAdPlayer>
           {isMovie || isSeries ? (
             isEmbedUrl(src) ? (
@@ -317,6 +318,8 @@ export default function Player() {
             <HlsPlayer src={src} poster={item.backdrop_url || item.poster_url} subtitles={activeSubs} />
           )}
         </VideoAdPlayer>
+        <FloatingReactions />
+        </div>
       ) : (
         <div className="aspect-video glass rounded-2xl grid place-items-center text-muted-foreground">
           No stream URL configured.
