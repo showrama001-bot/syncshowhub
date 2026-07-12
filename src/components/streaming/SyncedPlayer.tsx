@@ -217,6 +217,24 @@ export function SyncedPlayer({ roomId, src, poster, isHost, subtitles }: Props) 
     setRetryNonce((n) => n + 1);
   };
 
+  // Per-user subtitle selection — only affects this viewer's screen, not the room.
+  const [ccLang, setCcLang] = useState<string>("off");
+  const [ccOpen, setCcOpen] = useState(false);
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const apply = () => {
+      const list = v.textTracks;
+      for (let i = 0; i < list.length; i++) {
+        const t = list[i];
+        t.mode = ccLang !== "off" && t.language === ccLang ? "showing" : "disabled";
+      }
+    };
+    apply();
+    v.textTracks.addEventListener?.("addtrack", apply);
+    return () => v.textTracks.removeEventListener?.("addtrack", apply);
+  }, [ccLang, tracks]);
+
   return (
     <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-black shadow-card player-shell">
       <video
@@ -230,7 +248,52 @@ export function SyncedPlayer({ roomId, src, poster, isHost, subtitles }: Props) 
         onContextMenu={(e) => e.preventDefault()}
         onClick={isHost ? undefined : handleGuestTap}
         className="w-full h-full bg-black"
-      />
+      >
+        {tracks.map((t) => (
+          <track
+            key={`${t.lang}-${t.url}`}
+            kind="subtitles"
+            src={t.url}
+            srcLang={t.lang}
+            label={t.label}
+          />
+        ))}
+      </video>
+
+      {/* Per-user Subtitles / CC menu */}
+      {tracks.length > 0 && (
+        <div className="absolute bottom-3 right-3 z-30">
+          <button
+            type="button"
+            onClick={() => setCcOpen((o) => !o)}
+            className="px-2.5 py-1 rounded-full bg-black/75 text-white text-[11px] font-semibold border border-white/10 hover:bg-black/90"
+            title="Subtitles"
+          >
+            CC {ccLang !== "off" && <span className="ml-1 uppercase text-primary">· {ccLang}</span>}
+          </button>
+          {ccOpen && (
+            <div className="absolute bottom-full right-0 mb-2 min-w-[160px] rounded-xl bg-black/90 border border-white/10 text-white text-xs shadow-xl overflow-hidden">
+              <button
+                type="button"
+                onClick={() => { setCcLang("off"); setCcOpen(false); }}
+                className={`w-full text-left px-3 py-1.5 hover:bg-white/10 ${ccLang === "off" ? "text-primary" : ""}`}
+              >
+                Off
+              </button>
+              {tracks.map((t) => (
+                <button
+                  key={t.lang}
+                  type="button"
+                  onClick={() => { setCcLang(t.lang); setCcOpen(false); }}
+                  className={`w-full text-left px-3 py-1.5 hover:bg-white/10 ${ccLang === t.lang ? "text-primary" : ""}`}
+                >
+                  <span className="uppercase text-[10px] opacity-70 mr-2">{t.lang}</span>{t.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       {/* Sync status badge — visible to everyone */}
       <div
         className={`absolute top-2 right-2 z-30 px-2.5 py-1 rounded-full text-[10px] uppercase tracking-widest flex items-center gap-1.5 backdrop-blur ${
