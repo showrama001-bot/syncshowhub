@@ -75,11 +75,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Returns true if user was signed out due to a ban/suspension.
   const enforceBan = async (userId: string): Promise<boolean> => {
     try {
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("suspended_until, permanent_banned")
-        .eq("id", userId)
-        .maybeSingle();
+      const { data: rows } = await supabase.rpc("get_my_ban_status");
+      const prof = Array.isArray(rows) ? rows[0] : rows;
       if (prof?.permanent_banned) {
         toast.error("Your account has been permanently banned.");
         await supabase.auth.signOut();
