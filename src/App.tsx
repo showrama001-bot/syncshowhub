@@ -11,6 +11,7 @@ import ResetPassword from "./pages/ResetPassword";
 import AdminLogin from "./pages/AdminLogin";
 import Redirect from "./pages/Redirect";
 import Cooldown from "./pages/Cooldown";
+import OAuthConsent from "./pages/OAuthConsent";
 import Home from "./pages/app/Home";
 import Movies from "./pages/app/Movies";
 import Series from "./pages/app/Series";
@@ -65,6 +66,7 @@ const App = () => {
             <Route path="/admin-login" element={<AdminLogin />} />
             <Route path="/redirect" element={<Redirect />} />
             <Route path="/cooldown" element={<Cooldown />} />
+            <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
             <Route element={<AppShell />}>
               <Route path="/" element={<Home />} />
               <Route path="/movies" element={<Movies />} />
