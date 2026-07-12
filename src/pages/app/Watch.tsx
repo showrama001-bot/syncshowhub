@@ -122,6 +122,34 @@ export default function Watch() {
         setTimeout(() => navigate("/"), 400);
       }
     });
+    // Participant → host channel-change requests.
+    ch.on("broadcast", { event: "channel-request" }, ({ payload }) => {
+      if (!room || !user || user.id !== room.host_id) return;
+      if (!payload?.channel?.stream_url) return;
+      const from = payload.from || "A viewer";
+      toast(`${from} requested channel: ${payload.channel.name}`, {
+        action: {
+          label: "Switch",
+          onClick: () => {
+            (supabase.from("watch_rooms" as any) as any)
+              .update({
+                content_kind: "movie",
+                content_id: payload.channel.id,
+                content_title: `📺 ${payload.channel.name}`,
+                poster_url: payload.channel.logo_url ?? null,
+                stream_url: payload.channel.stream_url,
+              })
+              .eq("id", room.id);
+          },
+        },
+        duration: 12000,
+      });
+    });
+    ch.on("broadcast", { event: "channel-request-ack" }, ({ payload }) => {
+      if (payload?.toUserId && user && payload.toUserId === user.id) {
+        toast.success(payload.text || "Host received your request");
+      }
+    });
     ch.on("presence", { event: "sync" }, () => {
       const state = ch.presenceState();
       const count = Object.keys(state).length;
@@ -146,7 +174,7 @@ export default function Watch() {
     return () => {
       supabase.removeChannel(ch);
     };
-  }, [roomId, user?.id, room?.host_id, navigate]);
+  }, [roomId, user?.id, room?.host_id, room?.id, navigate]);
 
   // If a persistent kick exists, boot user immediately on load.
   useEffect(() => {
@@ -322,11 +350,16 @@ export default function Watch() {
           {isHost ? (
             <ContentSearch room={room} update={updateRoom} />
           ) : (
-            <div className="glass rounded-2xl p-3 flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="glass rounded-2xl p-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <Lock className="h-3.5 w-3.5 text-primary" />
-              <span>
+              <span className="flex-1 min-w-[180px]">
                 Only the host can switch the movie, episode, or live TV channel in this room.
               </span>
+              <RequestChannelChange
+                channel={channelRef}
+                fromName={identity.displayName || "A viewer"}
+                userId={user?.id ?? ""}
+              />
             </div>
           )}
 
@@ -478,6 +511,99 @@ function HostSettings({ room, update }: { room: Room; update: (p: Partial<Room>)
           <Input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
         </div>
         <Button onClick={save} className="w-full bg-gradient-red shadow-neon">Save</Button>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/* ------------------ Host content search ------------------ */
+
+/* ------------------ Participant → host channel-change request ------------------ */
+
+function RequestChannelChange({
+  channel,
+  fromName,
+  userId,
+}: {
+  channel: React.MutableRefObject<any>;
+  fromName: string;
+  userId: string;
+}) {
+  const [q, setQ] = useState("");
+  const [results, setResults] = useState<any[]>([]);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open || !q.trim()) { setResults([]); return; }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      const { data } = await supabase
+        .from("tv_channels")
+        .select("id,name,logo_url,m3u_url,country")
+        .ilike("name", `%${q}%`)
+        .limit(10);
+      if (!cancelled) setResults(data ?? []);
+    }, 250);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [q, open]);
+
+  const request = (c: any) => {
+    channel.current?.send({
+      type: "broadcast",
+      event: "channel-request",
+      payload: {
+        from: fromName,
+        fromUserId: userId,
+        channel: { id: c.id, name: c.name, logo_url: c.logo_url, stream_url: c.m3u_url },
+      },
+    });
+    toast.success(`Requested "${c.name}" — waiting for host`);
+    setQ("");
+    setResults([]);
+    setOpen(false);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button size="sm" variant="outline" className="ml-auto">
+          <Send className="h-3.5 w-3.5 mr-1" /> Request channel change
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-80 space-y-2">
+        <div className="text-xs text-muted-foreground">Ask the host to switch to a Live TV channel.</div>
+        <div className="flex items-center gap-2">
+          <Search className="h-4 w-4 text-muted-foreground" />
+          <Input
+            autoFocus
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search channels (e.g. ZDF)…"
+            className="bg-secondary/50"
+          />
+        </div>
+        <div className="max-h-64 overflow-y-auto space-y-1">
+          {results.length === 0 && q.trim() && (
+            <div className="text-xs text-muted-foreground py-2">No matches.</div>
+          )}
+          {results.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => request(c)}
+              className="w-full text-left p-2 rounded-lg border border-border/40 hover:border-primary/60 hover:bg-primary/5 flex items-center gap-2"
+            >
+              {c.logo_url ? (
+                <img src={c.logo_url} alt="" className="w-8 h-8 object-contain rounded bg-secondary/40" />
+              ) : (
+                <div className="w-8 h-8 rounded bg-secondary grid place-items-center text-[9px] uppercase">TV</div>
+              )}
+              <div className="min-w-0">
+                <div className="text-sm font-medium truncate">{c.name}</div>
+                {c.country && <div className="text-[10px] text-muted-foreground">{c.country}</div>}
+              </div>
+            </button>
+          ))}
+        </div>
       </PopoverContent>
     </Popover>
   );
