@@ -20,6 +20,14 @@ export function SyncedPlayer({ roomId, src, poster, isHost }: Props) {
   const suppressRef = useRef(false); // ignore events we just applied
   const [needsTap, setNeedsTap] = useState(false); // guest autoplay blocked
   const [muted, setMuted] = useState(!isHost); // guests start muted so autoplay works
+  const [status, setStatus] = useState<"loading" | "ready">("loading");
+  const [readyCount, setReadyCount] = useState(1);
+  const [totalCount, setTotalCount] = useState(1);
+  const viewerIdRef = useRef<string>(
+    typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : String(Math.random())
+  );
+  const readyPeersRef = useRef<Set<string>>(new Set());
+  const srcTokenRef = useRef<string>("");
 
   // Attach source (HLS or native).
   useEffect(() => {
@@ -34,6 +42,16 @@ export function SyncedPlayer({ roomId, src, poster, isHost }: Props) {
       v.src = src;
     }
     try { v.load(); } catch {}
+    // Reset ready state on every source switch and announce loading.
+    setStatus("loading");
+    srcTokenRef.current = src;
+    readyPeersRef.current = new Set([viewerIdRef.current]);
+    setReadyCount(1);
+    channelRef.current?.send({
+      type: "broadcast",
+      event: "viewer-loading",
+      payload: { viewerId: viewerIdRef.current, src },
+    });
     // Auto-start playback on channel/content switch so all viewers resume
     // together. Guests fall back to muted autoplay if the browser blocks it.
     const startPlayback = () => {
@@ -45,7 +63,17 @@ export function SyncedPlayer({ roomId, src, poster, isHost }: Props) {
         }
       });
     };
-    const onCanPlay = () => startPlayback();
+    const onCanPlay = () => {
+      startPlayback();
+      setStatus("ready");
+      readyPeersRef.current.add(viewerIdRef.current);
+      setReadyCount(readyPeersRef.current.size);
+      channelRef.current?.send({
+        type: "broadcast",
+        event: "viewer-ready",
+        payload: { viewerId: viewerIdRef.current, src },
+      });
+    };
     v.addEventListener("canplay", onCanPlay, { once: true });
     return () => {
       v.removeEventListener("canplay", onCanPlay);
@@ -86,6 +114,25 @@ export function SyncedPlayer({ roomId, src, poster, isHost }: Props) {
 
     ch.on("broadcast", { event: "state" }, ({ payload }) => apply(payload));
 
+    // Track per-viewer readiness so everyone can see the sync status.
+    ch.on("broadcast", { event: "viewer-loading" }, ({ payload }) => {
+      if (!payload?.viewerId) return;
+      if (payload.src && srcTokenRef.current && payload.src !== srcTokenRef.current) return;
+      readyPeersRef.current.delete(payload.viewerId);
+      setReadyCount(readyPeersRef.current.size);
+    });
+    ch.on("broadcast", { event: "viewer-ready" }, ({ payload }) => {
+      if (!payload?.viewerId) return;
+      if (payload.src && srcTokenRef.current && payload.src !== srcTokenRef.current) return;
+      readyPeersRef.current.add(payload.viewerId);
+      setReadyCount(readyPeersRef.current.size);
+    });
+
+    ch.on("presence", { event: "sync" }, () => {
+      const state = ch.presenceState();
+      setTotalCount(Math.max(1, Object.keys(state).length));
+    });
+
     // Guest asks for current state on join.
     ch.on("broadcast", { event: "sync-req" }, () => {
       if (!isHost) return;
@@ -96,9 +143,14 @@ export function SyncedPlayer({ roomId, src, poster, isHost }: Props) {
       }});
     });
 
-    ch.subscribe((status) => {
+    ch.subscribe(async (status) => {
       if (status === "SUBSCRIBED" && !isHost) {
         ch.send({ type: "broadcast", event: "sync-req", payload: {} });
+      }
+      if (status === "SUBSCRIBED") {
+        try {
+          await ch.track({ viewerId: viewerIdRef.current, at: Date.now() });
+        } catch {}
       }
     });
 
@@ -159,6 +211,40 @@ export function SyncedPlayer({ roomId, src, poster, isHost }: Props) {
         onClick={isHost ? undefined : handleGuestTap}
         className="w-full h-full bg-black"
       />
+      {/* Sync status badge — visible to everyone */}
+      <div
+        className={`absolute top-2 right-2 z-30 px-2.5 py-1 rounded-full text-[10px] uppercase tracking-widest flex items-center gap-1.5 backdrop-blur ${
+          status === "loading"
+            ? "bg-amber-500/25 text-amber-200 border border-amber-400/40"
+            : "bg-emerald-500/20 text-emerald-200 border border-emerald-400/40"
+        }`}
+        aria-live="polite"
+      >
+        {status === "loading" ? (
+          <>
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-300 animate-pulse" />
+            Loading channel… {readyCount}/{totalCount} ready
+          </>
+        ) : readyCount < totalCount ? (
+          <>
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-300 animate-pulse" />
+            Waiting for viewers… {readyCount}/{totalCount} ready
+          </>
+        ) : (
+          <>
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
+            In sync · {totalCount} watching
+          </>
+        )}
+      </div>
+      {status === "loading" && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/55 pointer-events-none">
+          <div className="flex items-center gap-3 px-4 py-2 rounded-full bg-black/70 border border-white/10 text-white text-sm">
+            <span className="h-3 w-3 rounded-full border-2 border-white/40 border-t-white animate-spin" />
+            {isHost ? "Loading new channel…" : "Host switched channel — loading…"}
+          </div>
+        </div>
+      )}
       {!isHost && (
         <>
           <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-black/60 text-white text-[10px] uppercase tracking-widest">
