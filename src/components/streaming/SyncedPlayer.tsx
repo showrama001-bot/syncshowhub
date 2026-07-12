@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
 import { supabase } from "@/integrations/supabase/client";
+import { useSubtitleTracks, SubtitleTrack } from "@/lib/subtitles";
 
 interface Props {
   roomId: string;
   src: string;
   poster?: string;
   isHost: boolean;
+  subtitles?: SubtitleTrack[];
 }
 
 /**
@@ -14,8 +16,9 @@ interface Props {
  * Supabase Realtime broadcast channel. Host is authoritative — guests apply
  * events with drift correction.
  */
-export function SyncedPlayer({ roomId, src, poster, isHost }: Props) {
+export function SyncedPlayer({ roomId, src, poster, isHost, subtitles }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const tracks = useSubtitleTracks(subtitles);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const suppressRef = useRef(false); // ignore events we just applied
   const [needsTap, setNeedsTap] = useState(false); // guest autoplay blocked
