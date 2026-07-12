@@ -34,8 +34,24 @@ export function SyncedPlayer({ roomId, src, poster, isHost }: Props) {
       v.src = src;
     }
     try { v.load(); } catch {}
-    return () => { hls?.destroy(); };
-  }, [src]);
+    // Auto-start playback on channel/content switch so all viewers resume
+    // together. Guests fall back to muted autoplay if the browser blocks it.
+    const startPlayback = () => {
+      v.play().catch(() => {
+        if (!isHost) {
+          v.muted = true;
+          setMuted(true);
+          v.play().catch(() => setNeedsTap(true));
+        }
+      });
+    };
+    const onCanPlay = () => startPlayback();
+    v.addEventListener("canplay", onCanPlay, { once: true });
+    return () => {
+      v.removeEventListener("canplay", onCanPlay);
+      hls?.destroy();
+    };
+  }, [src, isHost]);
 
   // Realtime sync channel.
   useEffect(() => {
