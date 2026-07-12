@@ -524,7 +524,7 @@ function ContentSearch({ room, update }: { room: Room; update: (p: Partial<Room>
         <Input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search movies & episodes in your library…"
+          placeholder="Search movies, episodes, or live TV channels (e.g. ZDF)…"
           className="bg-secondary/50"
         />
       </div>
