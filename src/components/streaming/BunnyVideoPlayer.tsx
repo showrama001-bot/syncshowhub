@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useSubtitleTracks, SubtitleTrack } from "@/lib/subtitles";
+import { CcMenu } from "./CcMenu";
 
 interface Props {
   src: string;
@@ -51,6 +52,7 @@ export const BunnyVideoPlayer = ({ src, poster, title: _title, onEnded, subtitle
         onContextMenu={(e) => e.preventDefault()}
         onClick={(e) => e.stopPropagation()}
       />
+      <CcMenu videoRef={videoRef} tracks={tracks} />
     </div>
   );
 };

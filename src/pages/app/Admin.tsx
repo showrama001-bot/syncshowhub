@@ -528,11 +528,19 @@ function MoviesTab() {
           </div>
         )}
 
-        {editingId && (
-          <div className="sm:col-span-2">
-            <SubtitlesManager contentId={editingId} table="movies" />
+        <div className="sm:col-span-2">
+          <div className="text-xs uppercase tracking-widest text-muted-foreground mb-2">
+            Subtitles / Captions
           </div>
-        )}
+          {editingId ? (
+            <SubtitlesManager contentId={editingId} table="movies" />
+          ) : (
+            <div className="glass rounded-2xl p-4 text-xs text-muted-foreground">
+              Save the movie first, then edit it to attach <code>.vtt</code> or <code>.srt</code>
+              subtitle tracks in multiple languages (Arabic, English, French, German, Russian, and more).
+            </div>
+          )}
+        </div>
 
         <div className="sm:col-span-2">
           <Button className="bg-gradient-red shadow-neon" disabled={uploading}>

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import Hls from "hls.js";
 import { useSubtitleTracks, SubtitleTrack } from "@/lib/subtitles";
+import { CcMenu } from "./CcMenu";
 
 export const HlsPlayer = ({
   src, poster, subtitles,
@@ -26,25 +27,28 @@ export const HlsPlayer = ({
   }, [src]);
 
   return (
-    <video
-      ref={videoRef}
-      controls
-      playsInline
-      poster={poster}
-      controlsList="nodownload noremoteplayback noplaybackrate"
-      disablePictureInPicture
-      onContextMenu={(e) => e.preventDefault()}
-      className="w-full aspect-video rounded-2xl bg-black shadow-card"
-    >
-      {tracks.map((t) => (
-        <track
-          key={`${t.lang}-${t.url}`}
-          kind="subtitles"
-          src={t.url}
-          srcLang={t.lang}
-          label={t.label}
-        />
-      ))}
-    </video>
+    <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-black shadow-card">
+      <video
+        ref={videoRef}
+        controls
+        playsInline
+        poster={poster}
+        controlsList="nodownload noremoteplayback noplaybackrate"
+        disablePictureInPicture
+        onContextMenu={(e) => e.preventDefault()}
+        className="w-full h-full bg-black"
+      >
+        {tracks.map((t) => (
+          <track
+            key={`${t.lang}-${t.url}`}
+            kind="subtitles"
+            src={t.url}
+            srcLang={t.lang}
+            label={t.label}
+          />
+        ))}
+      </video>
+      <CcMenu videoRef={videoRef} tracks={tracks} />
+    </div>
   );
 };
