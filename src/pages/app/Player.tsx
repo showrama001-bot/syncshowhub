@@ -180,7 +180,21 @@ export default function Player() {
             )}
             <UnderPlayerBanner />
             {item.description && <p className="mt-4 text-sm text-muted-foreground">{item.description}</p>}
-            <div className="mt-4">
+            <div className="mt-4 flex flex-wrap gap-3">
+              {src && (
+                <WatchTogetherButton
+                  input={{
+                    title: `${title} — Live Watch Party`,
+                    content_kind: "movie",
+                    content_id: id!,
+                    content_title: `📺 ${title}`,
+                    poster_url: item.logo_url || null,
+                    stream_url: src,
+                    visibility: "public",
+                  }}
+                  label="Create Watch Room"
+                />
+              )}
               <PlaybackReportButton contentKind="tv" contentId={id!} contentTitle={title} />
             </div>
           </div>
