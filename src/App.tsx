@@ -17,25 +17,31 @@ import Series from "./pages/app/Series";
 import Suggested from "./pages/app/Suggested";
 import TV from "./pages/app/TV";
 import Sports from "./pages/app/Sports";
-import Watch from "./pages/app/Watch";
-import Rooms from "./pages/app/Rooms";
-import DMs from "./pages/app/DMs";
 import Profile from "./pages/app/Profile";
-import Admin from "./pages/app/Admin";
 import Watchlist from "./pages/app/Watchlist";
-import UploadMovie from "./pages/app/UploadMovie";
-import UploadShare from "./pages/app/UploadShare";
 import Contribute from "./pages/app/Contribute";
 import Friends from "./pages/app/Friends";
 import Accueil from "./pages/app/Accueil";
-import Reels from "./pages/app/Reels";
-import Trailers from "./pages/app/Trailers";
 import NotFound from "./pages/NotFound";
 import { AdsProvider } from "@/components/ads/AdsProvider";
 import { installAntiTheft } from "@/lib/antiTheft";
+import { MiniPlayerProvider } from "@/components/miniplayer/MiniPlayerProvider";
 
 // Lazy-load the heavy player bundle — only fetched when user clicks Play.
 const Player = lazy(() => import("./pages/app/Player"));
+const Watch = lazy(() => import("./pages/app/Watch"));
+const Rooms = lazy(() => import("./pages/app/Rooms"));
+const DMs = lazy(() => import("./pages/app/DMs"));
+const Admin = lazy(() => import("./pages/app/Admin"));
+const UploadMovie = lazy(() => import("./pages/app/UploadMovie"));
+const UploadShare = lazy(() => import("./pages/app/UploadShare"));
+const Reels = lazy(() => import("./pages/app/Reels"));
+const Trailers = lazy(() => import("./pages/app/Trailers"));
+
+const RouteFallback = () => (
+  <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading…</div>
+);
+const lazyRoute = (el: React.ReactNode) => <Suspense fallback={<RouteFallback />}>{el}</Suspense>;
 
 const queryClient = new QueryClient();
 
@@ -52,6 +58,7 @@ const App = () => {
       <BrowserRouter>
         <AuthProvider>
           <AdsProvider>
+          <MiniPlayerProvider>
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/reset-password" element={<ResetPassword />} />
@@ -66,24 +73,24 @@ const App = () => {
               <Route path="/watchlist" element={<Watchlist />} />
               <Route path="/tv" element={<TV />} />
               <Route path="/sports" element={<Sports />} />
-              <Route path="/rooms" element={<Rooms />} />
+              <Route path="/rooms" element={lazyRoute(<Rooms />)} />
               <Route path="/watch-together" element={<Navigate to="/rooms" replace />} />
               <Route path="/watch" element={<Navigate to="/rooms" replace />} />
-              <Route path="/watch/:roomId" element={<Watch />} />
-              <Route path="/watch/room/:roomId" element={<Watch />} />
-              <Route path="/dms" element={<DMs />} />
+              <Route path="/watch/:roomId" element={lazyRoute(<Watch />)} />
+              <Route path="/watch/room/:roomId" element={lazyRoute(<Watch />)} />
+              <Route path="/dms" element={lazyRoute(<DMs />)} />
               <Route path="/friends" element={<Friends />} />
               <Route path="/profile" element={<Profile />} />
-              <Route path="/upload-movie" element={<UploadMovie />} />
-              <Route path="/upload-gateway" element={<UploadMovie />} />
-              <Route path="/upload-share" element={<UploadShare />} />
+              <Route path="/upload-movie" element={lazyRoute(<UploadMovie />)} />
+              <Route path="/upload-gateway" element={lazyRoute(<UploadMovie />)} />
+              <Route path="/upload-share" element={lazyRoute(<UploadShare />)} />
               <Route path="/contribute" element={<Contribute />} />
               <Route path="/accueil" element={<Accueil />} />
-              <Route path="/reels" element={<Reels />} />
-              <Route path="/trailers" element={<Trailers />} />
+              <Route path="/reels" element={lazyRoute(<Reels />)} />
+              <Route path="/trailers" element={lazyRoute(<Trailers />)} />
               <Route path="/admin" element={<Navigate to="/admin/dashboard/hub-secure-2026" replace />} />
               <Route path="/admin/dashboard" element={<Navigate to="/admin/dashboard/hub-secure-2026" replace />} />
-              <Route path="/admin/dashboard/hub-secure-2026" element={<Admin />} />
+              <Route path="/admin/dashboard/hub-secure-2026" element={lazyRoute(<Admin />)} />
               <Route
                 path="/play/:kind/:id"
                 element={
@@ -101,6 +108,7 @@ const App = () => {
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </MiniPlayerProvider>
           </AdsProvider>
         </AuthProvider>
       </BrowserRouter>
