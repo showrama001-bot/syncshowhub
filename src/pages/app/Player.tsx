@@ -145,6 +145,7 @@ export default function Player() {
   const src = servers[Math.min(serverIdx, Math.max(0, servers.length - 1))]?.url ?? null;
   const useIframePlayer = !isMovie && !isSeries && item.source_type === "iframe";
   const isTv = kind === "tv";
+  const activeSubs = (kind === "series" ? activeEpisode?.subtitles : item?.subtitles) ?? [];
 
   if (isTv) {
     return (
@@ -170,7 +171,7 @@ export default function Player() {
                 {useIframePlayer || isEmbedUrl(src) ? (
                   <EmbedPlayer src={src} title={title} />
                 ) : (
-                  <HlsPlayer src={src} poster={item.logo_url} />
+                  <HlsPlayer src={src} poster={item.logo_url} subtitles={activeSubs} />
                 )}
               </VideoAdPlayer>
             ) : (
@@ -295,6 +296,7 @@ export default function Player() {
                   poster={item.backdrop_url || item.poster_url}
                   title={title}
                   onEnded={isSeries && nextEpisode ? () => setShowAutoNext(true) : undefined}
+                  subtitles={activeSubs}
                 />
                 {isSeries && showAutoNext && nextEpisode && (
                   <AutoNextOverlay
@@ -308,7 +310,7 @@ export default function Player() {
           ) : useIframePlayer ? (
             <EmbedPlayer src={src} title={title} />
           ) : (
-            <HlsPlayer src={src} poster={item.backdrop_url || item.poster_url} />
+            <HlsPlayer src={src} poster={item.backdrop_url || item.poster_url} subtitles={activeSubs} />
           )}
         </VideoAdPlayer>
       ) : (
