@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useSubtitleTracks, SubtitleTrack } from "@/lib/subtitles";
 import { CcMenu } from "./CcMenu";
+import { PopoutButton } from "@/components/miniplayer/MiniPlayerProvider";
 
 interface Props {
   src: string;
@@ -53,6 +54,9 @@ export const BunnyVideoPlayer = ({ src, poster, title: _title, onEnded, subtitle
         onClick={(e) => e.stopPropagation()}
       />
       <CcMenu videoRef={videoRef} tracks={tracks} />
+      <div className="absolute top-2 right-2 z-20">
+        <PopoutButton get={() => ({ src, poster, title: _title, currentTime: videoRef.current?.currentTime ?? 0, href: window.location.pathname })} />
+      </div>
     </div>
   );
 };
