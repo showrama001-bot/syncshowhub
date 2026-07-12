@@ -38,9 +38,19 @@ export default function AbuseReportsPanel() {
       : { data: [] as any[] };
 
     const uploaderIds = Array.from(new Set((movies ?? []).map((m: any) => m.created_by).filter(Boolean)));
-    const { data: profiles } = uploaderIds.length
-      ? await supabase.from("profiles").select("id, display_name, username, is_banned, suspended_until, permanent_banned").in("id", uploaderIds as string[])
+    const { data: baseProfiles } = uploaderIds.length
+      ? await supabase.from("profiles").select("id, display_name, username").in("id", uploaderIds as string[])
       : { data: [] as any[] };
+    const { data: banRows } = uploaderIds.length
+      ? await supabase.rpc("admin_get_ban_status", { _ids: uploaderIds as string[] })
+      : { data: [] as any[] };
+    const banMap = new Map<string, any>((banRows ?? []).map((b: any) => [b.id, b]));
+    const profiles = (baseProfiles ?? []).map((p: any) => ({
+      ...p,
+      is_banned: banMap.get(p.id)?.is_banned ?? false,
+      suspended_until: banMap.get(p.id)?.suspended_until ?? null,
+      permanent_banned: banMap.get(p.id)?.permanent_banned ?? false,
+    }));
 
     const { data: violations } = uploaderIds.length
       ? await supabase.from("user_violations").select("user_id").in("user_id", uploaderIds as string[])
