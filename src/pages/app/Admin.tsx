@@ -528,6 +528,12 @@ function MoviesTab() {
           </div>
         )}
 
+        {editingId && (
+          <div className="sm:col-span-2">
+            <SubtitlesManager contentId={editingId} table="movies" />
+          </div>
+        )}
+
         <div className="sm:col-span-2">
           <Button className="bg-gradient-red shadow-neon" disabled={uploading}>
             {uploading ? "Working…" : editingId ? "Save changes" : "Add movie"}
