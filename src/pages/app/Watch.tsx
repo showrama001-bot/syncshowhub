@@ -122,6 +122,34 @@ export default function Watch() {
         setTimeout(() => navigate("/"), 400);
       }
     });
+    // Participant → host channel-change requests.
+    ch.on("broadcast", { event: "channel-request" }, ({ payload }) => {
+      if (!room || !user || user.id !== room.host_id) return;
+      if (!payload?.channel?.stream_url) return;
+      const from = payload.from || "A viewer";
+      toast(`${from} requested channel: ${payload.channel.name}`, {
+        action: {
+          label: "Switch",
+          onClick: () => {
+            (supabase.from("watch_rooms" as any) as any)
+              .update({
+                content_kind: "movie",
+                content_id: payload.channel.id,
+                content_title: `📺 ${payload.channel.name}`,
+                poster_url: payload.channel.logo_url ?? null,
+                stream_url: payload.channel.stream_url,
+              })
+              .eq("id", room.id);
+          },
+        },
+        duration: 12000,
+      });
+    });
+    ch.on("broadcast", { event: "channel-request-ack" }, ({ payload }) => {
+      if (payload?.toUserId && user && payload.toUserId === user.id) {
+        toast.success(payload.text || "Host received your request");
+      }
+    });
     ch.on("presence", { event: "sync" }, () => {
       const state = ch.presenceState();
       const count = Object.keys(state).length;
@@ -146,7 +174,7 @@ export default function Watch() {
     return () => {
       supabase.removeChannel(ch);
     };
-  }, [roomId, user?.id, room?.host_id, navigate]);
+  }, [roomId, user?.id, room?.host_id, room?.id, navigate]);
 
   // If a persistent kick exists, boot user immediately on load.
   useEffect(() => {
