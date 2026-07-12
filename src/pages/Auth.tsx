@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,6 +21,9 @@ import {
 
 export default function Auth() {
   const nav = useNavigate();
+  const [params] = useSearchParams();
+  const rawNext = params.get("next") ?? "";
+  const safeNext = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "";
   const { user, isAdmin, roleLoading } = useAuth();
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
@@ -32,9 +35,13 @@ export default function Auth() {
 
   useEffect(() => {
     if (user && !roleLoading) {
-      nav(isAdmin ? "/admin/dashboard/hub-secure-2026" : "/", { replace: true });
+      if (safeNext) {
+        window.location.href = safeNext;
+      } else {
+        nav(isAdmin ? "/admin/dashboard/hub-secure-2026" : "/", { replace: true });
+      }
     }
-  }, [user, isAdmin, roleLoading, nav]);
+  }, [user, isAdmin, roleLoading, nav, safeNext]);
 
   const signIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,7 +72,7 @@ export default function Auth() {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth`,
+        emailRedirectTo: `${window.location.origin}/auth${safeNext ? `?next=${encodeURIComponent(safeNext)}` : ""}`,
         data: { username, display_name: username },
       },
     });
@@ -89,7 +96,9 @@ export default function Auth() {
   const google = async () => {
     setLoading(true);
     const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
+      redirect_uri: safeNext
+        ? `${window.location.origin}/auth?next=${encodeURIComponent(safeNext)}`
+        : window.location.origin,
     });
     if (result.error) {
       setLoading(false);
