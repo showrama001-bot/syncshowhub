@@ -1457,6 +1457,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_count_banned: { Args: never; Returns: number }
+      admin_get_ban_status: {
+        Args: { _ids: string[] }
+        Returns: {
+          id: string
+          is_banned: boolean
+          permanent_banned: boolean
+          suspended_until: string
+        }[]
+      }
+      get_my_ban_status: {
+        Args: never
+        Returns: {
+          is_banned: boolean
+          permanent_banned: boolean
+          suspended_until: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

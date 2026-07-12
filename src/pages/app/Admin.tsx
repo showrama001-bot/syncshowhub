@@ -111,12 +111,12 @@ function Overview() {
   const [stats, setStats] = useState({ users: 0, movies: 0, tv: 0, matches: 0, reports: 0, banned: 0 });
   const load = async () => {
     const counts = await Promise.all([
-      supabase.from("profiles").select("*", { count: "exact", head: true }),
+      supabase.from("profiles").select("id", { count: "exact", head: true }),
       supabase.from("movies").select("*", { count: "exact", head: true }),
       supabase.from("tv_channels").select("*", { count: "exact", head: true }),
       supabase.from("matches").select("*", { count: "exact", head: true }),
       supabase.from("reports").select("*", { count: "exact", head: true }).eq("status", "open"),
-      supabase.from("profiles").select("*", { count: "exact", head: true }).eq("is_banned", true),
+      supabase.rpc("admin_count_banned"),
     ]);
     setStats({
       users: counts[0].count ?? 0,
@@ -124,7 +124,7 @@ function Overview() {
       tv: counts[2].count ?? 0,
       matches: counts[3].count ?? 0,
       reports: counts[4].count ?? 0,
-      banned: counts[5].count ?? 0,
+      banned: (counts[5] as any)?.data ?? 0,
     });
   };
   useEffect(() => { load(); }, []);
@@ -161,10 +161,18 @@ function UsersTab() {
 
   const load = async () => {
     const [{ data: profs }, { data: roles }] = await Promise.all([
-      supabase.from("profiles").select("*").order("created_at", { ascending: false }),
+      supabase
+        .from("profiles")
+        .select("id, username, display_name, avatar_url, bio, created_at, updated_at")
+        .order("created_at", { ascending: false }),
       supabase.from("user_roles").select("user_id, role"),
     ]);
-    setUsers(profs ?? []);
+    const ids = (profs ?? []).map((p: any) => p.id);
+    const { data: bans } = ids.length
+      ? await supabase.rpc("admin_get_ban_status", { _ids: ids })
+      : { data: [] as any[] };
+    const banMap = new Map<string, any>((bans ?? []).map((b: any) => [b.id, b]));
+    setUsers((profs ?? []).map((p: any) => ({ ...p, ...(banMap.get(p.id) ?? {}) })));
     setAdmins(new Set((roles ?? []).filter((r: any) => r.role === "admin").map((r: any) => r.user_id)));
   };
   useEffect(() => { load(); }, []);

@@ -3,7 +3,7 @@
 // supabase function: mcp
 // Bundled from src/lib/mcp/index.ts by @lovable.dev/mcp-js.
 // src/lib/mcp/index.ts
-import { defineMcp } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { auth, defineMcp } from "npm:@lovable.dev/mcp-js@0.20.0";
 
 // src/lib/mcp/tools/search-movies.ts
 import { createClient } from "npm:@supabase/supabase-js@^2.105.3";
@@ -86,11 +86,16 @@ var list_trending_default = defineTool3({
 });
 
 // src/lib/mcp/index.ts
+var projectRef = "owkdvcyvglzhgjkuahmr";
 var mcp_default = defineMcp({
   name: "syncshow-mcp",
   title: "SyncShow MCP",
   version: "0.1.0",
   instructions: "Tools for SyncShow, a streaming platform. Use `search_movies` to find movies by title, `get_movie` to fetch full details by id, and `list_trending_movies` to browse top-rated titles.",
+  auth: auth.oauth.issuer({
+    issuer: `https://${projectRef}.supabase.co/auth/v1`,
+    acceptedAudiences: "authenticated"
+  }),
   tools: [search_movies_default, get_movie_default, list_trending_default]
 });
 

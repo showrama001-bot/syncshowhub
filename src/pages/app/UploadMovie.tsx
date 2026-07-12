@@ -84,11 +84,8 @@ export default function UploadMovie() {
     setProgress(0);
     try {
       // Block suspended / banned users.
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("suspended_until, permanent_banned, is_banned")
-        .eq("id", user.id)
-        .maybeSingle();
+      const { data: banRows } = await supabase.rpc("get_my_ban_status");
+      const prof = Array.isArray(banRows) ? banRows[0] : banRows;
       if (prof?.permanent_banned || prof?.is_banned) throw new Error("Your account is banned from uploading.");
       if (prof?.suspended_until && new Date(prof.suspended_until) > new Date()) {
         throw new Error(`Account suspended until ${new Date(prof.suspended_until).toLocaleString()}`);
