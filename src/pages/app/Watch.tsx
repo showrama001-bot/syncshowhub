@@ -319,7 +319,16 @@ export default function Watch() {
           )}
 
           {/* Host content picker */}
-          {isHost && <ContentSearch room={room} update={updateRoom} />}
+          {isHost ? (
+            <ContentSearch room={room} update={updateRoom} />
+          ) : (
+            <div className="glass rounded-2xl p-3 flex items-center gap-2 text-xs text-muted-foreground">
+              <Lock className="h-3.5 w-3.5 text-primary" />
+              <span>
+                Only the host can switch the movie, episode, or live TV channel in this room.
+              </span>
+            </div>
+          )}
 
           {/* In-app WebRTC video + voice — mobile/tablet only; desktop shows it in the sidebar */}
           {user && (
