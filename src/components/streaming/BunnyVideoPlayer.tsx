@@ -1,14 +1,17 @@
 import { useEffect, useRef } from "react";
+import { useSubtitleTracks, SubtitleTrack } from "@/lib/subtitles";
 
 interface Props {
   src: string;
   poster?: string;
   title?: string;
   onEnded?: () => void;
+  subtitles?: SubtitleTrack[];
 }
 
-export const BunnyVideoPlayer = ({ src, poster, title: _title, onEnded }: Props) => {
+export const BunnyVideoPlayer = ({ src, poster, title: _title, onEnded, subtitles }: Props) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const tracks = useSubtitleTracks(subtitles);
   // Reset on src change (autoplay-safe, best-effort).
   useEffect(() => {
     const v = videoRef.current;
@@ -29,7 +32,17 @@ export const BunnyVideoPlayer = ({ src, poster, title: _title, onEnded }: Props)
         onContextMenu={(e) => e.preventDefault()}
         onEnded={onEnded}
         className="w-full h-full bg-black"
-      />
+      >
+        {tracks.map((t) => (
+          <track
+            key={`${t.lang}-${t.url}`}
+            kind="subtitles"
+            src={t.url}
+            srcLang={t.lang}
+            label={t.label}
+          />
+        ))}
+      </video>
       {/* Transparent overlay strip over the bottom-right of the controls bar
           to deter the kebab "Save video as" menu without blocking play/seek. */}
       <div
