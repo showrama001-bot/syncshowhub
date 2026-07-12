@@ -487,14 +487,22 @@ function ContentSearch({ room, update }: { room: Room; update: (p: Partial<Room>
     setSearching(true);
     const t = setTimeout(async () => {
       const term = `%${q}%`;
-      const [movies, episodes] = await Promise.all([
+      const [movies, episodes, channels] = await Promise.all([
         supabase.from("movies").select("id,title,poster_url,backdrop_url,stream_url").ilike("title", term).limit(8),
         (supabase.from("episodes" as any) as any).select("id,title,stream_url,episode_number,season_id").ilike("title", term).limit(8),
+        supabase.from("tv_channels").select("id,name,logo_url,m3u_url,country,category").ilike("name", term).limit(8),
       ]);
       if (cancelled) return;
       const m = (movies.data || []).map((x: any) => ({ kind: "movie", ...x }));
       const e = (episodes.data || []).map((x: any) => ({ kind: "episode", ...x, poster_url: null }));
-      setResults([...m, ...e]);
+      const tv = (channels.data || []).map((x: any) => ({
+        kind: "tv",
+        id: x.id,
+        title: `📺 ${x.name}${x.country ? ` · ${x.country}` : ""}`,
+        poster_url: x.logo_url,
+        stream_url: x.m3u_url,
+      }));
+      setResults([...tv, ...m, ...e]);
       setSearching(false);
     }, 250);
     return () => { cancelled = true; clearTimeout(t); };
@@ -506,7 +514,7 @@ function ContentSearch({ room, update }: { room: Room; update: (p: Partial<Room>
       return;
     }
     await update({
-      content_kind: r.kind,
+      content_kind: r.kind === "tv" ? "movie" : r.kind,
       content_id: r.id,
       content_title: r.title,
       poster_url: r.poster_url || room.poster_url,
