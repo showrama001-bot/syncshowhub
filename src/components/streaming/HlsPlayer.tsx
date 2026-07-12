@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import Hls from "hls.js";
 import { useSubtitleTracks, SubtitleTrack } from "@/lib/subtitles";
 import { CcMenu } from "./CcMenu";
+import { PopoutButton } from "@/components/miniplayer/MiniPlayerProvider";
 
 export const HlsPlayer = ({
   src, poster, subtitles,
@@ -49,6 +50,9 @@ export const HlsPlayer = ({
         ))}
       </video>
       <CcMenu videoRef={videoRef} tracks={tracks} />
+      <div className="absolute top-2 right-2 z-20">
+        <PopoutButton get={() => ({ src, poster, currentTime: videoRef.current?.currentTime ?? 0, href: window.location.pathname })} />
+      </div>
     </div>
   );
 };

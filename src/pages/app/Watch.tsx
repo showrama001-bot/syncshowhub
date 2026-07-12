@@ -26,6 +26,8 @@ import { useDisplayIdentity } from "@/hooks/useDisplayIdentity";
 import { toast } from "sonner";
 import { sha256Hex } from "@/lib/watchRooms";
 import { FriendsSidebar } from "@/components/friends/FriendsSidebar";
+import { RoomInvitePopover } from "@/components/rooms/RoomInvitePopover";
+import { FloatingReactions } from "@/components/reactions/FloatingReactions";
 
 type Room = {
   id: string;
@@ -311,15 +313,7 @@ export default function Watch() {
         <span className="text-xs px-2 py-1 rounded-full glass flex items-center gap-1">
           <Users className="h-3 w-3" /> {participants}
         </span>
-        <Button
-          size="sm" variant="outline"
-          onClick={() => {
-            navigator.clipboard.writeText(`${window.location.origin}/watch/${room.id}`);
-            toast.success("Invite link copied");
-          }}
-        >
-          <Copy className="h-4 w-4 mr-1" /> Invite
-        </Button>
+        <RoomInvitePopover roomId={room.id} title={room.title} />
         <FriendsSidebar roomId={room.id} />
         {isHost && <HostSettings room={room} update={updateRoom} />}
         {isHost && (
@@ -350,13 +344,16 @@ export default function Watch() {
               </div>
             </div>
           ) : src ? (
-            <SyncedPlayer
-              roomId={room.id}
-              src={src}
-              poster={room.poster_url || undefined}
-              isHost={isHost}
-              subtitles={subtitles}
-            />
+            <div className="relative">
+              <SyncedPlayer
+                roomId={room.id}
+                src={src}
+                poster={room.poster_url || undefined}
+                isHost={isHost}
+                subtitles={subtitles}
+              />
+              <FloatingReactions channelKey={`room:${room.id}`} />
+            </div>
           ) : (
             <div className="aspect-video rounded-2xl glass grid place-items-center text-muted-foreground text-center px-4">
               {isHost ? "Search a movie or episode below to start playing." : "Host hasn't picked content yet."}

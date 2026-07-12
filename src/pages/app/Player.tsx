@@ -15,6 +15,7 @@ import { UnderPlayerBanner } from "@/components/ads/UnderPlayerBanner";
 import { TvChannelChat } from "@/components/tv/TvChannelChat";
 import { PlaybackReportButton } from "@/components/player/PlaybackReportButton";
 import { AutoNextOverlay } from "@/components/player/AutoNextOverlay";
+import { FloatingReactions } from "@/components/reactions/FloatingReactions";
 
 export default function Player() {
   const { kind, id } = useParams();
@@ -167,13 +168,16 @@ export default function Player() {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4">
           <div className="min-w-0">
             {src ? (
-              <VideoAdPlayer>
-                {useIframePlayer || isEmbedUrl(src) ? (
-                  <EmbedPlayer src={src} title={title} />
-                ) : (
-                  <HlsPlayer src={src} poster={item.logo_url} subtitles={activeSubs} />
-                )}
-              </VideoAdPlayer>
+              <div className="relative">
+                <VideoAdPlayer>
+                  {useIframePlayer || isEmbedUrl(src) ? (
+                    <EmbedPlayer src={src} title={title} />
+                  ) : (
+                    <HlsPlayer src={src} poster={item.logo_url} subtitles={activeSubs} />
+                  )}
+                </VideoAdPlayer>
+                <FloatingReactions channelKey={`tv:${id}`} />
+              </div>
             ) : (
               <div className="aspect-video glass rounded-2xl grid place-items-center text-muted-foreground">
                 No stream URL configured.
@@ -285,6 +289,7 @@ export default function Player() {
         </div>
       )}
       {src ? (
+        <div className="relative">
         <VideoAdPlayer>
           {isMovie || isSeries ? (
             isEmbedUrl(src) ? (
@@ -313,6 +318,8 @@ export default function Player() {
             <HlsPlayer src={src} poster={item.backdrop_url || item.poster_url} subtitles={activeSubs} />
           )}
         </VideoAdPlayer>
+        <FloatingReactions />
+        </div>
       ) : (
         <div className="aspect-video glass rounded-2xl grid place-items-center text-muted-foreground">
           No stream URL configured.

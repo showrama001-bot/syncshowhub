@@ -1,5 +1,6 @@
 import { useEffect, useState, RefObject } from "react";
 import type { ResolvedTrack } from "@/lib/subtitles";
+import { useLocalPref } from "@/hooks/useLocalPref";
 
 /**
  * Per-viewer Subtitles / CC menu overlay. Applies the selected language to
@@ -12,7 +13,7 @@ export function CcMenu({
   videoRef: RefObject<HTMLVideoElement>;
   tracks: ResolvedTrack[];
 }) {
-  const [ccLang, setCcLang] = useState<string>("off");
+  const [ccLang, setCcLang] = useLocalPref<string>("cc_lang", "off");
   const [open, setOpen] = useState(false);
 
   useEffect(() => {

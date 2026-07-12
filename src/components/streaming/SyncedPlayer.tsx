@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
 import { supabase } from "@/integrations/supabase/client";
 import { useSubtitleTracks, SubtitleTrack } from "@/lib/subtitles";
+import { useLocalPref } from "@/hooks/useLocalPref";
+import { PopoutButton } from "@/components/miniplayer/MiniPlayerProvider";
 
 interface Props {
   roomId: string;
@@ -218,7 +220,7 @@ export function SyncedPlayer({ roomId, src, poster, isHost, subtitles }: Props) 
   };
 
   // Per-user subtitle selection — only affects this viewer's screen, not the room.
-  const [ccLang, setCcLang] = useState<string>("off");
+  const [ccLang, setCcLang] = useLocalPref<string>("cc_lang", "off");
   const [ccOpen, setCcOpen] = useState(false);
   useEffect(() => {
     const v = videoRef.current;
@@ -294,6 +296,15 @@ export function SyncedPlayer({ roomId, src, poster, isHost, subtitles }: Props) 
           )}
         </div>
       )}
+      {/* Pop-out mini player */}
+      <div className="absolute top-2 left-1/2 -translate-x-1/2 z-30">
+        <PopoutButton
+          get={() => {
+            const v = videoRef.current;
+            return { src, poster, title: "Watch Room", href: `/watch/${roomId}`, currentTime: v?.currentTime ?? 0, muted: v?.muted ?? false };
+          }}
+        />
+      </div>
       {/* Sync status badge — visible to everyone */}
       <div
         className={`absolute top-2 right-2 z-30 px-2.5 py-1 rounded-full text-[10px] uppercase tracking-widest flex items-center gap-1.5 backdrop-blur ${
