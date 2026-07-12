@@ -24,7 +24,12 @@ export default function Profile() {
 
   useEffect(() => {
     if (!user) return;
-    supabase.from("profiles").select("*").eq("id", user.id).maybeSingle().then(({ data }) => {
+    supabase
+      .from("profiles")
+      .select("id, username, display_name, avatar_url, bio, created_at, updated_at")
+      .eq("id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
       if (data) setP(data);
     });
   }, [user]);
