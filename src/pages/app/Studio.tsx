@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { Lock } from "lucide-react";
 
 const RTMP_URL = "rtmp://stream.syncshow.com/live";
 const STREAM_KEY = "sk_live_9c031ce6_4948_4dea_9e93_627de32828b1";
@@ -42,6 +44,9 @@ const seedChat: ChatMsg[] = [
 ];
 
 export default function Studio() {
+  const { isAdmin } = useAuth();
+  // Host = verified streamer (admin role). Query flag ?host=1 also allowed for host-preview.
+  const isHost = isAdmin || (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("host") === "1");
   const [showKey, setShowKey] = useState(false);
   const [messages, setMessages] = useState<ChatMsg[]>(seedChat);
   const [draft, setDraft] = useState("");
@@ -110,6 +115,10 @@ export default function Studio() {
   };
 
   const copy = async (val: string, label: string) => {
+    if (!isHost) {
+      toast.error("Only the host can copy stream credentials");
+      return;
+    }
     try {
       await navigator.clipboard.writeText(val);
       toast.success(`${label} copied`);
@@ -155,7 +164,8 @@ export default function Studio() {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
           {/* LEFT: Player + Settings */}
           <div className="space-y-6 min-w-0">
-            {/* MODE SWITCHER */}
+            {/* MODE SWITCHER — host only */}
+            {isHost ? (
             <div className="inline-flex p-1 rounded-xl glass border border-border/60 gap-1">
               <button
                 onClick={() => setMode("live")}
@@ -178,6 +188,11 @@ export default function Studio() {
                 <UploadCloud className="w-4 h-4" /> UPLOAD & STREAM MOVIE
               </button>
             </div>
+            ) : (
+              <div className="inline-flex items-center gap-2 px-3 py-2 rounded-xl glass border border-border/60 text-xs text-muted-foreground">
+                <Lock className="w-3.5 h-3.5 text-primary" /> Viewer mode — host controls are hidden
+              </div>
+            )}
 
             {/* Player */}
             <Card className="relative overflow-hidden aspect-video bg-black border-border/60 shadow-card">
@@ -232,7 +247,7 @@ export default function Studio() {
             </Card>
 
             {/* Stream Settings (LIVE) */}
-            {mode === "live" && (
+            {isHost && mode === "live" && (
             <Card className="p-4 md:p-6 bg-card/60 backdrop-blur border-border/60">
               <Tabs defaultValue="stream">
                 <TabsList className="bg-secondary/40">
@@ -325,7 +340,7 @@ export default function Studio() {
             )}
 
             {/* UPLOAD & STREAM MOVIE */}
-            {mode === "upload" && (
+            {isHost && mode === "upload" && (
               <div className="space-y-6">
                 {/* TMDB SEARCH */}
                 <Card className="p-5 md:p-6 bg-card/60 backdrop-blur border-border/60">
