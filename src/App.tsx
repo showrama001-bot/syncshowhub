@@ -38,10 +38,6 @@ const UploadMovie = lazy(() => import("./pages/app/UploadMovie"));
 const UploadShare = lazy(() => import("./pages/app/UploadShare"));
 const Reels = lazy(() => import("./pages/app/Reels"));
 const Trailers = lazy(() => import("./pages/app/Trailers"));
-const ApplyStreamer = lazy(() => import("./pages/app/ApplyStreamer"));
-const AdminPanel = lazy(() => import("./pages/app/AdminPanel"));
-const StreamerStudio = lazy(() => import("./pages/app/StreamerStudio"));
-const StreamerRoom = lazy(() => import("./pages/app/StreamerRoom"));
 
 const RouteFallback = () => (
   <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading…</div>
@@ -94,10 +90,6 @@ const App = () => {
               <Route path="/accueil" element={<Accueil />} />
               <Route path="/reels" element={lazyRoute(<Reels />)} />
               <Route path="/trailers" element={lazyRoute(<Trailers />)} />
-              <Route path="/apply-streamer" element={lazyRoute(<ApplyStreamer />)} />
-              <Route path="/admin-panel" element={lazyRoute(<AdminPanel />)} />
-              <Route path="/studio" element={lazyRoute(<StreamerStudio />)} />
-              <Route path="/room/:username" element={lazyRoute(<StreamerRoom />)} />
               <Route path="/admin" element={<Navigate to="/admin/dashboard/hub-secure-2026" replace />} />
               <Route path="/admin/dashboard" element={<Navigate to="/admin/dashboard/hub-secure-2026" replace />} />
               <Route path="/admin/dashboard/hub-secure-2026" element={lazyRoute(<Admin />)} />
