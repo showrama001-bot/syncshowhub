@@ -10,21 +10,21 @@ import { useLocalPref } from "@/hooks/useLocalPref";
 type SoundDef = { file: string; label: string };
 
 const SOUNDS: SoundDef[] = [
-  { file: "sound1.mp3", label: "مطر خفيف" },
-  { file: "sound2.mp3", label: "مطر متوسط" },
-  { file: "sound3.mp3", label: "مطر غزير" },
-  { file: "sound4.mp3", label: "مطر على النافذة" },
-  { file: "sound5.mp3", label: "مطر داخل السيارة" },
-  { file: "sound6.mp3", label: "عاصفة ورعد" },
-  { file: "sound7.mp3", label: "رعد بعيد" },
-  { file: "sound8.mp3", label: "حطب المدفئة" },
-  { file: "sound9.mp3", label: "رياح شتوية" },
-  { file: "sound10.mp3", label: "أمواج البحر" },
-  { file: "sound11.mp3", label: "أصوات الغابة والليل" },
-  { file: "sound12.mp3", label: "مقهى هادئ" },
-  { file: "sound13.mp3", label: "رذاذ خفيف" },
-  { file: "sound14.mp3", label: "مشي على الثلج" },
-  { file: "sound15.mp3", label: "جو هادئ (White Noise)" },
+  { file: "sound1.mp3", label: "Light Rain" },
+  { file: "sound2.mp3", label: "Moderate Rain" },
+  { file: "sound3.mp3", label: "Heavy Rain" },
+  { file: "sound4.mp3", label: "Rain on Window" },
+  { file: "sound5.mp3", label: "Rain Inside Car" },
+  { file: "sound6.mp3", label: "Thunderstorm" },
+  { file: "sound7.mp3", label: "Distant Thunder" },
+  { file: "sound8.mp3", label: "Cozy Fireplace" },
+  { file: "sound9.mp3", label: "Winter Wind" },
+  { file: "sound10.mp3", label: "Ocean Waves" },
+  { file: "sound11.mp3", label: "Night Forest" },
+  { file: "sound12.mp3", label: "Quiet Cafe" },
+  { file: "sound13.mp3", label: "Soft Drizzle" },
+  { file: "sound14.mp3", label: "Snow Walking" },
+  { file: "sound15.mp3", label: "White Noise" },
 ];
 
 type State = Record<string, { on: boolean; vol: number }>;
@@ -103,7 +103,7 @@ export function AmbientSounds() {
           variant="ghost"
           size="icon"
           aria-label="Ambient sounds"
-          className="fixed right-4 top-4 z-50 glass rounded-full hover:neon-border transition-all"
+          className="glass rounded-full hover:neon-border transition-all relative"
         >
           <Waves className={`h-5 w-5 ${activeCount > 0 ? "text-primary" : ""}`} />
           {activeCount > 0 && (
@@ -132,7 +132,7 @@ export function AmbientSounds() {
             disabled={activeCount === 0}
             className="gap-1"
           >
-            <Square className="h-3.5 w-3.5" /> إيقاف الكل
+            <Square className="h-3.5 w-3.5" /> Clear All
           </Button>
         </div>
         <ScrollArea className="h-[420px]">
@@ -154,8 +154,7 @@ export function AmbientSounds() {
                       onCheckedChange={(v) => toggle(s.file, !!v)}
                     />
                     <span
-                      dir="rtl"
-                      className="flex-1 text-sm font-medium text-right"
+                      className="flex-1 text-sm font-medium"
                     >
                       {s.label}
                     </span>
