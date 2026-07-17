@@ -7,6 +7,7 @@ import { TrailerModal } from "@/components/movies/TrailerModal";
 import { GridBanner } from "@/components/ads/GridBanner";
 import { Button } from "@/components/ui/button";
 import { ContributeFallbackModal } from "@/components/contribute/ContributeFallbackModal";
+import { getLocalMovies, subscribeLocalLibrary } from "@/lib/localLibrary";
 
 export default function Movies() {
   const [items, setItems] = useState<any[]>([]);
@@ -16,12 +17,25 @@ export default function Movies() {
   const [fallback, setFallback] = useState(false);
 
   useEffect(() => {
-    supabase
-      .from("movies")
-      .select("*")
-      .eq("status", "published")
-      .order("created_at", { ascending: false })
-      .then(({ data }) => setItems(data ?? []));
+    const load = async () => {
+      const { data } = await supabase
+        .from("movies")
+        .select("*")
+        .eq("status", "published")
+        .order("created_at", { ascending: false });
+      const remote = data ?? [];
+      const local = getLocalMovies();
+      // Merge — local first, deduped by tmdb_id where present.
+      const seen = new Set(local.map((m) => m.tmdb_id));
+      const merged = [
+        ...local,
+        ...remote.filter((m: any) => !m.tmdb_id || !seen.has(m.tmdb_id)),
+      ];
+      setItems(merged);
+    };
+    load();
+    const unsub = subscribeLocalLibrary(load);
+    return unsub;
   }, []);
 
   const categories = useMemo(() => {
