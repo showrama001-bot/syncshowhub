@@ -450,19 +450,30 @@ export default function Studio() {
               <div className="absolute inset-0 bg-gradient-hero" />
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,hsl(var(--primary)/0.25),transparent_60%)]" />
 
-              {/* Local video source */}
-              {videoUrl && (
+              {/* Host player: local file playback. Viewer player: HLS/blob from shared state. */}
+              {!isViewerRoute && videoUrl && (
                 <video
                   ref={videoRef}
                   src={videoUrl}
                   controls
                   playsInline
+                  onPlay={handleLocalPlay}
+                  onPause={handleLocalPause}
+                  className="absolute inset-0 w-full h-full object-contain bg-black z-[1]"
+                />
+              )}
+              {isViewerRoute && streamState.active && streamState.stream_url && (
+                <video
+                  ref={videoRef}
+                  controls
+                  playsInline
+                  poster={streamState.poster_url ?? undefined}
                   className="absolute inset-0 w-full h-full object-contain bg-black z-[1]"
                 />
               )}
 
-              {/* Center placeholder (only when no video) */}
-              {!videoUrl && (
+              {/* Center placeholder */}
+              {((!isViewerRoute && !videoUrl) || (isViewerRoute && !streamState.active)) && (
                 <div className="absolute inset-0 grid place-items-center">
                   <div className="flex flex-col items-center gap-3 text-center">
                     <div className="w-20 h-20 rounded-full glass grid place-items-center neon-border animate-pulse-glow">
