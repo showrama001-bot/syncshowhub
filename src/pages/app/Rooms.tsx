@@ -9,7 +9,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Bell, BellOff, Users, Clock, Lock, Play, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { getLocalLiveRooms, subscribeLocalLibrary, type LocalLiveRoom } from "@/lib/localLibrary";
 
 type Room = {
   id: string;
@@ -21,7 +20,6 @@ type Room = {
   status: string;
   scheduled_at: string | null;
   participant_count: number;
-  is_studio_live?: boolean;
 };
 
 export default function Rooms() {
@@ -38,29 +36,6 @@ export default function Rooms() {
       .in("status", ["live", "scheduled"])
       .order("created_at", { ascending: false });
     const remote = ((data || []) as Room[]);
-    const local = getLocalLiveRooms() as unknown as Room[];
-    // Explicit "current_live_room" localStorage entry (from /studio publish).
-    let injected: Room | null = null;
-    try {
-      const raw = localStorage.getItem("current_live_room");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        injected = {
-          id: parsed.id,
-          title: parsed.title,
-          host_id: parsed.host_id || "studio-host",
-          content_title: parsed.content_title ?? parsed.title,
-          poster_url: parsed.poster_url ?? null,
-          visibility: "public",
-          status: "live",
-          scheduled_at: null,
-          participant_count: parsed.participant_count ?? 1,
-          is_studio_live: true,
-        };
-      }
-    } catch {}
-    // One-shot: clear after consuming so it doesn't re-inject on every refresh.
-    try { localStorage.removeItem("current_live_room"); } catch {}
     const merged: Room[] = [];
     const seen = new Set<string>();
     const push = (r: Room | null) => {
@@ -68,8 +43,6 @@ export default function Rooms() {
       seen.add(r.id);
       merged.push(r);
     };
-    push(injected);
-    local.forEach(push);
     remote.forEach(push);
     setRooms(merged);
   };
@@ -89,15 +62,8 @@ export default function Rooms() {
       .channel("rooms-directory")
       .on("postgres_changes", { event: "*", schema: "public", table: "watch_rooms" }, () => load())
       .subscribe();
-    const unsub = subscribeLocalLibrary(load);
-    const onStorage = (e: StorageEvent) => {
-      if (!e.key || e.key === "current_live_room") load();
-    };
-    window.addEventListener("storage", onStorage);
     return () => {
       supabase.removeChannel(ch);
-      unsub();
-      window.removeEventListener("storage", onStorage);
     };
   }, [user?.id]);
 
@@ -157,7 +123,7 @@ export default function Rooms() {
                   key={r.id}
                   room={r}
                   onJoin={() =>
-                    navigate(r.is_studio_live ? `/live-stream?room=${r.id}` : `/watch/${r.id}`)
+                    navigate(`/watch/${r.id}`)
                   }
                 />
               ))}

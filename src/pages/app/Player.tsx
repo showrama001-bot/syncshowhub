@@ -16,7 +16,6 @@ import { TvChannelChat } from "@/components/tv/TvChannelChat";
 import { PlaybackReportButton } from "@/components/player/PlaybackReportButton";
 import { AutoNextOverlay } from "@/components/player/AutoNextOverlay";
 import { FloatingReactions } from "@/components/reactions/FloatingReactions";
-import { getLocalMovies } from "@/lib/localLibrary";
 
 export default function Player() {
   const { kind, id } = useParams();
@@ -31,26 +30,6 @@ export default function Player() {
 
   useEffect(() => {
     if (!id) return;
-    // Locally-published Studio movies live in localStorage, not the DB.
-    if (kind === "movie" && id.startsWith("local-")) {
-      const local = getLocalMovies().find((m) => m.id === id);
-      if (local) {
-        setItem({
-          id: local.id,
-          title: local.title,
-          poster_url: local.poster_url,
-          backdrop_url: local.poster_url,
-          year: local.year,
-          genre: local.genre,
-          category: local.category ?? null,
-          imdb_rating: local.imdb_rating ?? null,
-          status: "published",
-          stream_sources: [],
-          stream_url: null,
-        });
-        return;
-      }
-    }
     const table =
       kind === "tv" ? "tv_channels" :
       kind === "match" ? "matches" :
