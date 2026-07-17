@@ -91,7 +91,10 @@ export default function Rooms() {
           <h1 className="font-display text-3xl md:text-4xl tracking-wider">Watch Together</h1>
           <p className="text-muted-foreground text-sm">Jump into a public room or schedule one with friends.</p>
         </div>
-        <CreateRoomDialog onCreated={(id) => navigate(`/watch/${id}`)} />
+        <div className="flex items-center gap-2">
+          <AmbientSounds />
+          <CreateRoomDialog onCreated={(id) => navigate(`/watch/${id}`)} />
+        </div>
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
