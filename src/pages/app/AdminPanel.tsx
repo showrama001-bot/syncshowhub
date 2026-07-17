@@ -11,7 +11,7 @@ import { Check, X, ShieldCheck } from "lucide-react";
 type Row = {
   id: string; user_id: string; bio: string; desired_username: string; sample_link: string | null;
   status: string; review_notes: string | null; created_at: string;
-  profiles?: { username: string | null; display_name: string | null } | null;
+  _profile?: { username: string | null; display_name: string | null };
 };
 
 export default function AdminPanel() {
@@ -23,9 +23,16 @@ export default function AdminPanel() {
   const load = async () => {
     const { data } = await supabase
       .from("streamer_applications")
-      .select("*, profiles:user_id(username, display_name)")
+      .select("*")
       .order("created_at", { ascending: false });
-    setRows((data as any) ?? []);
+    const list = (data as any[]) ?? [];
+    const ids = Array.from(new Set(list.map((r) => r.user_id)));
+    let profMap: Record<string, any> = {};
+    if (ids.length) {
+      const { data: profs } = await supabase.from("profiles").select("id, username, display_name").in("id", ids);
+      (profs ?? []).forEach((p: any) => { profMap[p.id] = p; });
+    }
+    setRows(list.map((r) => ({ ...r, _profile: profMap[r.user_id] })));
   };
   useEffect(() => { if (isAdmin) load(); }, [isAdmin]);
 
@@ -63,7 +70,7 @@ export default function AdminPanel() {
               <div>
                 <p className="font-semibold">@{r.desired_username}</p>
                 <p className="text-xs text-muted-foreground">
-                  {r.profiles?.display_name || r.profiles?.username || r.user_id.slice(0, 8)} · {new Date(r.created_at).toLocaleString()}
+                  {r._profile?.display_name || r._profile?.username || r.user_id.slice(0, 8)} · {new Date(r.created_at).toLocaleString()}
                 </p>
               </div>
               <Badge variant="secondary">pending</Badge>
