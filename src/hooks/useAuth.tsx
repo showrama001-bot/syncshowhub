@@ -9,6 +9,8 @@ type AuthCtx = {
   session: Session | null;
   loading: boolean;
   isAdmin: boolean;
+  isApprovedStreamer: boolean;
+  isPendingStreamer: boolean;
   roleLoading: boolean;
   signOut: () => Promise<void>;
 };
@@ -18,6 +20,8 @@ const Ctx = createContext<AuthCtx>({
   session: null,
   loading: true,
   isAdmin: false,
+  isApprovedStreamer: false,
+  isPendingStreamer: false,
   roleLoading: true,
   signOut: async () => {},
 });
@@ -26,6 +30,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isApprovedStreamer, setIsApprovedStreamer] = useState(false);
+  const [isPendingStreamer, setIsPendingStreamer] = useState(false);
   const [roleLoading, setRoleLoading] = useState(true);
 
   useEffect(() => {
@@ -40,14 +46,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           const { data } = await supabase
             .from("user_roles")
             .select("role")
-            .eq("user_id", s.user.id)
-            .eq("role", "admin")
-            .maybeSingle();
-          setIsAdmin(!!data);
+            .eq("user_id", s.user.id);
+          const roles = new Set((data ?? []).map((r: any) => r.role));
+          setIsAdmin(roles.has("admin"));
+          setIsApprovedStreamer(roles.has("approved_streamer"));
+          setIsPendingStreamer(roles.has("pending_streamer"));
           setRoleLoading(false);
         }, 0);
       } else {
         setIsAdmin(false);
+        setIsApprovedStreamer(false);
+        setIsPendingStreamer(false);
         setRoleLoading(false);
       }
     });
@@ -59,10 +68,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const { data: r } = await supabase
           .from("user_roles")
           .select("role")
-          .eq("user_id", data.session.user.id)
-          .eq("role", "admin")
-          .maybeSingle();
-        setIsAdmin(!!r);
+          .eq("user_id", data.session.user.id);
+        const roles = new Set((r ?? []).map((x: any) => x.role));
+        setIsAdmin(roles.has("admin"));
+        setIsApprovedStreamer(roles.has("approved_streamer"));
+        setIsPendingStreamer(roles.has("pending_streamer"));
         setRoleLoading(false);
       } else {
         setRoleLoading(false);
@@ -101,7 +111,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <Ctx.Provider value={{ user: session?.user ?? null, session, loading, isAdmin, roleLoading, signOut }}>
+    <Ctx.Provider value={{ user: session?.user ?? null, session, loading, isAdmin, isApprovedStreamer, isPendingStreamer, roleLoading, signOut }}>
       {children}
     </Ctx.Provider>
   );
