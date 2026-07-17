@@ -155,6 +155,30 @@ export default function Studio() {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
           {/* LEFT: Player + Settings */}
           <div className="space-y-6 min-w-0">
+            {/* MODE SWITCHER */}
+            <div className="inline-flex p-1 rounded-xl glass border border-border/60 gap-1">
+              <button
+                onClick={() => setMode("live")}
+                className={`px-4 py-2 rounded-lg text-sm font-display tracking-wider transition-all flex items-center gap-2 ${
+                  mode === "live"
+                    ? "bg-gradient-red text-white shadow-neon"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Radio className="w-4 h-4" /> LIVE STREAM (OBS)
+              </button>
+              <button
+                onClick={() => setMode("upload")}
+                className={`px-4 py-2 rounded-lg text-sm font-display tracking-wider transition-all flex items-center gap-2 ${
+                  mode === "upload"
+                    ? "bg-gradient-red text-white shadow-neon"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <UploadCloud className="w-4 h-4" /> UPLOAD & STREAM MOVIE
+              </button>
+            </div>
+
             {/* Player */}
             <Card className="relative overflow-hidden aspect-video bg-black border-border/60 shadow-card">
               {/* Ambient gradient */}
