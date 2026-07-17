@@ -164,7 +164,8 @@ export default function Studio() {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
           {/* LEFT: Player + Settings */}
           <div className="space-y-6 min-w-0">
-            {/* MODE SWITCHER */}
+            {/* MODE SWITCHER — host only */}
+            {isHost ? (
             <div className="inline-flex p-1 rounded-xl glass border border-border/60 gap-1">
               <button
                 onClick={() => setMode("live")}
@@ -187,6 +188,11 @@ export default function Studio() {
                 <UploadCloud className="w-4 h-4" /> UPLOAD & STREAM MOVIE
               </button>
             </div>
+            ) : (
+              <div className="inline-flex items-center gap-2 px-3 py-2 rounded-xl glass border border-border/60 text-xs text-muted-foreground">
+                <Lock className="w-3.5 h-3.5 text-primary" /> Viewer mode — host controls are hidden
+              </div>
+            )}
 
             {/* Player */}
             <Card className="relative overflow-hidden aspect-video bg-black border-border/60 shadow-card">
@@ -241,7 +247,7 @@ export default function Studio() {
             </Card>
 
             {/* Stream Settings (LIVE) */}
-            {mode === "live" && (
+            {isHost && mode === "live" && (
             <Card className="p-4 md:p-6 bg-card/60 backdrop-blur border-border/60">
               <Tabs defaultValue="stream">
                 <TabsList className="bg-secondary/40">
@@ -334,7 +340,7 @@ export default function Studio() {
             )}
 
             {/* UPLOAD & STREAM MOVIE */}
-            {mode === "upload" && (
+            {isHost && mode === "upload" && (
               <div className="space-y-6">
                 {/* TMDB SEARCH */}
                 <Card className="p-5 md:p-6 bg-card/60 backdrop-blur border-border/60">
