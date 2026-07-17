@@ -1,16 +1,37 @@
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Copy, Eye, EyeOff, Send, Radio, Users, Video, Settings } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import {
+  Copy, Eye, EyeOff, Send, Radio, Users, Video, Settings,
+  Search, UploadCloud, Film, Loader2, CheckCircle2, X, Sparkles,
+} from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const RTMP_URL = "rtmp://stream.syncshow.com/live";
 const STREAM_KEY = "sk_live_9c031ce6_4948_4dea_9e93_627de32828b1";
 const REACTIONS = ["🔥", "😂", "😮", "❤️", "👏", "🎉", "💯", "😢"] as const;
 
 type ChatMsg = { id: string; user: string; text: string; color: string };
+type TmdbHit = {
+  tmdb_id: number;
+  title: string;
+  year: number | null;
+  genre: string | null;
+  poster_url: string | null;
+  backdrop_url: string | null;
+  description?: string | null;
+};
+
+const MOCK_HITS: TmdbHit[] = [
+  { tmdb_id: 27205, title: "Inception", year: 2010, genre: "Action, Sci-Fi", poster_url: "https://image.tmdb.org/t/p/w500/9gk7adHYeDvHkCSEqAvQNLV5Uge.jpg", backdrop_url: null },
+  { tmdb_id: 155, title: "The Dark Knight", year: 2008, genre: "Action, Crime, Drama", poster_url: "https://image.tmdb.org/t/p/w500/qJ2tW6WMUDux911r6m7haRef0WH.jpg", backdrop_url: null },
+  { tmdb_id: 157336, title: "Interstellar", year: 2014, genre: "Adventure, Drama, Sci-Fi", poster_url: "https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg", backdrop_url: null },
+  { tmdb_id: 603, title: "The Matrix", year: 1999, genre: "Action, Sci-Fi", poster_url: "https://image.tmdb.org/t/p/w500/f89U3ADr1oiB1s9GkdPOEpXUk5H.jpg", backdrop_url: null },
+];
 
 const seedChat: ChatMsg[] = [
   { id: "1", user: "NovaKing", text: "yo the stream looks 🔥", color: "text-primary" },
@@ -24,6 +45,69 @@ export default function Studio() {
   const [showKey, setShowKey] = useState(false);
   const [messages, setMessages] = useState<ChatMsg[]>(seedChat);
   const [draft, setDraft] = useState("");
+  const [mode, setMode] = useState<"live" | "upload">("live");
+
+  // Upload state
+  const [query, setQuery] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [results, setResults] = useState<TmdbHit[]>([]);
+  const [picked, setPicked] = useState<TmdbHit | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [drag, setDrag] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [done, setDone] = useState(false);
+  const canPublish = Boolean(picked && file && !publishing);
+  const fileSize = useMemo(
+    () => (file ? `${(file.size / (1024 * 1024)).toFixed(1)} MB` : ""),
+    [file],
+  );
+
+  const searchTmdb = async () => {
+    const q = query.trim();
+    if (!q) return toast.error("Type a movie name first");
+    setSearching(true);
+    setResults([]);
+    try {
+      const { data, error } = await supabase.functions.invoke("tmdb-fetch", {
+        body: { query: q, kind: "movie" },
+      });
+      if (error || !data || (data as any).error) throw new Error("no live");
+      const d = data as any;
+      setResults([
+        { tmdb_id: d.tmdb_id, title: d.title, year: d.year, genre: d.genre, poster_url: d.poster_url, backdrop_url: d.backdrop_url, description: d.description },
+        ...MOCK_HITS.filter((m) => m.title.toLowerCase().includes(q.toLowerCase())).slice(0, 5),
+      ]);
+    } catch {
+      const filtered = MOCK_HITS.filter((m) => m.title.toLowerCase().includes(q.toLowerCase()));
+      setResults(filtered.length ? filtered : MOCK_HITS);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const onDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDrag(false);
+    const f = e.dataTransfer.files?.[0];
+    if (f) setFile(f);
+  }, []);
+
+  const publish = async () => {
+    if (!picked || !file) return;
+    setPublishing(true);
+    await new Promise((r) => setTimeout(r, 1200));
+    setPublishing(false);
+    setDone(true);
+    toast.success(`"${picked.title}" published to your library`);
+  };
+
+  const resetUpload = () => {
+    setPicked(null);
+    setFile(null);
+    setDone(false);
+    setResults([]);
+    setQuery("");
+  };
 
   const copy = async (val: string, label: string) => {
     try {
