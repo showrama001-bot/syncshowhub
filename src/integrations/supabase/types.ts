@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      active_stream: {
+        Row: {
+          created_at: string
+          host_id: string | null
+          id: number
+          movie_id: string | null
+          poster_url: string | null
+          status: string
+          stream_url: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          host_id?: string | null
+          id?: number
+          movie_id?: string | null
+          poster_url?: string | null
+          status?: string
+          stream_url?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          host_id?: string | null
+          id?: number
+          movie_id?: string | null
+          poster_url?: string | null
+          status?: string
+          stream_url?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ads_assets: {
         Row: {
           active: boolean
@@ -937,6 +973,38 @@ export type Database = {
           },
         ]
       }
+      room_chat_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          room_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          room_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          room_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_chat_messages_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "streamer_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       room_invites: {
         Row: {
           created_at: string
@@ -1120,6 +1188,144 @@ export type Database = {
           resolved_by?: string | null
           server?: string
           status?: string
+        }
+        Relationships: []
+      }
+      streamer_applications: {
+        Row: {
+          bio: string
+          created_at: string
+          desired_username: string
+          id: string
+          review_notes: string | null
+          reviewer_id: string | null
+          sample_link: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bio: string
+          created_at?: string
+          desired_username: string
+          id?: string
+          review_notes?: string | null
+          reviewer_id?: string | null
+          sample_link?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bio?: string
+          created_at?: string
+          desired_username?: string
+          id?: string
+          review_notes?: string | null
+          reviewer_id?: string | null
+          sample_link?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      streamer_rooms: {
+        Row: {
+          created_at: string
+          current_poster: string | null
+          current_video_title: string | null
+          current_video_url: string | null
+          description: string | null
+          id: string
+          is_live: boolean
+          mode: string
+          streamer_id: string
+          title: string
+          updated_at: string
+          username_slug: string
+          viewer_count: number
+        }
+        Insert: {
+          created_at?: string
+          current_poster?: string | null
+          current_video_title?: string | null
+          current_video_url?: string | null
+          description?: string | null
+          id?: string
+          is_live?: boolean
+          mode?: string
+          streamer_id: string
+          title?: string
+          updated_at?: string
+          username_slug: string
+          viewer_count?: number
+        }
+        Update: {
+          created_at?: string
+          current_poster?: string | null
+          current_video_title?: string | null
+          current_video_url?: string | null
+          description?: string | null
+          id?: string
+          is_live?: boolean
+          mode?: string
+          streamer_id?: string
+          title?: string
+          updated_at?: string
+          username_slug?: string
+          viewer_count?: number
+        }
+        Relationships: []
+      }
+      streamer_uploads: {
+        Row: {
+          backdrop_url: string | null
+          created_at: string
+          genre: string | null
+          id: string
+          overview: string | null
+          poster_url: string | null
+          rating: number | null
+          stream_url: string
+          streamer_id: string
+          telegram_file_id: string | null
+          title: string
+          tmdb_id: number | null
+          updated_at: string
+          year: number | null
+        }
+        Insert: {
+          backdrop_url?: string | null
+          created_at?: string
+          genre?: string | null
+          id?: string
+          overview?: string | null
+          poster_url?: string | null
+          rating?: number | null
+          stream_url: string
+          streamer_id: string
+          telegram_file_id?: string | null
+          title: string
+          tmdb_id?: number | null
+          updated_at?: string
+          year?: number | null
+        }
+        Update: {
+          backdrop_url?: string | null
+          created_at?: string
+          genre?: string | null
+          id?: string
+          overview?: string | null
+          poster_url?: string | null
+          rating?: number | null
+          stream_url?: string
+          streamer_id?: string
+          telegram_file_id?: string | null
+          title?: string
+          tmdb_id?: number | null
+          updated_at?: string
+          year?: number | null
         }
         Relationships: []
       }
@@ -1497,7 +1703,7 @@ export type Database = {
         | "banner_grid"
         | "banner_under_player"
         | "interstitial"
-      app_role: "admin" | "user"
+      app_role: "admin" | "user" | "pending_streamer" | "approved_streamer"
       friendship_status: "pending" | "accepted" | "declined" | "blocked"
     }
     CompositeTypes: {
@@ -1634,7 +1840,7 @@ export const Constants = {
         "banner_under_player",
         "interstitial",
       ],
-      app_role: ["admin", "user"],
+      app_role: ["admin", "user", "pending_streamer", "approved_streamer"],
       friendship_status: ["pending", "accepted", "declined", "blocked"],
     },
   },
