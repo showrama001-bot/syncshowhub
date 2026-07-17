@@ -231,7 +231,8 @@ export default function Studio() {
               </div>
             </Card>
 
-            {/* Stream Settings */}
+            {/* Stream Settings (LIVE) */}
+            {mode === "live" && (
             <Card className="p-4 md:p-6 bg-card/60 backdrop-blur border-border/60">
               <Tabs defaultValue="stream">
                 <TabsList className="bg-secondary/40">
@@ -321,6 +322,167 @@ export default function Studio() {
                 </TabsContent>
               </Tabs>
             </Card>
+            )}
+
+            {/* UPLOAD & STREAM MOVIE */}
+            {mode === "upload" && (
+              <div className="space-y-6">
+                {/* TMDB SEARCH */}
+                <Card className="p-5 md:p-6 bg-card/60 backdrop-blur border-border/60">
+                  <label className="text-sm font-medium mb-2 flex items-center gap-2">
+                    <Search className="h-4 w-4 text-primary" /> Search Movie on TMDB
+                  </label>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="e.g. Inception, Interstellar…"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), searchTmdb())}
+                      className="bg-background/60"
+                    />
+                    <Button onClick={searchTmdb} disabled={searching} className="min-w-[110px] bg-gradient-red shadow-neon">
+                      {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                      <span className="ml-2">Search</span>
+                    </Button>
+                  </div>
+
+                  {results.length > 0 && !picked && (
+                    <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                      {results.map((r) => (
+                        <button
+                          key={r.tmdb_id}
+                          onClick={() => setPicked(r)}
+                          className="group text-left rounded-xl overflow-hidden border border-border/50 bg-background/40 hover:border-primary/60 hover:shadow-neon transition-all"
+                        >
+                          <div className="aspect-[2/3] bg-muted/30 overflow-hidden">
+                            {r.poster_url ? (
+                              <img src={r.poster_url} alt={r.title} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                                <Film className="h-8 w-8" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="p-2">
+                            <p className="text-xs font-medium line-clamp-1">{r.title}</p>
+                            <p className="text-[10px] text-muted-foreground">{r.year ?? "—"}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+
+                {/* PREVIEW CARD */}
+                {picked && (
+                  <Card className="p-5 md:p-6 border-primary/40 bg-gradient-to-br from-card/70 to-primary/5 backdrop-blur-xl shadow-neon">
+                    <div className="flex justify-between items-start mb-4">
+                      <Badge variant="outline" className="border-primary/50 text-primary">
+                        <CheckCircle2 className="h-3 w-3 mr-1" /> Selected from TMDB
+                      </Badge>
+                      <Button size="icon" variant="ghost" onClick={() => setPicked(null)} className="h-8 w-8">
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="flex flex-col md:flex-row gap-5">
+                      <div className="w-32 md:w-40 flex-shrink-0 aspect-[2/3] rounded-lg overflow-hidden border border-border/50 bg-muted/30">
+                        {picked.poster_url ? (
+                          <img src={picked.poster_url} alt={picked.title} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                            <Film className="h-10 w-10" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 space-y-2 min-w-0">
+                        <h2 className="font-display text-2xl tracking-wide neon-text">{picked.title}</h2>
+                        <div className="flex flex-wrap gap-2">
+                          {picked.year && <Badge variant="secondary">{picked.year}</Badge>}
+                          {picked.genre?.split(",").map((g) => (
+                            <Badge key={g} variant="outline" className="border-border/60">{g.trim()}</Badge>
+                          ))}
+                        </div>
+                        {picked.description && (
+                          <p className="text-sm text-muted-foreground line-clamp-4">{picked.description}</p>
+                        )}
+                        <p className="text-[11px] text-muted-foreground/70">TMDB ID: {picked.tmdb_id}</p>
+                      </div>
+                    </div>
+                  </Card>
+                )}
+
+                {/* FILE UPLOADER */}
+                <Card className="p-5 md:p-6 bg-card/60 backdrop-blur border-border/60">
+                  <label className="text-sm font-medium mb-3 flex items-center gap-2">
+                    <UploadCloud className="h-4 w-4 text-primary" /> Upload Video File from Device
+                  </label>
+                  <label
+                    onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+                    onDragLeave={() => setDrag(false)}
+                    onDrop={onDrop}
+                    className={`relative flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed cursor-pointer transition-all py-10 px-6 text-center ${
+                      drag ? "border-primary bg-primary/10 shadow-neon" : "border-border/60 bg-background/30 hover:border-primary/60 hover:bg-primary/5"
+                    }`}
+                  >
+                    <input
+                      type="file"
+                      accept="video/mp4,video/x-matroska,video/*"
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                      onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                    />
+                    <div className="h-14 w-14 rounded-full bg-primary/15 border border-primary/40 flex items-center justify-center">
+                      <UploadCloud className="h-7 w-7 text-primary" />
+                    </div>
+                    {file ? (
+                      <>
+                        <p className="font-medium text-sm">{file.name}</p>
+                        <p className="text-xs text-muted-foreground">{fileSize} · Ready to publish</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="font-medium">Drag & drop your movie file here</p>
+                        <p className="text-xs text-muted-foreground">MP4 · MKV · MOV — or click to browse</p>
+                      </>
+                    )}
+                  </label>
+                  {file && (
+                    <div className="mt-3 flex justify-end">
+                      <Button variant="ghost" size="sm" onClick={() => setFile(null)}>
+                        <X className="h-3 w-3 mr-1" /> Remove file
+                      </Button>
+                    </div>
+                  )}
+                </Card>
+
+                {/* SUBMIT */}
+                <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                  <p className="text-xs text-muted-foreground">
+                    {picked && file
+                      ? "Everything looks good — hit publish to add this to your library."
+                      : "Pick a TMDB match and attach a video file to enable publishing."}
+                  </p>
+                  <div className="flex gap-2">
+                    {done && (
+                      <Button variant="outline" onClick={resetUpload}>Upload another</Button>
+                    )}
+                    <Button
+                      size="lg"
+                      disabled={!canPublish}
+                      onClick={publish}
+                      className="min-w-[220px] bg-gradient-red shadow-neon"
+                    >
+                      {publishing ? (
+                        <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Publishing…</>
+                      ) : done ? (
+                        <><CheckCircle2 className="h-4 w-4 mr-2" /> Published</>
+                      ) : (
+                        <><UploadCloud className="h-4 w-4 mr-2" /> Publish to My Library</>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* RIGHT: Chat */}
