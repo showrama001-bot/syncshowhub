@@ -1,4 +1,1 @@
 project_id = "owkdvcyvglzhgjkuahmr"
-
-[functions.streamer-upload]
-verify_jwt = false
