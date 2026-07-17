@@ -240,14 +240,39 @@ export default function Studio() {
       category: picked.genre?.split(",")[0]?.trim() || null,
     });
     // Add a live room card pointing to /live-stream
+    const roomId = `studio-${picked.tmdb_id}-${Date.now()}`;
     publishLocalLiveRoom({
-      id: `studio-${picked.tmdb_id}-${Date.now()}`,
+      id: roomId,
       title: picked.title,
       host_id: "studio-host",
       content_title: picked.title,
       poster_url: picked.poster_url,
       participant_count: 1,
     });
+    // Also write the explicit localStorage keys expected by /rooms and /movies
+    try {
+      const liveRoom = {
+        id: roomId,
+        title: picked.title,
+        content_title: picked.title,
+        poster_url: picked.poster_url,
+        year: picked.year,
+        tmdb_id: picked.tmdb_id,
+        status: "live" as const,
+        created_at: new Date().toISOString(),
+      };
+      const newMovie = {
+        id: `local-${picked.tmdb_id}`,
+        tmdb_id: picked.tmdb_id,
+        title: picked.title,
+        year: picked.year,
+        genre: picked.genre,
+        poster_url: picked.poster_url,
+      };
+      localStorage.setItem("current_live_room", JSON.stringify(liveRoom));
+      localStorage.setItem("new_movie_added", JSON.stringify(newMovie));
+      window.dispatchEvent(new CustomEvent("syncshow:local-library-updated"));
+    } catch {}
     setPublishing(false);
     setDone(true);
     toast.success(`"${picked.title}" published to your library`);
