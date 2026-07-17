@@ -16,12 +16,16 @@ import { useAuth } from "@/hooks/useAuth";
 import { Lock } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import { publishLocalMovie, publishLocalLiveRoom } from "@/lib/localLibrary";
+import Hls from "hls.js";
+import {
+  useStudioStream, useStudioChat, writeStreamState, clearStreamState,
+  type StudioChatMsg,
+} from "@/lib/studioStream";
 
 const RTMP_URL = "rtmp://stream.syncshow.com/live";
 const STREAM_KEY = "sk_live_9c031ce6_4948_4dea_9e93_627de32828b1";
 const REACTIONS = ["🔥", "😂", "😮", "❤️", "👏", "🎉", "💯", "😢"] as const;
 
-type ChatMsg = { id: string; user: string; text: string; color: string };
 type TmdbHit = {
   tmdb_id: number;
   title: string;
@@ -39,12 +43,12 @@ const MOCK_HITS: TmdbHit[] = [
   { tmdb_id: 603, title: "The Matrix", year: 1999, genre: "Action, Sci-Fi", poster_url: "https://image.tmdb.org/t/p/w500/f89U3ADr1oiB1s9GkdPOEpXUk5H.jpg", backdrop_url: null },
 ];
 
-const seedChat: ChatMsg[] = [
-  { id: "1", user: "NovaKing", text: "yo the stream looks 🔥", color: "text-primary" },
-  { id: "2", user: "Zara_88", text: "quality is insane 👏", color: "text-emerald-400" },
-  { id: "3", user: "Dr_Neon", text: "who's the host?", color: "text-sky-400" },
-  { id: "4", user: "PixelWolf", text: "GG 🎉", color: "text-amber-400" },
-  { id: "5", user: "Luma", text: "turn up the mic pls", color: "text-fuchsia-400" },
+const seedChat: StudioChatMsg[] = [
+  { id: "s1", user: "NovaKing", text: "yo the stream looks 🔥", color: "text-primary", ts: 0 },
+  { id: "s2", user: "Zara_88", text: "quality is insane 👏", color: "text-emerald-400", ts: 0 },
+  { id: "s3", user: "Dr_Neon", text: "who's the host?", color: "text-sky-400", ts: 0 },
+  { id: "s4", user: "PixelWolf", text: "GG 🎉", color: "text-amber-400", ts: 0 },
+  { id: "s5", user: "Luma", text: "turn up the mic pls", color: "text-fuchsia-400", ts: 0 },
 ];
 
 // --- Ambient sound pointers (local playback) ---
@@ -77,9 +81,14 @@ export default function Studio() {
   // Host = verified streamer (admin role). Query flag ?host=1 also allowed for host-preview.
   const isHost = !isViewerRoute && (isAdmin || (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("host") === "1"));
   const [showKey, setShowKey] = useState(false);
-  const [messages, setMessages] = useState<ChatMsg[]>(seedChat);
+  const { messages, send: sendChat } = useStudioChat(seedChat);
   const [draft, setDraft] = useState("");
   const [mode, setMode] = useState<"live" | "upload">("live");
+
+  // Shared stream state (viewer ↔ host)
+  const streamState = useStudioStream();
+  const [obsUrl, setObsUrl] = useState("");
+  const [obsLive, setObsLive] = useState(false);
 
   // Upload state
   const [query, setQuery] = useState("");
@@ -105,6 +114,70 @@ export default function Studio() {
     setVideoUrl(url);
     return () => URL.revokeObjectURL(url);
   }, [file]);
+
+  // HOST: when the local video starts playing, broadcast to viewers.
+  const handleLocalPlay = () => {
+    if (isViewerRoute) return;
+    if (!videoUrl) return;
+    writeStreamState({
+      active: true,
+      mode: "upload",
+      stream_url: videoUrl,
+      title: picked?.title ?? file?.name ?? "Local playback",
+      poster_url: picked?.poster_url ?? null,
+      is_hls: false,
+    });
+  };
+  const handleLocalPause = () => {
+    // Keep the stream flagged active so viewers can resume; only clear on file removal.
+  };
+
+  // HOST: OBS connect / disconnect.
+  const connectObs = () => {
+    const url = obsUrl.trim();
+    if (!url) {
+      toast.error("Paste your HLS playback URL (.m3u8) first");
+      return;
+    }
+    setObsLive(true);
+    writeStreamState({
+      active: true,
+      mode: "obs",
+      stream_url: url,
+      title: picked?.title ?? "OBS Live",
+      poster_url: picked?.poster_url ?? null,
+      is_hls: /\.m3u8($|\?)/i.test(url),
+    });
+    toast.success("You are LIVE — viewers can now watch");
+  };
+  const stopObs = () => {
+    setObsLive(false);
+    clearStreamState();
+    toast.info("Stream ended");
+  };
+
+  // HOST: clearing the file kills the upload stream broadcast.
+  useEffect(() => {
+    if (isViewerRoute) return;
+    if (!file && streamState.mode === "upload") clearStreamState();
+  }, [file, isViewerRoute, streamState.mode]);
+
+  // VIEWER: attach HLS or plain source to the video element when state arrives.
+  useEffect(() => {
+    if (!isViewerRoute) return;
+    const v = videoRef.current;
+    const url = streamState.stream_url;
+    if (!v || !url) return;
+    let hls: Hls | null = null;
+    if (streamState.is_hls && Hls.isSupported()) {
+      hls = new Hls({ enableWorker: true });
+      hls.loadSource(url);
+      hls.attachMedia(v);
+    } else {
+      v.src = url;
+    }
+    return () => { hls?.destroy(); };
+  }, [isViewerRoute, streamState.stream_url, streamState.is_hls]);
 
   // Webcam PiP
   const [camOn, setCamOn] = useState(false);
@@ -302,10 +375,11 @@ export default function Studio() {
   const send = (text: string) => {
     const t = text.trim();
     if (!t) return;
-    setMessages((m) => [
-      ...m,
-      { id: `${Date.now()}`, user: "You", text: t, color: "text-primary" },
-    ]);
+    sendChat({
+      user: isViewerRoute ? "Viewer" : "Host",
+      text: t,
+      color: isViewerRoute ? "text-sky-400" : "text-primary",
+    });
     setDraft("");
   };
 
@@ -376,19 +450,30 @@ export default function Studio() {
               <div className="absolute inset-0 bg-gradient-hero" />
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,hsl(var(--primary)/0.25),transparent_60%)]" />
 
-              {/* Local video source */}
-              {videoUrl && (
+              {/* Host player: local file playback. Viewer player: HLS/blob from shared state. */}
+              {!isViewerRoute && videoUrl && (
                 <video
                   ref={videoRef}
                   src={videoUrl}
                   controls
                   playsInline
+                  onPlay={handleLocalPlay}
+                  onPause={handleLocalPause}
+                  className="absolute inset-0 w-full h-full object-contain bg-black z-[1]"
+                />
+              )}
+              {isViewerRoute && streamState.active && streamState.stream_url && (
+                <video
+                  ref={videoRef}
+                  controls
+                  playsInline
+                  poster={streamState.poster_url ?? undefined}
                   className="absolute inset-0 w-full h-full object-contain bg-black z-[1]"
                 />
               )}
 
-              {/* Center placeholder (only when no video) */}
-              {!videoUrl && (
+              {/* Center placeholder */}
+              {((!isViewerRoute && !videoUrl) || (isViewerRoute && !streamState.active)) && (
                 <div className="absolute inset-0 grid place-items-center">
                   <div className="flex flex-col items-center gap-3 text-center">
                     <div className="w-20 h-20 rounded-full glass grid place-items-center neon-border animate-pulse-glow">
@@ -539,6 +624,46 @@ export default function Studio() {
                     <p className="text-[11px] text-muted-foreground">
                       Never share your stream key. Rotate it if you suspect it's compromised.
                     </p>
+                  </div>
+
+                  {/* HLS Playback URL — the actual URL viewers pull */}
+                  <div className="space-y-2 pt-4 border-t border-border/40">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      HLS Playback URL (.m3u8)
+                    </label>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="https://your-ingest.example.com/live/stream.m3u8"
+                        value={obsUrl}
+                        onChange={(e) => setObsUrl(e.target.value)}
+                        className="font-mono text-sm bg-background/60"
+                      />
+                      {obsLive ? (
+                        <Button
+                          variant="outline"
+                          onClick={stopObs}
+                          className="shrink-0 border-destructive/60 text-destructive hover:bg-destructive/10"
+                        >
+                          <X className="w-4 h-4 mr-2" /> Stop
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={connectObs}
+                          className="shrink-0 bg-gradient-red shadow-neon"
+                        >
+                          <Radio className="w-4 h-4 mr-2" /> Connect & Go Live
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Once OBS is streaming to the RTMP endpoint, paste your public HLS playback URL here and click <strong>Connect & Go Live</strong>. Viewers on <code>/live-stream</code> will see it instantly.
+                    </p>
+                    {obsLive && (
+                      <div className="text-[11px] text-emerald-400 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                        Broadcasting to viewers
+                      </div>
+                    )}
                   </div>
                 </TabsContent>
 
