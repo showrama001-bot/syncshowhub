@@ -11,7 +11,7 @@ type SoundDef = { file: string; label: string; url: string };
 
 // Load CDN pointers for all sound files present in public/sounds.
 const POINTERS = import.meta.glob<{ url: string }>(
-  "/public/sounds/*.mp3.asset.json",
+  "../../../public/sounds/*.mp3.asset.json",
   { eager: true, import: "default" }
 );
 const urlFor = (file: string): string | undefined => {
