@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Upload, Search, Loader2, Video, VideoOff, Mic, MicOff, Radio, ExternalLink } from "lucide-react";
 import { uploadToStreamerTelegram, TELEGRAM_MAX_BYTES } from "@/lib/telegramUploadStreamer";
