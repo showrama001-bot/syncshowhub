@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      active_stream: {
+        Row: {
+          created_at: string
+          host_id: string | null
+          id: number
+          movie_id: string | null
+          poster_url: string | null
+          status: string
+          stream_url: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          host_id?: string | null
+          id?: number
+          movie_id?: string | null
+          poster_url?: string | null
+          status?: string
+          stream_url?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          host_id?: string | null
+          id?: number
+          movie_id?: string | null
+          poster_url?: string | null
+          status?: string
+          stream_url?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ads_assets: {
         Row: {
           active: boolean
