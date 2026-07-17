@@ -7,25 +7,41 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Waves, Square } from "lucide-react";
 import { useLocalPref } from "@/hooks/useLocalPref";
 
-type SoundDef = { file: string; label: string };
+type SoundDef = { file: string; label: string; url: string };
 
-const SOUNDS: SoundDef[] = [
-  { file: "sound1.mp3", label: "Light Rain" },
-  { file: "sound2.mp3", label: "Moderate Rain" },
-  { file: "sound3.mp3", label: "Heavy Rain" },
-  { file: "sound4.mp3", label: "Rain on Window" },
-  { file: "sound5.mp3", label: "Rain Inside Car" },
-  { file: "sound6.mp3", label: "Thunderstorm" },
-  { file: "sound7.mp3", label: "Distant Thunder" },
-  { file: "sound8.mp3", label: "Cozy Fireplace" },
-  { file: "sound9.mp3", label: "Winter Wind" },
-  { file: "sound10.mp3", label: "Ocean Waves" },
-  { file: "sound11.mp3", label: "Night Forest" },
-  { file: "sound12.mp3", label: "Quiet Cafe" },
-  { file: "sound13.mp3", label: "Soft Drizzle" },
-  { file: "sound14.mp3", label: "Snow Walking" },
-  { file: "sound15.mp3", label: "White Noise" },
-];
+// Load CDN pointers for all sound files present in public/sounds.
+const POINTERS = import.meta.glob<{ url: string }>(
+  "/public/sounds/*.mp3.asset.json",
+  { eager: true, import: "default" }
+);
+const urlFor = (file: string): string | undefined => {
+  const entry = Object.entries(POINTERS).find(([p]) => p.endsWith(`/${file}.asset.json`));
+  return entry?.[1]?.url;
+};
+
+const LABELS: Record<string, string> = {
+  "sound1.mp3": "Light Rain",
+  "sound2.mp3": "Moderate Rain",
+  "sound3.mp3": "Heavy Rain",
+  "sound4.mp3": "Rain on Window",
+  "sound5.mp3": "Rain Inside Car",
+  "sound6.mp3": "Thunderstorm",
+  "sound7.mp3": "Distant Thunder",
+  "sound8.mp3": "Cozy Fireplace",
+  "sound9.mp3": "Winter Wind",
+  "sound10.mp3": "Ocean Waves",
+  "sound11.mp3": "Night Forest",
+  "sound12.mp3": "Quiet Cafe",
+  "sound13.mp3": "Soft Drizzle",
+  "sound14.mp3": "Snow Walking",
+  "sound15.mp3": "White Noise",
+  "sound16.mp3": "Gentle Breeze",
+  "sound17.mp3": "Deep Ambience",
+};
+
+const SOUNDS: SoundDef[] = Object.entries(LABELS)
+  .map(([file, label]) => ({ file, label, url: urlFor(file)! }))
+  .filter((s) => !!s.url);
 
 type State = Record<string, { on: boolean; vol: number }>;
 
@@ -42,7 +58,9 @@ export function AmbientSounds() {
   const ensureAudio = (file: string) => {
     let a = audiosRef.current[file];
     if (!a) {
-      a = new Audio(`/sounds/${file}`);
+      const url = SOUNDS.find((s) => s.file === file)?.url;
+      if (!url) return null as any;
+      a = new Audio(url);
       a.loop = true;
       a.preload = "auto";
       audiosRef.current[file] = a;
