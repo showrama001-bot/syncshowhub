@@ -92,6 +92,7 @@ const App = () => {
               <Route path="/reels" element={lazyRoute(<Reels />)} />
               <Route path="/trailers" element={lazyRoute(<Trailers />)} />
               <Route path="/studio" element={<Studio />} />
+              <Route path="/live-stream" element={<Studio />} />
               <Route path="/admin" element={<Navigate to="/admin/dashboard/hub-secure-2026" replace />} />
               <Route path="/admin/dashboard" element={<Navigate to="/admin/dashboard/hub-secure-2026" replace />} />
               <Route path="/admin/dashboard/hub-secure-2026" element={lazyRoute(<Admin />)} />
