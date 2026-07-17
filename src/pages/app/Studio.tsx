@@ -625,6 +625,46 @@ export default function Studio() {
                       Never share your stream key. Rotate it if you suspect it's compromised.
                     </p>
                   </div>
+
+                  {/* HLS Playback URL — the actual URL viewers pull */}
+                  <div className="space-y-2 pt-4 border-t border-border/40">
+                    <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      HLS Playback URL (.m3u8)
+                    </label>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="https://your-ingest.example.com/live/stream.m3u8"
+                        value={obsUrl}
+                        onChange={(e) => setObsUrl(e.target.value)}
+                        className="font-mono text-sm bg-background/60"
+                      />
+                      {obsLive ? (
+                        <Button
+                          variant="outline"
+                          onClick={stopObs}
+                          className="shrink-0 border-destructive/60 text-destructive hover:bg-destructive/10"
+                        >
+                          <X className="w-4 h-4 mr-2" /> Stop
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={connectObs}
+                          className="shrink-0 bg-gradient-red shadow-neon"
+                        >
+                          <Radio className="w-4 h-4 mr-2" /> Connect & Go Live
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Once OBS is streaming to the RTMP endpoint, paste your public HLS playback URL here and click <strong>Connect & Go Live</strong>. Viewers on <code>/live-stream</code> will see it instantly.
+                    </p>
+                    {obsLive && (
+                      <div className="text-[11px] text-emerald-400 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                        Broadcasting to viewers
+                      </div>
+                    )}
+                  </div>
                 </TabsContent>
 
                 <TabsContent value="info" className="mt-5">
