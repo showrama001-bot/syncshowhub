@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { Lock } from "lucide-react";
 
 const RTMP_URL = "rtmp://stream.syncshow.com/live";
 const STREAM_KEY = "sk_live_9c031ce6_4948_4dea_9e93_627de32828b1";
@@ -42,6 +44,9 @@ const seedChat: ChatMsg[] = [
 ];
 
 export default function Studio() {
+  const { isAdmin } = useAuth();
+  // Host = verified streamer (admin role). Query flag ?host=1 also allowed for host-preview.
+  const isHost = isAdmin || (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("host") === "1");
   const [showKey, setShowKey] = useState(false);
   const [messages, setMessages] = useState<ChatMsg[]>(seedChat);
   const [draft, setDraft] = useState("");
@@ -110,6 +115,10 @@ export default function Studio() {
   };
 
   const copy = async (val: string, label: string) => {
+    if (!isHost) {
+      toast.error("Only the host can copy stream credentials");
+      return;
+    }
     try {
       await navigator.clipboard.writeText(val);
       toast.success(`${label} copied`);
