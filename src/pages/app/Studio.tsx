@@ -1,17 +1,20 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Slider } from "@/components/ui/slider";
 import {
   Copy, Eye, EyeOff, Send, Radio, Users, Video, Settings,
   Search, UploadCloud, Film, Loader2, CheckCircle2, X, Sparkles,
+  Camera, CameraOff, Play, Pause, Volume2, AlertTriangle, Tv,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Lock } from "lucide-react";
+import { useLocation } from "react-router-dom";
 
 const RTMP_URL = "rtmp://stream.syncshow.com/live";
 const STREAM_KEY = "sk_live_9c031ce6_4948_4dea_9e93_627de32828b1";
@@ -43,10 +46,35 @@ const seedChat: ChatMsg[] = [
   { id: "5", user: "Luma", text: "turn up the mic pls", color: "text-fuchsia-400" },
 ];
 
+// --- Ambient sound pointers (local playback) ---
+const AMBIENT_POINTERS = import.meta.glob<{ url: string }>(
+  "../../../public/sounds/*.mp3.asset.json",
+  { eager: true, import: "default" }
+);
+const ambientUrlFor = (file: string): string | undefined => {
+  const entry = Object.entries(AMBIENT_POINTERS).find(([p]) => p.endsWith(`/${file}.asset.json`));
+  return entry?.[1]?.url;
+};
+const AMBIENT_TRACKS: { file: string; label: string; url?: string }[] = [
+  { file: "sound1.mp3", label: "Rain" },
+  { file: "sound8.mp3", label: "Cinema Lounge" },
+  { file: "sound11.mp3", label: "Night Forest" },
+  { file: "sound10.mp3", label: "Ocean Waves" },
+].map((t) => ({ ...t, url: ambientUrlFor(t.file) })).filter((t) => t.url);
+
+// Simulated library — for duplicate-episode check.
+const EXISTING_EPISODES: Record<string, { season: number; episode: number }[]> = {
+  // key = lowercase title
+  "stranger things": [{ season: 1, episode: 1 }, { season: 1, episode: 2 }],
+  "breaking bad": [{ season: 1, episode: 1 }],
+};
+
 export default function Studio() {
   const { isAdmin } = useAuth();
+  const location = useLocation();
+  const isViewerRoute = location.pathname === "/live-stream";
   // Host = verified streamer (admin role). Query flag ?host=1 also allowed for host-preview.
-  const isHost = isAdmin || (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("host") === "1");
+  const isHost = !isViewerRoute && (isAdmin || (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("host") === "1"));
   const [showKey, setShowKey] = useState(false);
   const [messages, setMessages] = useState<ChatMsg[]>(seedChat);
   const [draft, setDraft] = useState("");
@@ -66,6 +94,105 @@ export default function Studio() {
     () => (file ? `${(file.size / (1024 * 1024)).toFixed(1)} MB` : ""),
     [file],
   );
+
+  // Local playback
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!file) { setVideoUrl(null); return; }
+    const url = URL.createObjectURL(file);
+    setVideoUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
+  // Webcam PiP
+  const [camOn, setCamOn] = useState(false);
+  const camVideoRef = useRef<HTMLVideoElement | null>(null);
+  const camStreamRef = useRef<MediaStream | null>(null);
+  const [camPos, setCamPos] = useState({ x: 16, y: 16 });
+  const dragRef = useRef<{ dx: number; dy: number; active: boolean }>({ dx: 0, dy: 0, active: false });
+
+  const toggleCam = async () => {
+    if (camOn) {
+      camStreamRef.current?.getTracks().forEach((t) => t.stop());
+      camStreamRef.current = null;
+      setCamOn(false);
+      return;
+    }
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      camStreamRef.current = s;
+      setCamOn(true);
+      setTimeout(() => {
+        if (camVideoRef.current) {
+          camVideoRef.current.srcObject = s;
+          camVideoRef.current.play().catch(() => {});
+        }
+      }, 50);
+    } catch {
+      toast.error("Camera/mic permission denied");
+    }
+  };
+  useEffect(() => () => camStreamRef.current?.getTracks().forEach((t) => t.stop()), []);
+
+  const onCamPointerDown = (e: React.PointerEvent) => {
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    dragRef.current = { dx: e.clientX - camPos.x, dy: e.clientY - camPos.y, active: true };
+  };
+  const onCamPointerMove = (e: React.PointerEvent) => {
+    if (!dragRef.current.active) return;
+    setCamPos({ x: Math.max(0, e.clientX - dragRef.current.dx), y: Math.max(0, e.clientY - dragRef.current.dy) });
+  };
+  const onCamPointerUp = () => { dragRef.current.active = false; };
+
+  // Series / Episode duplicate check
+  const [contentKind, setContentKind] = useState<"movie" | "series">("movie");
+  const [season, setSeason] = useState("1");
+  const [episode, setEpisode] = useState("1");
+  const dupeInfo = useMemo(() => {
+    if (contentKind !== "series" || !picked) return null;
+    const existing = EXISTING_EPISODES[picked.title.toLowerCase()] ?? [];
+    const s = parseInt(season) || 0;
+    const ep = parseInt(episode) || 0;
+    const hit = existing.find((x) => x.season === s && x.episode === ep);
+    if (!hit) return null;
+    const nextEp = Math.max(...existing.filter((x) => x.season === s).map((x) => x.episode)) + 1;
+    return { season: s, episode: ep, nextEp };
+  }, [contentKind, picked, season, episode]);
+  useEffect(() => {
+    if (dupeInfo) {
+      toast.error(
+        `This episode already exists! You left off at Episode ${dupeInfo.nextEp - 1} — please upload Episode ${dupeInfo.nextEp}.`,
+        { id: "dupe-ep" }
+      );
+    }
+  }, [dupeInfo]);
+
+  // Ambient sounds
+  const [ambient, setAmbient] = useState<Record<string, { on: boolean; vol: number }>>(
+    () => Object.fromEntries(AMBIENT_TRACKS.map((t) => [t.file, { on: false, vol: 40 }]))
+  );
+  const ambientAudios = useRef<Record<string, HTMLAudioElement>>({});
+  useEffect(() => {
+    for (const t of AMBIENT_TRACKS) {
+      const st = ambient[t.file];
+      let a = ambientAudios.current[t.file];
+      if (st.on) {
+        if (!a) {
+          a = new Audio(t.url);
+          a.loop = true;
+          ambientAudios.current[t.file] = a;
+        }
+        a.volume = st.vol / 100;
+        if (a.paused) a.play().catch(() => {});
+      } else if (a) {
+        a.pause();
+      }
+    }
+  }, [ambient]);
+  useEffect(() => () => {
+    Object.values(ambientAudios.current).forEach((a) => { try { a.pause(); a.src = ""; } catch {} });
+  }, []);
 
   const searchTmdb = async () => {
     const q = query.trim();
@@ -148,16 +275,20 @@ export default function Studio() {
             </div>
             <div>
               <h1 className="font-display text-2xl md:text-3xl neon-text tracking-wider">
-                LIVE STUDIO
+                {isViewerRoute ? "LIVE STREAM" : "LIVE STUDIO"}
               </h1>
               <p className="text-xs text-muted-foreground">
-                Broadcast in real-time to your audience
+                {isViewerRoute ? "You're watching the host live" : "Broadcast in real-time to your audience"}
               </p>
             </div>
           </div>
-          <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            Server connected
+          <div className="hidden md:flex items-center gap-3 text-xs text-muted-foreground">
+            <span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> Server connected</span>
+            {isHost && (
+              <a href="/live-stream" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 px-2 py-1 rounded-lg glass border border-border/60 hover:text-primary hover:border-primary/40 transition-colors">
+                <Tv className="w-3.5 h-3.5" /> Viewer view
+              </a>
+            )}
           </div>
         </div>
 
@@ -200,23 +331,58 @@ export default function Studio() {
               <div className="absolute inset-0 bg-gradient-hero" />
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,hsl(var(--primary)/0.25),transparent_60%)]" />
 
-              {/* Center placeholder */}
-              <div className="absolute inset-0 grid place-items-center">
-                <div className="flex flex-col items-center gap-3 text-center">
-                  <div className="w-20 h-20 rounded-full glass grid place-items-center neon-border animate-pulse-glow">
-                    <Video className="w-9 h-9 text-primary" />
-                  </div>
-                  <div className="font-display text-lg tracking-widest text-foreground/80">
-                    WAITING FOR SIGNAL
-                  </div>
-                  <div className="text-xs text-muted-foreground max-w-xs">
-                    Configure OBS with your RTMP URL and Stream Key below to go live.
+              {/* Local video source */}
+              {videoUrl && (
+                <video
+                  ref={videoRef}
+                  src={videoUrl}
+                  autoPlay
+                  controls
+                  playsInline
+                  className="absolute inset-0 w-full h-full object-contain bg-black z-[1]"
+                />
+              )}
+
+              {/* Center placeholder (only when no video) */}
+              {!videoUrl && (
+                <div className="absolute inset-0 grid place-items-center">
+                  <div className="flex flex-col items-center gap-3 text-center">
+                    <div className="w-20 h-20 rounded-full glass grid place-items-center neon-border animate-pulse-glow">
+                      <Video className="w-9 h-9 text-primary" />
+                    </div>
+                    <div className="font-display text-lg tracking-widest text-foreground/80">
+                      WAITING FOR SIGNAL
+                    </div>
+                    <div className="text-xs text-muted-foreground max-w-xs">
+                      {isViewerRoute
+                        ? "Waiting for the host to start streaming…"
+                        : "Configure OBS with your RTMP URL and Stream Key below, or upload a movie file."}
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
+
+              {/* Webcam PiP overlay (draggable) */}
+              {camOn && (
+                <div
+                  onPointerDown={onCamPointerDown}
+                  onPointerMove={onCamPointerMove}
+                  onPointerUp={onCamPointerUp}
+                  style={{ left: camPos.x, top: camPos.y }}
+                  className="absolute z-[3] w-32 h-32 rounded-full overflow-hidden border-2 border-primary/70 shadow-neon cursor-grab active:cursor-grabbing bg-black"
+                >
+                  <video
+                    ref={camVideoRef}
+                    autoPlay
+                    muted
+                    playsInline
+                    className="w-full h-full object-cover pointer-events-none"
+                  />
+                </div>
+              )}
 
               {/* LIVE badge */}
-              <div className="absolute top-4 left-4 flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/90 backdrop-blur-sm shadow-neon">
+              <div className="absolute top-4 left-4 z-[2] flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/90 backdrop-blur-sm shadow-neon">
                 <span className="relative flex h-2.5 w-2.5">
                   <span className="absolute inline-flex h-full w-full rounded-full bg-white opacity-75 animate-ping" />
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white" />
@@ -227,16 +393,16 @@ export default function Studio() {
               </div>
 
               {/* Viewer counter */}
-              <div className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1.5 rounded-full glass border border-white/10">
+              <div className="absolute top-4 right-4 z-[2] flex items-center gap-2 px-3 py-1.5 rounded-full glass border border-white/10">
                 <Users className="w-3.5 h-3.5 text-primary" />
                 <span className="text-xs font-medium tabular-nums">1,245 watching</span>
               </div>
 
               {/* Bottom bar */}
-              <div className="absolute bottom-0 inset-x-0 p-4 bg-gradient-to-t from-black/80 to-transparent flex items-center justify-between">
+              <div className="absolute bottom-0 inset-x-0 z-[2] p-4 bg-gradient-to-t from-black/80 to-transparent flex items-center justify-between pointer-events-none">
                 <div className="text-sm">
-                  <div className="font-semibold">My First Livestream</div>
-                  <div className="text-xs text-muted-foreground">Starting soon…</div>
+                  <div className="font-semibold">{picked?.title ?? "My First Livestream"}</div>
+                  <div className="text-xs text-muted-foreground">{videoUrl ? "Playing locally" : "Starting soon…"}</div>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="text-[10px] px-2 py-1 rounded bg-white/5 border border-white/10 text-muted-foreground uppercase tracking-wider">
@@ -245,6 +411,20 @@ export default function Studio() {
                 </div>
               </div>
             </Card>
+
+            {/* Webcam toggle — host only */}
+            {isHost && (
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  onClick={toggleCam}
+                  variant={camOn ? "default" : "outline"}
+                  className={camOn ? "bg-gradient-red shadow-neon" : ""}
+                >
+                  {camOn ? <><CameraOff className="w-4 h-4 mr-2" /> Stop Camera & Mic</> : <><Camera className="w-4 h-4 mr-2" /> Toggle Web Camera & Mic</>}
+                </Button>
+                {camOn && <span className="text-xs text-muted-foreground">Drag the circular preview on the player to reposition</span>}
+              </div>
+            )}
 
             {/* Stream Settings (LIVE) */}
             {isHost && mode === "live" && (
@@ -347,6 +527,20 @@ export default function Studio() {
                   <label className="text-sm font-medium mb-2 flex items-center gap-2">
                     <Search className="h-4 w-4 text-primary" /> Search Movie on TMDB
                   </label>
+                  {/* Content kind toggle */}
+                  <div className="inline-flex p-1 mb-3 rounded-lg glass border border-border/60 gap-1">
+                    {(["movie", "series"] as const).map((k) => (
+                      <button
+                        key={k}
+                        onClick={() => setContentKind(k)}
+                        className={`px-3 py-1.5 rounded-md text-xs font-display tracking-wider transition-all ${
+                          contentKind === k ? "bg-gradient-red text-white shadow-neon" : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {k === "movie" ? "MOVIE" : "SERIES / EPISODE"}
+                      </button>
+                    ))}
+                  </div>
                   <div className="flex gap-2">
                     <Input
                       placeholder="e.g. Inception, Interstellar…"
@@ -360,6 +554,28 @@ export default function Studio() {
                       <span className="ml-2">Search</span>
                     </Button>
                   </div>
+
+                  {contentKind === "series" && (
+                    <div className="grid grid-cols-2 gap-3 mt-4">
+                      <div>
+                        <label className="text-[11px] uppercase tracking-wider text-muted-foreground">Season</label>
+                        <Input type="number" min={1} value={season} onChange={(e) => setSeason(e.target.value)} className="bg-background/60" />
+                      </div>
+                      <div>
+                        <label className="text-[11px] uppercase tracking-wider text-muted-foreground">Episode</label>
+                        <Input type="number" min={1} value={episode} onChange={(e) => setEpisode(e.target.value)} className="bg-background/60" />
+                      </div>
+                      {dupeInfo && (
+                        <div className="col-span-2 flex items-start gap-3 p-3 rounded-lg border border-destructive/60 bg-destructive/10 text-destructive">
+                          <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
+                          <div className="text-xs leading-relaxed">
+                            <strong className="block font-display tracking-wider text-sm">EPISODE ALREADY EXISTS</strong>
+                            S{dupeInfo.season}·E{dupeInfo.episode} is already in the library. You left off at Episode {dupeInfo.nextEp - 1} — please upload Episode {dupeInfo.nextEp}.
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {results.length > 0 && !picked && (
                     <div className="mt-5 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
@@ -467,6 +683,42 @@ export default function Studio() {
                       </Button>
                     </div>
                   )}
+                </Card>
+
+                {/* AMBIENT AUDIO EFFECTS */}
+                <Card className="p-5 md:p-6 bg-card/60 backdrop-blur border-border/60">
+                  <label className="text-sm font-medium mb-3 flex items-center gap-2">
+                    <Volume2 className="h-4 w-4 text-primary" /> Ambient Audio Effects
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {AMBIENT_TRACKS.map((t) => {
+                      const st = ambient[t.file];
+                      return (
+                        <div key={t.file} className={`rounded-xl p-3 border transition-all ${st.on ? "border-primary/50 bg-primary/5 shadow-[0_0_20px_hsl(var(--primary)/0.15)]" : "border-border/50 bg-background/30"}`}>
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <span className="text-sm font-medium">{t.label}</span>
+                            <Button
+                              size="icon"
+                              variant={st.on ? "default" : "outline"}
+                              onClick={() => setAmbient((a) => ({ ...a, [t.file]: { ...a[t.file], on: !a[t.file].on } }))}
+                              className={`h-8 w-8 ${st.on ? "bg-gradient-red shadow-neon" : ""}`}
+                              aria-label={st.on ? "Pause" : "Play"}
+                            >
+                              {st.on ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                            </Button>
+                          </div>
+                          <Slider
+                            value={[st.vol]}
+                            min={0}
+                            max={100}
+                            step={1}
+                            onValueChange={(v) => setAmbient((a) => ({ ...a, [t.file]: { ...a[t.file], vol: v[0] ?? 0 } }))}
+                            disabled={!st.on}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
                 </Card>
 
                 {/* SUBMIT */}
