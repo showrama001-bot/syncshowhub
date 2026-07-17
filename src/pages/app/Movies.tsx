@@ -7,7 +7,6 @@ import { TrailerModal } from "@/components/movies/TrailerModal";
 import { GridBanner } from "@/components/ads/GridBanner";
 import { Button } from "@/components/ui/button";
 import { ContributeFallbackModal } from "@/components/contribute/ContributeFallbackModal";
-import { getLocalMovies, subscribeLocalLibrary } from "@/lib/localLibrary";
 
 export default function Movies() {
   const [items, setItems] = useState<any[]>([]);
@@ -24,16 +23,6 @@ export default function Movies() {
         .eq("status", "published")
         .order("created_at", { ascending: false });
       const remote = data ?? [];
-      const local = getLocalMovies();
-      // Pick up an explicit "new_movie_added" entry from localStorage.
-      let injected: any = null;
-      try {
-        const raw = localStorage.getItem("new_movie_added");
-        if (raw) injected = JSON.parse(raw);
-      } catch {}
-      // One-shot: clear after consuming so it doesn't re-inject on every refresh.
-      try { localStorage.removeItem("new_movie_added"); } catch {}
-      // Merge — injected + local first, deduped by tmdb_id where present.
       const merged: any[] = [];
       const seenTmdb = new Set<number>();
       const seenId = new Set<string>();
@@ -45,21 +34,10 @@ export default function Movies() {
         if (m.id) seenId.add(m.id);
         merged.push(m);
       };
-      push(injected);
-      local.forEach(push);
       remote.forEach(push);
       setItems(merged);
     };
     load();
-    const unsub = subscribeLocalLibrary(load);
-    const onStorage = (e: StorageEvent) => {
-      if (!e.key || e.key === "new_movie_added") load();
-    };
-    window.addEventListener("storage", onStorage);
-    return () => {
-      unsub();
-      window.removeEventListener("storage", onStorage);
-    };
   }, []);
 
   const categories = useMemo(() => {
