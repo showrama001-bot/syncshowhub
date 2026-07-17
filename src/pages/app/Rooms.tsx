@@ -39,7 +39,37 @@ export default function Rooms() {
       .order("created_at", { ascending: false });
     const remote = ((data || []) as Room[]);
     const local = getLocalLiveRooms() as unknown as Room[];
-    setRooms([...local, ...remote]);
+    // Explicit "current_live_room" localStorage entry (from /studio publish).
+    let injected: Room | null = null;
+    try {
+      const raw = localStorage.getItem("current_live_room");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        injected = {
+          id: parsed.id,
+          title: parsed.title,
+          host_id: parsed.host_id || "studio-host",
+          content_title: parsed.content_title ?? parsed.title,
+          poster_url: parsed.poster_url ?? null,
+          visibility: "public",
+          status: "live",
+          scheduled_at: null,
+          participant_count: parsed.participant_count ?? 1,
+          is_studio_live: true,
+        };
+      }
+    } catch {}
+    const merged: Room[] = [];
+    const seen = new Set<string>();
+    const push = (r: Room | null) => {
+      if (!r || seen.has(r.id)) return;
+      seen.add(r.id);
+      merged.push(r);
+    };
+    push(injected);
+    local.forEach(push);
+    remote.forEach(push);
+    setRooms(merged);
   };
 
   const loadReminders = async () => {
@@ -58,9 +88,14 @@ export default function Rooms() {
       .on("postgres_changes", { event: "*", schema: "public", table: "watch_rooms" }, () => load())
       .subscribe();
     const unsub = subscribeLocalLibrary(load);
+    const onStorage = (e: StorageEvent) => {
+      if (!e.key || e.key === "current_live_room") load();
+    };
+    window.addEventListener("storage", onStorage);
     return () => {
       supabase.removeChannel(ch);
       unsub();
+      window.removeEventListener("storage", onStorage);
     };
   }, [user?.id]);
 
