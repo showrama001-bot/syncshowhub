@@ -28,6 +28,7 @@ import { sha256Hex } from "@/lib/watchRooms";
 import { FriendsSidebar } from "@/components/friends/FriendsSidebar";
 import { RoomInvitePopover } from "@/components/rooms/RoomInvitePopover";
 import { FloatingReactions } from "@/components/reactions/FloatingReactions";
+import { AmbientSounds } from "@/components/ambient/AmbientSounds";
 import confetti from "canvas-confetti";
 
 type Room = {
@@ -356,6 +357,7 @@ export default function Watch() {
         </span>
         <RoomInvitePopover roomId={room.id} title={room.title} />
         <FriendsSidebar roomId={room.id} />
+        <AmbientSounds />
         {isHost && <HostSettings room={room} update={updateRoom} />}
         {isHost && (
           <Button size="sm" variant="destructive" onClick={deleteRoom}>
