@@ -1533,7 +1533,7 @@ export type Database = {
         | "banner_grid"
         | "banner_under_player"
         | "interstitial"
-      app_role: "admin" | "user"
+      app_role: "admin" | "user" | "pending_streamer" | "approved_streamer"
       friendship_status: "pending" | "accepted" | "declined" | "blocked"
     }
     CompositeTypes: {
@@ -1670,7 +1670,7 @@ export const Constants = {
         "banner_under_player",
         "interstitial",
       ],
-      app_role: ["admin", "user"],
+      app_role: ["admin", "user", "pending_streamer", "approved_streamer"],
       friendship_status: ["pending", "accepted", "declined", "blocked"],
     },
   },
