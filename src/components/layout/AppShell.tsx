@@ -2,6 +2,7 @@ import { Outlet, Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { SideDrawer } from "./SideDrawer";
 import { ReminderBell } from "@/components/watch/ReminderBell";
+import { AmbientSounds } from "@/components/ambient/AmbientSounds";
 import { InviteNotifier } from "@/components/friends/InviteNotifier";
 import { HeaderBanner } from "@/components/ads/HeaderBanner";
 import { PopupAdOverlay } from "@/components/ads/PopupAdOverlay";
@@ -26,6 +27,7 @@ export const AppShell = () => {
       <ReminderBell />
       <InviteNotifier />
       <HeaderBanner />
+      <AmbientSounds />
       <main className="min-h-screen">
         <Outlet />
       </main>
