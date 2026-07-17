@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import heroBg from "@/assets/hero-bg.jpg";
 import { Play, Film, Tv, Trophy, Clapperboard, Tv2, Flame } from "lucide-react";
 import { TrailerModal } from "@/components/movies/TrailerModal";
-import { getLocalMovies, subscribeLocalLibrary } from "@/lib/localLibrary";
 
 type Movie = {
   id: string;
@@ -31,13 +30,6 @@ export default function Home() {
         .order("created_at", { ascending: false })
         .limit(24);
       const remote = (data ?? []) as Movie[];
-      // Pick up an explicit "new_movie_added" entry from localStorage.
-      let injected: any = null;
-      try {
-        const raw = localStorage.getItem("new_movie_added");
-        if (raw) injected = JSON.parse(raw);
-      } catch {}
-      const local = getLocalMovies();
       const merged: Movie[] = [];
       const seenId = new Set<string>();
       const seenTmdb = new Set<number>();
@@ -57,13 +49,10 @@ export default function Home() {
           rating: m.rating ?? m.imdb_rating ?? null,
         });
       };
-      push(injected);
-      local.forEach(push);
       remote.forEach(push);
       setMovies(merged);
     };
     loadMovies();
-    const unsub = subscribeLocalLibrary(loadMovies);
     (supabase.from("series" as any).select("id,title,poster_url,backdrop_url,genre,year")
       .order("created_at", { ascending: false }).limit(12) as any)
       .then(({ data }: any) => setSeries(data ?? []));
@@ -71,7 +60,6 @@ export default function Home() {
       .then(({ data }: any) => {
         setSeriesTrailerIds(new Set((data ?? []).map((t: any) => t.series_id).filter(Boolean)));
       });
-    return () => { unsub(); };
   }, []);
 
   return (
