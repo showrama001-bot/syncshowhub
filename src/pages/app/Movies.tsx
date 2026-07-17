@@ -31,6 +31,8 @@ export default function Movies() {
         const raw = localStorage.getItem("new_movie_added");
         if (raw) injected = JSON.parse(raw);
       } catch {}
+      // One-shot: clear after consuming so it doesn't re-inject on every refresh.
+      try { localStorage.removeItem("new_movie_added"); } catch {}
       // Merge — injected + local first, deduped by tmdb_id where present.
       const merged: any[] = [];
       const seenTmdb = new Set<number>();

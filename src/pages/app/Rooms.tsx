@@ -59,6 +59,8 @@ export default function Rooms() {
         };
       }
     } catch {}
+    // One-shot: clear after consuming so it doesn't re-inject on every refresh.
+    try { localStorage.removeItem("current_live_room"); } catch {}
     const merged: Room[] = [];
     const seen = new Set<string>();
     const push = (r: Room | null) => {
