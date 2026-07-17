@@ -23,6 +23,7 @@ import Watchlist from "./pages/app/Watchlist";
 import Contribute from "./pages/app/Contribute";
 import Friends from "./pages/app/Friends";
 import Accueil from "./pages/app/Accueil";
+import Studio from "./pages/app/Studio";
 import NotFound from "./pages/NotFound";
 import { AdsProvider } from "@/components/ads/AdsProvider";
 import { installAntiTheft } from "@/lib/antiTheft";
@@ -90,6 +91,7 @@ const App = () => {
               <Route path="/accueil" element={<Accueil />} />
               <Route path="/reels" element={lazyRoute(<Reels />)} />
               <Route path="/trailers" element={lazyRoute(<Trailers />)} />
+              <Route path="/studio" element={<Studio />} />
               <Route path="/admin" element={<Navigate to="/admin/dashboard/hub-secure-2026" replace />} />
               <Route path="/admin/dashboard" element={<Navigate to="/admin/dashboard/hub-secure-2026" replace />} />
               <Route path="/admin/dashboard/hub-secure-2026" element={lazyRoute(<Admin />)} />
