@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Lock } from "lucide-react";
 import { useLocation } from "react-router-dom";
+import { publishLocalMovie, publishLocalLiveRoom } from "@/lib/localLibrary";
 
 const RTMP_URL = "rtmp://stream.syncshow.com/live";
 const STREAM_KEY = "sk_live_9c031ce6_4948_4dea_9e93_627de32828b1";
@@ -228,6 +229,25 @@ export default function Studio() {
     if (!picked || !file) return;
     setPublishing(true);
     await new Promise((r) => setTimeout(r, 1200));
+    // Add to /movies library
+    publishLocalMovie({
+      id: `local-${picked.tmdb_id}`,
+      tmdb_id: picked.tmdb_id,
+      title: picked.title,
+      year: picked.year,
+      genre: picked.genre,
+      poster_url: picked.poster_url,
+      category: picked.genre?.split(",")[0]?.trim() || null,
+    });
+    // Add a live room card pointing to /live-stream
+    publishLocalLiveRoom({
+      id: `studio-${picked.tmdb_id}-${Date.now()}`,
+      title: picked.title,
+      host_id: "studio-host",
+      content_title: picked.title,
+      poster_url: picked.poster_url,
+      participant_count: 1,
+    });
     setPublishing(false);
     setDone(true);
     toast.success(`"${picked.title}" published to your library`);

@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Bell, BellOff, Users, Clock, Lock, Play, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { getLocalLiveRooms, subscribeLocalLibrary, type LocalLiveRoom } from "@/lib/localLibrary";
 
 type Room = {
   id: string;
@@ -20,6 +21,7 @@ type Room = {
   status: string;
   scheduled_at: string | null;
   participant_count: number;
+  is_studio_live?: boolean;
 };
 
 export default function Rooms() {
@@ -35,7 +37,9 @@ export default function Rooms() {
       .eq("visibility", "public")
       .in("status", ["live", "scheduled"])
       .order("created_at", { ascending: false });
-    setRooms((data || []) as any);
+    const remote = ((data || []) as Room[]);
+    const local = getLocalLiveRooms() as unknown as Room[];
+    setRooms([...local, ...remote]);
   };
 
   const loadReminders = async () => {
@@ -53,8 +57,10 @@ export default function Rooms() {
       .channel("rooms-directory")
       .on("postgres_changes", { event: "*", schema: "public", table: "watch_rooms" }, () => load())
       .subscribe();
+    const unsub = subscribeLocalLibrary(load);
     return () => {
       supabase.removeChannel(ch);
+      unsub();
     };
   }, [user?.id]);
 
@@ -110,7 +116,13 @@ export default function Rooms() {
           ) : (
             <Grid>
               {live.map((r) => (
-                <RoomCard key={r.id} room={r} onJoin={() => navigate(`/watch/${r.id}`)} />
+                <RoomCard
+                  key={r.id}
+                  room={r}
+                  onJoin={() =>
+                    navigate(r.is_studio_live ? `/live-stream?room=${r.id}` : `/watch/${r.id}`)
+                  }
+                />
               ))}
             </Grid>
           )}
