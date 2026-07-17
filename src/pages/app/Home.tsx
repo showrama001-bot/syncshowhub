@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import heroBg from "@/assets/hero-bg.jpg";
 import { Play, Film, Tv, Trophy, Clapperboard, Tv2, Flame } from "lucide-react";
 import { TrailerModal } from "@/components/movies/TrailerModal";
+import { getLocalMovies, subscribeLocalLibrary } from "@/lib/localLibrary";
 
 type Movie = {
   id: string;
@@ -22,13 +23,47 @@ export default function Home() {
   const [seriesTrailerIds, setSeriesTrailerIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    supabase
-      .from("movies")
-      .select("id,title,poster_url,backdrop_url,genre,year,rating")
-      .eq("status", "published")
-      .order("created_at", { ascending: false })
-      .limit(24)
-      .then(({ data }) => setMovies(data ?? []));
+    const loadMovies = async () => {
+      const { data } = await supabase
+        .from("movies")
+        .select("id,title,poster_url,backdrop_url,genre,year,rating")
+        .eq("status", "published")
+        .order("created_at", { ascending: false })
+        .limit(24);
+      const remote = (data ?? []) as Movie[];
+      // Pick up an explicit "new_movie_added" entry from localStorage.
+      let injected: any = null;
+      try {
+        const raw = localStorage.getItem("new_movie_added");
+        if (raw) injected = JSON.parse(raw);
+      } catch {}
+      const local = getLocalMovies();
+      const merged: Movie[] = [];
+      const seenId = new Set<string>();
+      const seenTmdb = new Set<number>();
+      const push = (m: any) => {
+        if (!m || !m.id) return;
+        if (seenId.has(m.id)) return;
+        if (m.tmdb_id && seenTmdb.has(m.tmdb_id)) return;
+        seenId.add(m.id);
+        if (m.tmdb_id) seenTmdb.add(m.tmdb_id);
+        merged.push({
+          id: m.id,
+          title: m.title,
+          poster_url: m.poster_url ?? null,
+          backdrop_url: m.backdrop_url ?? m.poster_url ?? null,
+          genre: m.genre ?? null,
+          year: m.year ?? null,
+          rating: m.rating ?? m.imdb_rating ?? null,
+        });
+      };
+      push(injected);
+      local.forEach(push);
+      remote.forEach(push);
+      setMovies(merged);
+    };
+    loadMovies();
+    const unsub = subscribeLocalLibrary(loadMovies);
     (supabase.from("series" as any).select("id,title,poster_url,backdrop_url,genre,year")
       .order("created_at", { ascending: false }).limit(12) as any)
       .then(({ data }: any) => setSeries(data ?? []));
@@ -36,6 +71,7 @@ export default function Home() {
       .then(({ data }: any) => {
         setSeriesTrailerIds(new Set((data ?? []).map((t: any) => t.series_id).filter(Boolean)));
       });
+    return () => { unsub(); };
   }, []);
 
   return (

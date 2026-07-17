@@ -381,7 +381,6 @@ export default function Studio() {
                 <video
                   ref={videoRef}
                   src={videoUrl}
-                  autoPlay
                   controls
                   playsInline
                   className="absolute inset-0 w-full h-full object-contain bg-black z-[1]"
