@@ -1,0 +1,2 @@
+CREATE POLICY "Streamers publish own movies" ON public.movies FOR INSERT TO authenticated WITH CHECK (auth.uid() = created_by AND provider = 'studio');
+CREATE POLICY "Streamers manage own studio movies" ON public.movies FOR UPDATE TO authenticated USING (auth.uid() = created_by AND provider = 'studio') WITH CHECK (auth.uid() = created_by AND provider = 'studio');
