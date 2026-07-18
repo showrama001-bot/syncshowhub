@@ -1,0 +1,70 @@
+// Studio-only Telegram upload: routes files to an isolated bot/chat so the
+// main site's upload traffic stays separate. Mirrors telegram-upload but
+// reads STUDIO_TELEGRAM_BOT_TOKEN / STUDIO_TELEGRAM_CHAT_ID.
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+const MAX_BYTES = 50 * 1024 * 1024;
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  try {
+    const BOT_TOKEN = Deno.env.get("STUDIO_TELEGRAM_BOT_TOKEN");
+    const CHAT_ID = Deno.env.get("STUDIO_TELEGRAM_CHAT_ID");
+    if (!BOT_TOKEN || !CHAT_ID) {
+      return json({ error: "Studio Telegram credentials not configured" }, 500);
+    }
+    const form = await req.formData();
+    const file = form.get("file");
+    const caption = String(form.get("caption") ?? "");
+    if (!(file instanceof File)) return json({ error: "Missing 'file' in form data" }, 400);
+    if (file.size === 0) return json({ error: "Empty file" }, 400);
+    if (file.size > MAX_BYTES) {
+      return json({ error: `File too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Telegram Bot API limit is 50 MB.` }, 413);
+    }
+    const tgForm = new FormData();
+    tgForm.append("chat_id", CHAT_ID);
+    tgForm.append("caption", caption.slice(0, 1024));
+    tgForm.append("supports_streaming", "true");
+    tgForm.append("video", file, file.name || "movie.mp4");
+    const sendRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendVideo`, { method: "POST", body: tgForm });
+    const sendJson = await sendRes.json();
+    if (!sendJson.ok) {
+      const docForm = new FormData();
+      docForm.append("chat_id", CHAT_ID);
+      docForm.append("caption", caption.slice(0, 1024));
+      docForm.append("document", file, file.name || "movie.mp4");
+      const docRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendDocument`, { method: "POST", body: docForm });
+      const docJson = await docRes.json();
+      if (!docJson.ok) {
+        return json({ error: `Telegram rejected file: ${sendJson.description || docJson.description}` }, 502);
+      }
+      sendJson.result = docJson.result;
+      sendJson.ok = true;
+    }
+    const result = sendJson.result;
+    const fileId: string | undefined =
+      result?.video?.file_id || result?.document?.file_id || result?.animation?.file_id;
+    if (!fileId) return json({ error: "No file_id returned from Telegram" }, 502);
+    const getFileRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getFile?file_id=${encodeURIComponent(fileId)}`);
+    const getFileJson = await getFileRes.json();
+    if (!getFileJson.ok) return json({ error: `getFile failed: ${getFileJson.description}` }, 502);
+    const filePath = getFileJson.result?.file_path;
+    if (!filePath) return json({ error: "No file_path returned from Telegram" }, 502);
+    const streamUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`;
+    return json({ ok: true, stream_url: streamUrl, file_id: fileId, message_id: result?.message_id ?? null });
+  } catch (e) {
+    return json({ error: String((e as Error)?.message ?? e) }, 500);
+  }
+});
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
