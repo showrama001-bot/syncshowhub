@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Bell, BellOff, Users, Clock, Lock, Play, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { Radio } from "lucide-react";
 
 type Room = {
   id: string;
@@ -26,6 +27,7 @@ export default function Rooms() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [rooms, setRooms] = useState<Room[]>([]);
+  const [liveStudios, setLiveStudios] = useState<Array<{ id: string; title: string; host_id: string; poster_url: string | null; viewer_count: number; host_name?: string }>>([]);
   const [reminderIds, setReminderIds] = useState<Set<string>>(new Set());
   const [tab, setTab] = useState("live");
 
@@ -47,6 +49,21 @@ export default function Rooms() {
     setRooms(merged);
   };
 
+  const loadStudios = async () => {
+    const { data } = await (supabase.from("studio_streams" as any) as any)
+      .select("id, title, host_id, poster_url, viewer_count")
+      .eq("status", "live")
+      .order("created_at", { ascending: false });
+    const rows = (data as any[]) || [];
+    const ids = rows.map((r) => r.host_id);
+    let names: Record<string, string> = {};
+    if (ids.length) {
+      const { data: profs } = await supabase.from("profiles").select("id, display_name, username").in("id", ids);
+      (profs || []).forEach((p: any) => { names[p.id] = p.display_name || p.username || "Host"; });
+    }
+    setLiveStudios(rows.map((r) => ({ ...r, host_name: names[r.host_id] })));
+  };
+
   const loadReminders = async () => {
     if (!user) return;
     const { data } = await (supabase.from("watch_room_reminders" as any) as any)
@@ -57,13 +74,19 @@ export default function Rooms() {
 
   useEffect(() => {
     load();
+    loadStudios();
     loadReminders();
     const ch = supabase
       .channel("rooms-directory")
       .on("postgres_changes", { event: "*", schema: "public", table: "watch_rooms" }, () => load())
       .subscribe();
+    const chS = supabase
+      .channel("rooms-directory-studios")
+      .on("postgres_changes", { event: "*", schema: "public", table: "studio_streams" }, () => loadStudios())
+      .subscribe();
     return () => {
       supabase.removeChannel(ch);
+      supabase.removeChannel(chS);
     };
   }, [user?.id]);
 
@@ -114,10 +137,35 @@ export default function Rooms() {
         </TabsList>
 
         <TabsContent value="live" className="mt-4">
-          {live.length === 0 ? (
+          {live.length === 0 && liveStudios.length === 0 ? (
             <Empty msg="No live rooms right now. Be the first — open a movie and hit Watch Together." />
           ) : (
             <Grid>
+              {liveStudios.map((s) => (
+                <div key={s.id} className="glass rounded-2xl overflow-hidden flex flex-col group hover:shadow-neon transition">
+                  <div className="relative aspect-[2/3] bg-secondary/40">
+                    {s.poster_url ? (
+                      <img src={s.poster_url} alt={s.title} className="w-full h-full object-cover" loading="lazy" />
+                    ) : (
+                      <div className="w-full h-full grid place-items-center text-muted-foreground"><Radio className="h-8 w-8" /></div>
+                    )}
+                    <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-red-500/90 text-white text-xs font-semibold animate-pulse flex items-center gap-1">
+                      <Radio className="h-3 w-3" /> LIVE STUDIO
+                    </span>
+                    <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full bg-black/60 text-white text-xs flex items-center gap-1">
+                      <Users className="h-3 w-3" /> {s.viewer_count || 0}
+                    </div>
+                  </div>
+                  <div className="p-3 flex-1 flex flex-col">
+                    <div className="font-semibold truncate">{s.title}</div>
+                    <div className="text-xs text-muted-foreground truncate">Hosted by {s.host_name || "…"}</div>
+                    <Button size="sm" className="mt-3 bg-gradient-red shadow-neon"
+                      onClick={() => navigate(`/live-stream?stream=${s.id}`)}>
+                      Watch live
+                    </Button>
+                  </div>
+                </div>
+              ))}
               {live.map((r) => (
                 <RoomCard
                   key={r.id}

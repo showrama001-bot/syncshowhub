@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import heroBg from "@/assets/hero-bg.jpg";
-import { Play, Film, Tv, Trophy, Clapperboard, Tv2, Flame } from "lucide-react";
+import { Play, Film, Tv, Trophy, Clapperboard, Tv2, Flame, Radio } from "lucide-react";
 import { TrailerModal } from "@/components/movies/TrailerModal";
 
 type Movie = {
@@ -109,7 +109,7 @@ export default function Home() {
       </section>
 
       {/* Quick categories */}
-      <section className="px-6 md:px-12 -mt-16 relative z-20 grid grid-cols-3 md:grid-cols-6 gap-3 md:gap-4 max-w-5xl mx-auto">
+      <section className="px-6 md:px-12 -mt-16 relative z-20 grid grid-cols-3 md:grid-cols-7 gap-3 md:gap-4 max-w-6xl mx-auto">
         {[
           { to: "/movies", label: "Movies", icon: Film },
           { to: "/series", label: "Series", icon: Tv2 },
@@ -117,6 +117,7 @@ export default function Home() {
           { to: "/sports", label: "Sports", icon: Trophy },
           { to: "/trailers", label: "Trailers", icon: Clapperboard },
           { to: "/reels", label: "Reels", icon: Flame },
+          { to: "/studio", label: "Studio", icon: Radio },
         ].map((c) => (
           <Link
             key={c.to}

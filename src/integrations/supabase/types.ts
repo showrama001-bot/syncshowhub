@@ -1329,6 +1329,121 @@ export type Database = {
         }
         Relationships: []
       }
+      studio_chat_messages: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          stream_id: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          stream_id: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          stream_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "studio_chat_messages_stream_id_fkey"
+            columns: ["stream_id"]
+            isOneToOne: false
+            referencedRelation: "studio_streams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      studio_invites: {
+        Row: {
+          created_at: string
+          from_user: string
+          id: string
+          status: string
+          stream_id: string
+          to_user: string
+        }
+        Insert: {
+          created_at?: string
+          from_user: string
+          id?: string
+          status?: string
+          stream_id: string
+          to_user: string
+        }
+        Update: {
+          created_at?: string
+          from_user?: string
+          id?: string
+          status?: string
+          stream_id?: string
+          to_user?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "studio_invites_stream_id_fkey"
+            columns: ["stream_id"]
+            isOneToOne: false
+            referencedRelation: "studio_streams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      studio_streams: {
+        Row: {
+          ambient_state: Json
+          created_at: string
+          ended_at: string | null
+          host_id: string
+          id: string
+          mode: string
+          poster_url: string | null
+          status: string
+          stream_url: string | null
+          title: string
+          tmdb_id: number | null
+          updated_at: string
+          viewer_count: number
+        }
+        Insert: {
+          ambient_state?: Json
+          created_at?: string
+          ended_at?: string | null
+          host_id: string
+          id?: string
+          mode?: string
+          poster_url?: string | null
+          status?: string
+          stream_url?: string | null
+          title: string
+          tmdb_id?: number | null
+          updated_at?: string
+          viewer_count?: number
+        }
+        Update: {
+          ambient_state?: Json
+          created_at?: string
+          ended_at?: string | null
+          host_id?: string
+          id?: string
+          mode?: string
+          poster_url?: string | null
+          status?: string
+          stream_url?: string | null
+          title?: string
+          tmdb_id?: number | null
+          updated_at?: string
+          viewer_count?: number
+        }
+        Relationships: []
+      }
       trailers: {
         Row: {
           created_at: string

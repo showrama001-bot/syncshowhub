@@ -38,6 +38,7 @@ const UploadMovie = lazy(() => import("./pages/app/UploadMovie"));
 const UploadShare = lazy(() => import("./pages/app/UploadShare"));
 const Reels = lazy(() => import("./pages/app/Reels"));
 const Trailers = lazy(() => import("./pages/app/Trailers"));
+const Studio = lazy(() => import("./pages/app/Studio"));
 
 const RouteFallback = () => (
   <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading…</div>
@@ -90,6 +91,8 @@ const App = () => {
               <Route path="/accueil" element={<Accueil />} />
               <Route path="/reels" element={lazyRoute(<Reels />)} />
               <Route path="/trailers" element={lazyRoute(<Trailers />)} />
+              <Route path="/studio" element={lazyRoute(<Studio />)} />
+              <Route path="/live-stream" element={lazyRoute(<Studio />)} />
               <Route path="/admin" element={<Navigate to="/admin/dashboard/hub-secure-2026" replace />} />
               <Route path="/admin/dashboard" element={<Navigate to="/admin/dashboard/hub-secure-2026" replace />} />
               <Route path="/admin/dashboard/hub-secure-2026" element={lazyRoute(<Admin />)} />

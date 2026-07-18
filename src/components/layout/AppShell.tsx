@@ -3,6 +3,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { SideDrawer } from "./SideDrawer";
 import { ReminderBell } from "@/components/watch/ReminderBell";
 import { InviteNotifier } from "@/components/friends/InviteNotifier";
+import { StudioInviteNotifier } from "@/components/studio/StudioInviteNotifier";
+import { LiveNowBanner } from "@/components/studio/LiveNowBanner";
 import { HeaderBanner } from "@/components/ads/HeaderBanner";
 import { PopupAdOverlay } from "@/components/ads/PopupAdOverlay";
 import { AntiAdblock } from "@/components/ads/AntiAdblock";
@@ -25,7 +27,9 @@ export const AppShell = () => {
       <SideDrawer />
       <ReminderBell />
       <InviteNotifier />
+      <StudioInviteNotifier />
       <HeaderBanner />
+      <LiveNowBanner />
       <main className="min-h-screen">
         <Outlet />
       </main>
