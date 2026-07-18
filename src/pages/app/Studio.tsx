@@ -578,7 +578,7 @@ function PlayerStage({ streamRow, viewerOnly, isHost }: { streamRow: any; viewer
         <video
           ref={videoRef}
           className="w-full h-full object-contain"
-          controls={!!isHost}
+          controls
           controlsList={isHost ? undefined : "nodownload noplaybackrate noremoteplayback"}
           disablePictureInPicture={!isHost}
           onContextMenu={(e) => { if (!isHost) e.preventDefault(); }}
