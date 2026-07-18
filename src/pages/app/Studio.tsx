@@ -575,7 +575,17 @@ function PlayerStage({ streamRow, viewerOnly, isHost }: { streamRow: any; viewer
   return (
     <div className="relative rounded-2xl overflow-hidden bg-black aspect-video shadow-card">
       {src ? (
-        <video ref={videoRef} className="w-full h-full object-contain" controls playsInline autoPlay muted={viewerOnly ? false : true} />
+        <video
+          ref={videoRef}
+          className="w-full h-full object-contain"
+          controls={!!isHost}
+          controlsList={isHost ? undefined : "nodownload noplaybackrate noremoteplayback"}
+          disablePictureInPicture={!isHost}
+          onContextMenu={(e) => { if (!isHost) e.preventDefault(); }}
+          playsInline
+          autoPlay
+          muted
+        />
       ) : (
         <div className="absolute inset-0 grid place-items-center text-muted-foreground">
           <div className="text-center">
