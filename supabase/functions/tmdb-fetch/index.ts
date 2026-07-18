@@ -36,15 +36,35 @@ Deno.serve(async (req) => {
     }
 
     let movie: any = null;
+    let resolvedType = type;
     if (tmdb_id) {
-      const r = await fetch(`https://api.themoviedb.org/3/${type}/${tmdb_id}?api_key=${key}&append_to_response=external_ids,videos`);
+      const r = await fetch(`https://api.themoviedb.org/3/${type}/${tmdb_id}?api_key=${key}&append_to_response=external_ids,videos&language=en-US`);
       movie = await r.json();
     } else if (query) {
-      const r = await fetch(`https://api.themoviedb.org/3/search/${type}?api_key=${key}&query=${encodeURIComponent(query)}`);
-      const j = await r.json();
-      const first = j.results?.[0];
+      const q = encodeURIComponent(query);
+      // Try multi-search across languages/types to handle non-English titles.
+      const attempts: Array<{ t: "movie" | "tv"; lang: string }> = [
+        { t: type, lang: "en-US" },
+        { t: type, lang: "fr-FR" },
+        { t: type, lang: "es-ES" },
+        { t: type === "movie" ? "tv" : "movie", lang: "en-US" },
+        { t: type === "movie" ? "tv" : "movie", lang: "fr-FR" },
+      ];
+      let first: any = null;
+      for (const a of attempts) {
+        const r = await fetch(`https://api.themoviedb.org/3/search/${a.t}?api_key=${key}&query=${q}&include_adult=false&language=${a.lang}`);
+        const j = await r.json();
+        if (j.results?.[0]) { first = j.results[0]; resolvedType = a.t; break; }
+      }
+      // Final fallback: multi-search
+      if (!first) {
+        const r = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${key}&query=${q}&include_adult=false`);
+        const j = await r.json();
+        const hit = (j.results || []).find((x: any) => x.media_type === "movie" || x.media_type === "tv");
+        if (hit) { first = hit; resolvedType = hit.media_type; }
+      }
       if (first) {
-        const r2 = await fetch(`https://api.themoviedb.org/3/${type}/${first.id}?api_key=${key}&append_to_response=external_ids,videos`);
+        const r2 = await fetch(`https://api.themoviedb.org/3/${resolvedType}/${first.id}?api_key=${key}&append_to_response=external_ids,videos&language=en-US`);
         movie = await r2.json();
       }
     }
@@ -62,11 +82,11 @@ Deno.serve(async (req) => {
       videos.find((v) => v.site === "YouTube");
     const youtube_trailer_url = trailer ? `https://www.youtube.com/watch?v=${trailer.key}` : null;
 
-    const dateStr = type === "tv" ? movie.first_air_date : movie.release_date;
+    const dateStr = resolvedType === "tv" ? movie.first_air_date : movie.release_date;
     const result = {
       tmdb_id: movie.id,
-      kind: type === "tv" ? "series" : "movie",
-      title: type === "tv" ? movie.name : movie.title,
+      kind: resolvedType === "tv" ? "series" : "movie",
+      title: resolvedType === "tv" ? movie.name : movie.title,
       description: movie.overview,
       poster_url: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : null,
       backdrop_url: movie.backdrop_path ? `https://image.tmdb.org/t/p/original${movie.backdrop_path}` : null,
