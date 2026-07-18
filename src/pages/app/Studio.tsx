@@ -531,12 +531,16 @@ function PlayerStage({ streamRow, viewerOnly, isHost }: { streamRow: any; viewer
         clearInterval(hb);
       };
     } else {
-      const onSeeking = () => {
+      const requestResync = () => {
         if (suppressRef.current) return;
         syncChannelRef.current?.send({ type: "broadcast", event: "sync-req", payload: {} });
       };
-      v.addEventListener("seeking", onSeeking);
-      return () => { v.removeEventListener("seeking", onSeeking); };
+      v.addEventListener("seeking", requestResync);
+      v.addEventListener("pause", requestResync);
+      return () => {
+        v.removeEventListener("seeking", requestResync);
+        v.removeEventListener("pause", requestResync);
+      };
     }
   }, [streamId, isHost, src]);
 
