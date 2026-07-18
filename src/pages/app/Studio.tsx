@@ -666,7 +666,7 @@ function ViewerView({ streamId }: { streamId: string | null }) {
         </div>
       </header>
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
-        <PlayerStage streamRow={row} viewerOnly />
+        <PlayerStage streamRow={row} viewerOnly isHost={false} />
         <aside className="space-y-4">
           <StudioChatPanel streamId={row.id} viewerOnly />
         </aside>
