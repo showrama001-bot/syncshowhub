@@ -128,7 +128,7 @@ function HostView({ userId }: { userId: string }) {
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
         {/* Player + controls */}
         <div className="space-y-4">
-          <PlayerStage streamRow={streamRow} />
+          <PlayerStage streamRow={streamRow} isHost />
 
           <Tabs value={mode} onValueChange={(v) => setMode(v as any)}>
             <TabsList className="grid w-full grid-cols-2">
