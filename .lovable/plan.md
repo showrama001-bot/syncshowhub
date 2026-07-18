@@ -1,57 +1,84 @@
-# Build Plan — Rooms v2, Social Feed & Reels
+## Overview
 
-Scope is large; splitting into 3 phases so each can be validated in the preview before moving on. All work respects the existing DB, movie layout, ads system, and Telegram pipeline.
+Rebuild the `/studio` page (and `/live-stream` viewer route) from scratch with a real Supabase-backed architecture — no localStorage mocks. Live sessions are broadcast via Supabase Realtime; movie uploads route through a new isolated Telegram bot; ambient sounds are host-controlled and synced to all viewers.
 
----
+## 1. Database (new migration)
 
-## Phase 1 — Shared Rooms v2 (Jitsi removal + native sync + voice)
+New table `studio_streams`:
+- `id uuid pk`, `host_id uuid → auth.users`, `title text`, `poster_url text`, `tmdb_id int`
+- `mode text` (`upload` | `obs`), `stream_url text`
+- `status text` (`live` | `ended`), `viewer_count int default 0`
+- `ambient_state jsonb` (per-track `{playing, volume, position, updated_at}`)
+- `created_at`, `ended_at`
+- RLS: host can insert/update/delete own rows; authenticated can SELECT rows where `status='live'`; hosts can update ambient_state on their row. Grants for `authenticated` + `service_role`.
+- Enable Realtime: `ALTER PUBLICATION supabase_realtime ADD TABLE studio_streams;`
 
-**Frontend**
-- Rewrite `src/pages/app/Watch.tsx`: remove Jitsi iframe entirely.
-- Add `SyncedPlayer` component wrapping `BunnyVideoPlayer`/HLS. Uses a Supabase Realtime broadcast channel `room:{id}:playback` to emit `{action: play|pause|seek, time, at}`. Host is authoritative; guests apply events with drift correction (±0.5s snap).
-- Add `VoiceChat` component: mesh WebRTC (RTCPeerConnection per peer) with signaling via Supabase Realtime `room:{id}:signal` (offer/answer/ICE). Mic mute toggle, per-peer volume meter. Mobile-optimized (audio-only, `echoCancellation`, `noiseSuppression`).
-- Room creation modal in `Rooms.tsx`: enforce unique `title` (DB check + friendly error).
-- Host "Kick" button already scaffolded — wire it to insert into a new `room_kicks` table; guests self-eject on kick event.
-- `FriendsSidebar` in room: "Invite" button calls existing `inviteToRoom` → creates `room_invites` row (already picked up by `InviteNotifier`).
+New table `studio_invites`:
+- `id uuid pk`, `stream_id uuid`, `from_user uuid`, `to_user uuid`, `status text default 'pending'`, `created_at`
+- RLS: sender can insert (must own stream); recipient can SELECT/UPDATE own row. Realtime enabled for instant popup toast.
 
-**Backend (migration)**
-- `ALTER TABLE watch_rooms ADD CONSTRAINT watch_rooms_title_key UNIQUE (title);`
-- New table `room_kicks(room_id, user_id, kicked_by, created_at)` + RLS: host can insert; kicked user can read own row.
-- Enable Realtime on `room_kicks`.
+## 2. New Telegram bot for Studio uploads
 
-## Phase 2 — Friends / DMs polish
+- Add two new runtime secrets via `add_secret`: `STUDIO_TELEGRAM_BOT_TOKEN`, `STUDIO_TELEGRAM_CHAT_ID` (completely isolated from existing `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`).
+- New edge function `studio-telegram-upload` (mirrors `telegram-upload` but reads the new secrets). Returns `{ stream_url, file_id }`.
+- Frontend helper `src/lib/studioTelegramUpload.ts` (analogous to existing `telegramUpload.ts`) targeting the new function.
 
-- `Friends.tsx`: verify "Invite to Room" button appears next to each accepted friend when a room context exists (via query param `?invite=roomId`).
-- `DMs.tsx`: add "Invite to current room" quick action.
-- Notification toast already handled by `InviteNotifier`.
+## 3. Studio page (`/studio`)
 
-## Phase 3 — Accueil (Social Feed) + Reels
+Recreated `src/pages/app/Studio.tsx` with:
+- **Tab switcher**: "Live Stream (OBS)" vs "Upload & Stream Movie" (host only).
+- **OBS mode**: HLS URL input → "Connect & Go Live" writes row `{mode:'obs', stream_url, status:'live'}`.
+- **Upload mode**:
+  - TMDB search (existing `tmdb-fetch` function) → auto-fill title/poster/description/genre/year.
+  - Drag/drop file → upload via new `studio-telegram-upload` function → returns direct URL.
+  - On success: insert movie row into `movies` table (so it appears on Home + Movies pages automatically via existing queries) AND insert `studio_streams` row with `status='live'`.
+- **Host video preview** with local `URL.createObjectURL` before publish, real `stream_url` after.
+- **Friends invite panel** (host only): lists accepted friends from `friendships` table with an "Invite" button per user → inserts row into `studio_invites`.
+- **Ambient Soundboard** (host only): existing 15 ambient tracks. Each track has play/pause + volume slider. Every change writes to `studio_streams.ambient_state` (throttled). Host also plays audio locally.
+- Viewer mode (when route is `/live-stream` or user is not host): only shows video + chat + ambient audio (auto-played, muted-until-user-gesture fallback), controls hidden.
 
-**Accueil**
-- Replace placeholder `Accueil.tsx` with feed: composer (text + optional image via existing `avatars` bucket pattern → new `feed-media` bucket), timeline list, like/comment.
-- New tables: `feed_posts(user_id, content, image_url)`, `feed_likes(post_id, user_id)`, `feed_comments(post_id, user_id, content)`. Full RLS + GRANTs.
-- Insert `<GridBanner />` ad every 4 posts.
+## 4. Viewer sync (`/live-stream`)
 
-**Reels**
-- New table `reels(id, source_type: 'trailer'|'upload', youtube_id, video_url, movie_id, title, created_by, created_at)`. Admin-only insert policy.
-- Admin panel `ReelsTab` in `Admin.tsx`: import from existing `trailers` table (one-click) or upload short MP4 via Telegram pipeline.
-- `Reels.tsx`: full-screen vertical snap-scroll feed. Each 3rd swipe forces an ad slide (from `AdsProvider` video assets) that must complete before next reel unlocks.
-- Each reel card shows a prominent "Watch full movie" button → `/play/movie/{movie_id}` (strict FK match; button hidden if no movie link).
+- Subscribes to the active `studio_streams` row via Realtime.
+- Plays `stream_url` (HLS via `hls.js` if `.m3u8`, else native `<video>`).
+- Reads `ambient_state` and mirrors each track's play/volume locally — audio blends with main video for all viewers simultaneously.
+- Live chat: reuse `room_chat_messages` scoped to the stream id (or new `studio_chat_messages` if cleaner — will use existing pattern with `room_id=stream_id`).
 
----
+## 5. Direct social invitations
 
-## Technical notes
+- `InviteNotifier` pattern already exists for `room_invites`. Add a parallel realtime subscription for `studio_invites` filtered by `to_user=eq.<me>`:
+  - Shows toast "[Host display_name] is inviting you to join their live stream!" with **Join Room** button → routes to `/live-stream?stream=<id>`.
+- Register listener globally in `AppShell.tsx` alongside `InviteNotifier`.
 
-- **Sync algorithm**: host broadcasts every state change + heartbeat every 5s with `currentTime`. Guests correct if drift > 1.5s.
-- **WebRTC**: STUN only (`stun:stun.l.google.com:19302`), no TURN. Sufficient for most mobile networks; document limitation.
-- **Ad lock in Reels**: `swipeCount % 3 === 0` injects an `AdSlide` component using `useAds().pick('reel')` with a required `ended` event before advancing.
-- **Right-click / anti-download** already global via `installAntiTheft`.
+## 6. Site-wide live banner
 
-## Delivery order
+- New component `LiveNowBanner` mounted in `AppShell` above `<main>`.
+- Subscribes to `studio_streams` where `status='live'`. When rows exist, shows a slim neon banner: "🔴 [Host] is LIVE — [Title] · Watch now" → routes to `/live-stream?stream=<id>`. Dismissible per-session.
 
-1. Migration for room uniqueness + kicks + feed + reels tables (single migration, awaits approval).
-2. Phase 1 code once migration approved.
-3. Phase 2 tweaks.
-4. Phase 3 code + admin UI.
+## 7. Rooms page integration
 
-Confirm to proceed and I'll ship the migration first.
+- `Rooms.tsx`: fetch active `studio_streams` and prepend them as neon-badged "LIVE" cards in the Live-now grid. Clicking routes to `/live-stream?stream=<id>`.
+
+## 8. Routes
+
+- Re-add `/studio` and `/live-stream` (lazy) in `src/App.tsx`. Studio nav entry restored on Home grid.
+
+## Technical details
+
+- Files created:
+  - `supabase/functions/studio-telegram-upload/index.ts`
+  - `src/lib/studioTelegramUpload.ts`
+  - `src/pages/app/Studio.tsx`
+  - `src/components/studio/InviteFriendsPanel.tsx`
+  - `src/components/studio/HostSoundboard.tsx`
+  - `src/components/studio/ViewerAmbientSync.tsx`
+  - `src/components/studio/StudioInviteNotifier.tsx`
+  - `src/components/studio/LiveNowBanner.tsx`
+  - New migration file for tables/RLS/realtime/grants.
+- Files modified: `src/App.tsx`, `src/components/layout/AppShell.tsx`, `src/pages/app/Home.tsx`, `src/pages/app/Rooms.tsx`.
+- Secrets requested: `STUDIO_TELEGRAM_BOT_TOKEN`, `STUDIO_TELEGRAM_CHAT_ID`.
+- No localStorage sync — all state is Supabase Realtime.
+
+## Confirmation needed before I start
+
+I'll need you to provide the new Telegram bot token + chat id (I'll open secure prompts). Confirm this plan and I'll build it end-to-end.
