@@ -439,8 +439,9 @@ function UploadPanel({
 
 /* ------------------------------ Player stage ---------------------------- */
 
-function PlayerStage({ streamRow, viewerOnly }: { streamRow: any; viewerOnly?: boolean }) {
+function PlayerStage({ streamRow, viewerOnly, isHost }: { streamRow: any; viewerOnly?: boolean; isHost?: boolean }) {
   const src: string | null = streamRow?.stream_url || null;
+  const streamId: string | null = streamRow?.id || null;
   const [camOn, setCamOn] = useState(false);
   const [micOn, setMicOn] = useState(false);
   const [pos, setPos] = useState({ x: 16, y: 16 });
@@ -448,6 +449,8 @@ function PlayerStage({ streamRow, viewerOnly }: { streamRow: any; viewerOnly?: b
   const videoRef = useRef<HTMLVideoElement>(null);
   const camRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const syncChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const suppressRef = useRef(false);
 
   useEffect(() => {
     if (!src || !videoRef.current) return;
