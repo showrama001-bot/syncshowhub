@@ -470,6 +470,76 @@ function PlayerStage({ streamRow, viewerOnly, isHost }: { streamRow: any; viewer
     v.src = src;
   }, [src]);
 
+  // Host <-> viewer playback sync via Supabase Realtime broadcast.
+  useEffect(() => {
+    if (!streamId) return;
+    const ch = supabase.channel(`studio-playback:${streamId}`, { config: { broadcast: { self: false } } });
+    syncChannelRef.current = ch;
+    const applyRemote = (p: any) => {
+      const v = videoRef.current;
+      if (!v || !p) return;
+      suppressRef.current = true;
+      try {
+        if (typeof p.time === "number" && Math.abs(v.currentTime - p.time) > 1.2) {
+          v.currentTime = p.time;
+        }
+        if (p.action === "play") v.play().catch(() => {});
+        else if (p.action === "pause") v.pause();
+      } finally {
+        setTimeout(() => { suppressRef.current = false; }, 250);
+      }
+    };
+    if (!isHost) {
+      ch.on("broadcast", { event: "state" }, ({ payload }) => applyRemote(payload));
+    } else {
+      ch.on("broadcast", { event: "sync-req" }, () => {
+        const v = videoRef.current;
+        if (!v) return;
+        ch.send({ type: "broadcast", event: "state", payload: {
+          action: v.paused ? "pause" : "play", time: v.currentTime,
+        }});
+      });
+    }
+    ch.subscribe((status) => {
+      if (status === "SUBSCRIBED" && !isHost) {
+        ch.send({ type: "broadcast", event: "sync-req", payload: {} });
+      }
+    });
+    return () => { supabase.removeChannel(ch); syncChannelRef.current = null; };
+  }, [streamId, isHost]);
+
+  // Host emits state changes; viewer requests re-sync if it drifts.
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || !streamId) return;
+    if (isHost) {
+      const emit = (action: "play" | "pause") => {
+        if (suppressRef.current) return;
+        syncChannelRef.current?.send({ type: "broadcast", event: "state", payload: { action, time: v.currentTime }});
+      };
+      const onPlay = () => emit("play");
+      const onPause = () => emit("pause");
+      const onSeeked = () => emit(v.paused ? "pause" : "play");
+      v.addEventListener("play", onPlay);
+      v.addEventListener("pause", onPause);
+      v.addEventListener("seeked", onSeeked);
+      const hb = setInterval(() => emit(v.paused ? "pause" : "play"), 4000);
+      return () => {
+        v.removeEventListener("play", onPlay);
+        v.removeEventListener("pause", onPause);
+        v.removeEventListener("seeked", onSeeked);
+        clearInterval(hb);
+      };
+    } else {
+      const onSeeking = () => {
+        if (suppressRef.current) return;
+        syncChannelRef.current?.send({ type: "broadcast", event: "sync-req", payload: {} });
+      };
+      v.addEventListener("seeking", onSeeking);
+      return () => { v.removeEventListener("seeking", onSeeking); };
+    }
+  }, [streamId, isHost, src]);
+
   const requestCam = async () => {
     try {
       const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
