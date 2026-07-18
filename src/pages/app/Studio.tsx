@@ -128,7 +128,7 @@ function HostView({ userId }: { userId: string }) {
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
         {/* Player + controls */}
         <div className="space-y-4">
-          <PlayerStage streamRow={streamRow} />
+          <PlayerStage streamRow={streamRow} isHost />
 
           <Tabs value={mode} onValueChange={(v) => setMode(v as any)}>
             <TabsList className="grid w-full grid-cols-2">
@@ -173,10 +173,34 @@ function HostView({ userId }: { userId: string }) {
                   }
                   // Upload to Telegram, then create the live stream pointing at the resulting URL.
                   const res = await uploadToStudioTelegram(file, meta.title || "Studio upload");
-                  await goLive({
+                  const streamRow = await goLive({
                     mode: "upload", title: meta.title || title || "Live movie",
                     stream_url: res.stream_url, poster_url: meta.poster_url ?? null, tmdb_id: meta.tmdb_id ?? null,
                   });
+                  // Publish movie to the global catalog so it appears on Home + Movies immediately.
+                  if (streamRow && !isSeries && meta.title) {
+                    const { error: movErr } = await supabase.from("movies").insert({
+                      title: meta.title,
+                      description: meta.description ?? null,
+                      poster_url: meta.poster_url ?? null,
+                      backdrop_url: meta.backdrop_url ?? meta.poster_url ?? null,
+                      stream_url: res.stream_url,
+                      stream_sources: [{ url: res.stream_url, source_type: "hls", label: "Studio" }] as any,
+                      source_type: "hls",
+                      genre: meta.genre ?? null,
+                      year: meta.year ?? null,
+                      duration_minutes: meta.duration_minutes ?? null,
+                      rating: meta.rating ?? null,
+                      imdb_rating: meta.imdb_rating ?? null,
+                      tmdb_id: meta.tmdb_id ?? null,
+                      created_by: userId,
+                      status: "published",
+                      is_admin_upload: false,
+                      provider: "studio",
+                    } as any);
+                    if (movErr) toast.error(`Movie catalog insert failed: ${movErr.message}`);
+                    else toast.success("Movie published to catalog");
+                  }
                 }}
               />
             </TabsContent>
@@ -415,8 +439,9 @@ function UploadPanel({
 
 /* ------------------------------ Player stage ---------------------------- */
 
-function PlayerStage({ streamRow, viewerOnly }: { streamRow: any; viewerOnly?: boolean }) {
+function PlayerStage({ streamRow, viewerOnly, isHost }: { streamRow: any; viewerOnly?: boolean; isHost?: boolean }) {
   const src: string | null = streamRow?.stream_url || null;
+  const streamId: string | null = streamRow?.id || null;
   const [camOn, setCamOn] = useState(false);
   const [micOn, setMicOn] = useState(false);
   const [pos, setPos] = useState({ x: 16, y: 16 });
@@ -424,6 +449,8 @@ function PlayerStage({ streamRow, viewerOnly }: { streamRow: any; viewerOnly?: b
   const videoRef = useRef<HTMLVideoElement>(null);
   const camRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const syncChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const suppressRef = useRef(false);
 
   useEffect(() => {
     if (!src || !videoRef.current) return;
@@ -442,6 +469,80 @@ function PlayerStage({ streamRow, viewerOnly }: { streamRow: any; viewerOnly?: b
     }
     v.src = src;
   }, [src]);
+
+  // Host <-> viewer playback sync via Supabase Realtime broadcast.
+  useEffect(() => {
+    if (!streamId) return;
+    const ch = supabase.channel(`studio-playback:${streamId}`, { config: { broadcast: { self: false } } });
+    syncChannelRef.current = ch;
+    const applyRemote = (p: any) => {
+      const v = videoRef.current;
+      if (!v || !p) return;
+      suppressRef.current = true;
+      try {
+        if (typeof p.time === "number" && Math.abs(v.currentTime - p.time) > 1.2) {
+          v.currentTime = p.time;
+        }
+        if (p.action === "play") v.play().catch(() => {});
+        else if (p.action === "pause") v.pause();
+      } finally {
+        setTimeout(() => { suppressRef.current = false; }, 250);
+      }
+    };
+    if (!isHost) {
+      ch.on("broadcast", { event: "state" }, ({ payload }) => applyRemote(payload));
+    } else {
+      ch.on("broadcast", { event: "sync-req" }, () => {
+        const v = videoRef.current;
+        if (!v) return;
+        ch.send({ type: "broadcast", event: "state", payload: {
+          action: v.paused ? "pause" : "play", time: v.currentTime,
+        }});
+      });
+    }
+    ch.subscribe((status) => {
+      if (status === "SUBSCRIBED" && !isHost) {
+        ch.send({ type: "broadcast", event: "sync-req", payload: {} });
+      }
+    });
+    return () => { supabase.removeChannel(ch); syncChannelRef.current = null; };
+  }, [streamId, isHost]);
+
+  // Host emits state changes; viewer requests re-sync if it drifts.
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || !streamId) return;
+    if (isHost) {
+      const emit = (action: "play" | "pause") => {
+        if (suppressRef.current) return;
+        syncChannelRef.current?.send({ type: "broadcast", event: "state", payload: { action, time: v.currentTime }});
+      };
+      const onPlay = () => emit("play");
+      const onPause = () => emit("pause");
+      const onSeeked = () => emit(v.paused ? "pause" : "play");
+      v.addEventListener("play", onPlay);
+      v.addEventListener("pause", onPause);
+      v.addEventListener("seeked", onSeeked);
+      const hb = setInterval(() => emit(v.paused ? "pause" : "play"), 4000);
+      return () => {
+        v.removeEventListener("play", onPlay);
+        v.removeEventListener("pause", onPause);
+        v.removeEventListener("seeked", onSeeked);
+        clearInterval(hb);
+      };
+    } else {
+      const requestResync = () => {
+        if (suppressRef.current) return;
+        syncChannelRef.current?.send({ type: "broadcast", event: "sync-req", payload: {} });
+      };
+      v.addEventListener("seeking", requestResync);
+      v.addEventListener("pause", requestResync);
+      return () => {
+        v.removeEventListener("seeking", requestResync);
+        v.removeEventListener("pause", requestResync);
+      };
+    }
+  }, [streamId, isHost, src]);
 
   const requestCam = async () => {
     try {
@@ -478,7 +579,17 @@ function PlayerStage({ streamRow, viewerOnly }: { streamRow: any; viewerOnly?: b
   return (
     <div className="relative rounded-2xl overflow-hidden bg-black aspect-video shadow-card">
       {src ? (
-        <video ref={videoRef} className="w-full h-full object-contain" controls playsInline autoPlay muted={viewerOnly ? false : true} />
+        <video
+          ref={videoRef}
+          className="w-full h-full object-contain"
+          controls
+          controlsList={isHost ? undefined : "nodownload noplaybackrate noremoteplayback"}
+          disablePictureInPicture={!isHost}
+          onContextMenu={(e) => { if (!isHost) e.preventDefault(); }}
+          playsInline
+          autoPlay
+          muted
+        />
       ) : (
         <div className="absolute inset-0 grid place-items-center text-muted-foreground">
           <div className="text-center">
@@ -642,7 +753,7 @@ function ViewerView({ streamId }: { streamId: string | null }) {
         </div>
       </header>
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
-        <PlayerStage streamRow={row} viewerOnly />
+        <PlayerStage streamRow={row} viewerOnly isHost={false} />
         <aside className="space-y-4">
           <StudioChatPanel streamId={row.id} viewerOnly />
         </aside>
