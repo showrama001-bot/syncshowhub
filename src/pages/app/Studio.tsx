@@ -442,6 +442,7 @@ function UploadPanel({
 function PlayerStage({ streamRow, viewerOnly, isHost }: { streamRow: any; viewerOnly?: boolean; isHost?: boolean }) {
   const src: string | null = streamRow?.stream_url || null;
   const streamId: string | null = streamRow?.id || null;
+  const mode: "obs" | "upload" = streamRow?.mode === "upload" ? "upload" : "obs";
   const [camOn, setCamOn] = useState(false);
   const [micOn, setMicOn] = useState(false);
   const [pos, setPos] = useState({ x: 16, y: 16 });
@@ -451,6 +452,7 @@ function PlayerStage({ streamRow, viewerOnly, isHost }: { streamRow: any; viewer
   const streamRef = useRef<MediaStream | null>(null);
   const syncChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const suppressRef = useRef(false);
+  const lastRemoteRef = useRef<{ action: "play" | "pause"; time: number; at: number } | null>(null);
 
   useEffect(() => {
     if (!src || !videoRef.current) return;
@@ -485,6 +487,9 @@ function PlayerStage({ streamRow, viewerOnly, isHost }: { streamRow: any; viewer
         }
         if (p.action === "play") v.play().catch(() => {});
         else if (p.action === "pause") v.pause();
+        if (p.action === "play" || p.action === "pause") {
+          lastRemoteRef.current = { action: p.action, time: typeof p.time === "number" ? p.time : v.currentTime, at: Date.now() };
+        }
       } finally {
         setTimeout(() => { suppressRef.current = false; }, 250);
       }
@@ -531,15 +536,30 @@ function PlayerStage({ streamRow, viewerOnly, isHost }: { streamRow: any; viewer
         clearInterval(hb);
       };
     } else {
-      const requestResync = () => {
+      // Force-sync: any viewer-side play/pause/seek attempt is immediately
+      // overridden by the last remote state and a fresh sync-req.
+      const snapBack = () => {
         if (suppressRef.current) return;
+        const last = lastRemoteRef.current;
+        if (last) {
+          suppressRef.current = true;
+          const projected = last.action === "play" ? last.time + (Date.now() - last.at) / 1000 : last.time;
+          try {
+            if (Math.abs(v.currentTime - projected) > 0.75) v.currentTime = projected;
+            if (last.action === "play") v.play().catch(() => {});
+            else v.pause();
+          } finally {
+            setTimeout(() => { suppressRef.current = false; }, 250);
+          }
+        }
         syncChannelRef.current?.send({ type: "broadcast", event: "sync-req", payload: {} });
       };
-      v.addEventListener("seeking", requestResync);
-      v.addEventListener("pause", requestResync);
+      v.addEventListener("seeking", snapBack);
+      v.addEventListener("pause", snapBack);
+      v.addEventListener("ratechange", () => { if (v.playbackRate !== 1) v.playbackRate = 1; });
       return () => {
-        v.removeEventListener("seeking", requestResync);
-        v.removeEventListener("pause", requestResync);
+        v.removeEventListener("seeking", snapBack);
+        v.removeEventListener("pause", snapBack);
       };
     }
   }, [streamId, isHost, src]);
@@ -582,7 +602,7 @@ function PlayerStage({ streamRow, viewerOnly, isHost }: { streamRow: any; viewer
         <video
           ref={videoRef}
           className="w-full h-full object-contain"
-          controls
+          controls={isHost}
           controlsList={isHost ? undefined : "nodownload noplaybackrate noremoteplayback"}
           disablePictureInPicture={!isHost}
           onContextMenu={(e) => { if (!isHost) e.preventDefault(); }}
@@ -594,8 +614,18 @@ function PlayerStage({ streamRow, viewerOnly, isHost }: { streamRow: any; viewer
         <div className="absolute inset-0 grid place-items-center text-muted-foreground">
           <div className="text-center">
             <Radio className="h-10 w-10 mx-auto mb-2 opacity-60" />
-            <div className="font-display tracking-widest text-sm">WAITING FOR SIGNAL</div>
+            <div className="font-display tracking-widest text-sm">
+              {streamId && mode === "obs"
+                ? (isHost ? "READY — POINT OBS AT THE RTMP URL" : "HOST IS LIVE VIA OBS · WAITING FOR INGEST")
+                : "WAITING FOR SIGNAL"}
+            </div>
           </div>
+        </div>
+      )}
+      {!isHost && src && (
+        <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-black/70 text-white text-[10px] uppercase tracking-widest flex items-center gap-1.5 backdrop-blur">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          Locked to host {mode === "upload" ? "· VOD" : "· LIVE"}
         </div>
       )}
 
