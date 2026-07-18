@@ -173,10 +173,34 @@ function HostView({ userId }: { userId: string }) {
                   }
                   // Upload to Telegram, then create the live stream pointing at the resulting URL.
                   const res = await uploadToStudioTelegram(file, meta.title || "Studio upload");
-                  await goLive({
+                  const streamRow = await goLive({
                     mode: "upload", title: meta.title || title || "Live movie",
                     stream_url: res.stream_url, poster_url: meta.poster_url ?? null, tmdb_id: meta.tmdb_id ?? null,
                   });
+                  // Publish movie to the global catalog so it appears on Home + Movies immediately.
+                  if (streamRow && !isSeries && meta.title) {
+                    const { error: movErr } = await supabase.from("movies").insert({
+                      title: meta.title,
+                      description: meta.description ?? null,
+                      poster_url: meta.poster_url ?? null,
+                      backdrop_url: meta.backdrop_url ?? meta.poster_url ?? null,
+                      stream_url: res.stream_url,
+                      stream_sources: [{ url: res.stream_url, source_type: "hls", label: "Studio" }] as any,
+                      source_type: "hls",
+                      genre: meta.genre ?? null,
+                      year: meta.year ?? null,
+                      duration_minutes: meta.duration_minutes ?? null,
+                      rating: meta.rating ?? null,
+                      imdb_rating: meta.imdb_rating ?? null,
+                      tmdb_id: meta.tmdb_id ?? null,
+                      created_by: userId,
+                      status: "published",
+                      is_admin_upload: false,
+                      provider: "studio",
+                    } as any);
+                    if (movErr) toast.error(`Movie catalog insert failed: ${movErr.message}`);
+                    else toast.success("Movie published to catalog");
+                  }
                 }}
               />
             </TabsContent>
