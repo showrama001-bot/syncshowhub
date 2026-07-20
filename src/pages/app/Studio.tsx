@@ -10,7 +10,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
   Radio, Upload, Search, Film, Loader2, Video, VideoOff, Mic, MicOff, StopCircle,
-  AlertTriangle, CheckCircle2, Send,
+  AlertTriangle, CheckCircle2, Send, Volume2, VolumeX, Maximize2,
 } from "lucide-react";
 import { HostSoundboard, type AmbientState } from "@/components/studio/HostSoundboard";
 import { ViewerAmbientSync } from "@/components/studio/ViewerAmbientSync";
