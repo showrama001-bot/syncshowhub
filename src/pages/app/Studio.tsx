@@ -453,6 +453,27 @@ function PlayerStage({ streamRow, viewerOnly, isHost }: { streamRow: any; viewer
   const syncChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const suppressRef = useRef(false);
   const lastRemoteRef = useRef<{ action: "play" | "pause"; time: number; at: number } | null>(null);
+  const [viewerMuted, setViewerMuted] = useState(true);
+
+  const unmuteViewer = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = false;
+    if (v.volume < 0.1) v.volume = 1;
+    setViewerMuted(false);
+    v.play().catch(() => {});
+  };
+  const muteViewer = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = true;
+    setViewerMuted(true);
+  };
+  const viewerFullscreen = () => {
+    const v = videoRef.current as any;
+    if (!v) return;
+    (v.requestFullscreen || v.webkitEnterFullscreen)?.call(v);
+  };
 
   useEffect(() => {
     if (!src || !videoRef.current) return;
