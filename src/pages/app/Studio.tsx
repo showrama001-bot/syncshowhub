@@ -10,7 +10,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
   Radio, Upload, Search, Film, Loader2, Video, VideoOff, Mic, MicOff, StopCircle,
-  AlertTriangle, CheckCircle2, Send,
+  AlertTriangle, CheckCircle2, Send, Volume2, VolumeX, Maximize2,
 } from "lucide-react";
 import { HostSoundboard, type AmbientState } from "@/components/studio/HostSoundboard";
 import { ViewerAmbientSync } from "@/components/studio/ViewerAmbientSync";
@@ -453,6 +453,27 @@ function PlayerStage({ streamRow, viewerOnly, isHost }: { streamRow: any; viewer
   const syncChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const suppressRef = useRef(false);
   const lastRemoteRef = useRef<{ action: "play" | "pause"; time: number; at: number } | null>(null);
+  const [viewerMuted, setViewerMuted] = useState(true);
+
+  const unmuteViewer = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = false;
+    if (v.volume < 0.1) v.volume = 1;
+    setViewerMuted(false);
+    v.play().catch(() => {});
+  };
+  const muteViewer = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = true;
+    setViewerMuted(true);
+  };
+  const viewerFullscreen = () => {
+    const v = videoRef.current as any;
+    if (!v) return;
+    (v.requestFullscreen || v.webkitEnterFullscreen)?.call(v);
+  };
 
   useEffect(() => {
     if (!src || !videoRef.current) return;
@@ -627,6 +648,33 @@ function PlayerStage({ streamRow, viewerOnly, isHost }: { streamRow: any; viewer
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
           Locked to host {mode === "upload" ? "· VOD" : "· LIVE"}
         </div>
+      )}
+
+      {/* Viewer audio controls (browser blocks autoplay with sound; require a click to unmute) */}
+      {!isHost && src && (
+        <>
+          {viewerMuted && (
+            <button
+              onClick={unmuteViewer}
+              className="absolute inset-0 grid place-items-center bg-black/40 hover:bg-black/50 transition-colors"
+              aria-label="Tap to unmute"
+            >
+              <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-primary-foreground font-semibold shadow-neon">
+                <VolumeX className="h-5 w-5" />
+                Tap to unmute
+              </div>
+            </button>
+          )}
+          <div className="absolute bottom-3 left-3 flex gap-2">
+            <Button size="sm" variant="secondary" onClick={viewerMuted ? unmuteViewer : muteViewer}
+              aria-label={viewerMuted ? "Unmute" : "Mute"}>
+              {viewerMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+            </Button>
+            <Button size="sm" variant="secondary" onClick={viewerFullscreen} aria-label="Fullscreen">
+              <Maximize2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </>
       )}
 
       {/* Webcam PiP (host only) */}
