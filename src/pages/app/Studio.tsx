@@ -650,6 +650,33 @@ function PlayerStage({ streamRow, viewerOnly, isHost }: { streamRow: any; viewer
         </div>
       )}
 
+      {/* Viewer audio controls (browser blocks autoplay with sound; require a click to unmute) */}
+      {!isHost && src && (
+        <>
+          {viewerMuted && (
+            <button
+              onClick={unmuteViewer}
+              className="absolute inset-0 grid place-items-center bg-black/40 hover:bg-black/50 transition-colors"
+              aria-label="Tap to unmute"
+            >
+              <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-primary-foreground font-semibold shadow-neon">
+                <VolumeX className="h-5 w-5" />
+                Tap to unmute
+              </div>
+            </button>
+          )}
+          <div className="absolute bottom-3 left-3 flex gap-2">
+            <Button size="sm" variant="secondary" onClick={viewerMuted ? unmuteViewer : muteViewer}
+              aria-label={viewerMuted ? "Unmute" : "Mute"}>
+              {viewerMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+            </Button>
+            <Button size="sm" variant="secondary" onClick={viewerFullscreen} aria-label="Fullscreen">
+              <Maximize2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </>
+      )}
+
       {/* Webcam PiP (host only) */}
       {!viewerOnly && camOn && (
         <div
