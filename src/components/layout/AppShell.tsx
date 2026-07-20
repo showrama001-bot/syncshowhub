@@ -10,6 +10,7 @@ import { PopupAdOverlay } from "@/components/ads/PopupAdOverlay";
 import { AntiAdblock } from "@/components/ads/AntiAdblock";
 import { GlobalScriptInjector } from "@/components/ads/ScriptSlot";
 import { useAds } from "@/components/ads/AdsProvider";
+import { Footer } from "./Footer";
 
 export const AppShell = () => {
   const { user, loading } = useAuth();
@@ -33,6 +34,7 @@ export const AppShell = () => {
       <main className="min-h-screen">
         <Outlet />
       </main>
+      <Footer />
       <PopupAdOverlay />
       <AntiAdblock />
       {enabled && settings.global_scripts ? <GlobalScriptInjector html={settings.global_scripts} /> : null}
