@@ -27,7 +27,14 @@ export const BunnyVideoPlayer = ({ src, poster, title: _title, onEnded, subtitle
   }, [src]);
 
   return (
-    <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-black shadow-card player-shell">
+    <div
+      className="group relative w-full aspect-video rounded-2xl overflow-hidden bg-black shadow-card player-shell"
+      onTouchStart={(e) => {
+        const el = e.currentTarget;
+        el.classList.add("is-touched");
+        window.setTimeout(() => el.classList.remove("is-touched"), 3200);
+      }}
+    >
       <video
         ref={videoRef}
         src={src}
