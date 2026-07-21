@@ -15,6 +15,7 @@ import {
   Tv2,
   Trophy,
   MessageSquare,
+  Users,
   Shield,
   LogOut,
   Bookmark,
