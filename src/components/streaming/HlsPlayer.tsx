@@ -33,7 +33,14 @@ export const HlsPlayer = ({
   }, [src]);
 
   return (
-    <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-black shadow-card">
+    <div
+      className="group relative w-full aspect-video rounded-2xl overflow-hidden bg-black shadow-card"
+      onTouchStart={(e) => {
+        const el = e.currentTarget;
+        el.classList.add("is-touched");
+        window.setTimeout(() => el.classList.remove("is-touched"), 3200);
+      }}
+    >
       <video
         ref={videoRef}
         controls
