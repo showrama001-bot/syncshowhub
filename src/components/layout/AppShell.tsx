@@ -4,6 +4,7 @@ import { SideDrawer } from "./SideDrawer";
 import { ReminderBell } from "@/components/watch/ReminderBell";
 import { InviteNotifier } from "@/components/friends/InviteNotifier";
 import { StudioInviteNotifier } from "@/components/studio/StudioInviteNotifier";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { LiveNowBanner } from "@/components/studio/LiveNowBanner";
 import { HeaderBanner } from "@/components/ads/HeaderBanner";
 import { PopupAdOverlay } from "@/components/ads/PopupAdOverlay";
@@ -26,6 +27,7 @@ export const AppShell = () => {
   return (
     <div className="min-h-screen bg-background text-foreground relative">
       <SideDrawer />
+      <NotificationBell />
       <ReminderBell />
       <InviteNotifier />
       <StudioInviteNotifier />
