@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { sha256Hex } from "@/lib/watchRooms";
 import { FriendsSidebar } from "@/components/friends/FriendsSidebar";
 import { RoomInvitePopover } from "@/components/rooms/RoomInvitePopover";
+import { FollowHostButton } from "@/components/rooms/FollowHostButton";
 import { FloatingReactions } from "@/components/reactions/FloatingReactions";
 import { AmbientSounds } from "@/components/ambient/AmbientSounds";
 import confetti from "canvas-confetti";
@@ -370,6 +371,7 @@ export default function Watch() {
             {reminded ? "Reminding" : "Remind me"}
           </Button>
         )}
+        {!isHost && <FollowHostButton hostId={room.host_id} />}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-4 lg:gap-6">
