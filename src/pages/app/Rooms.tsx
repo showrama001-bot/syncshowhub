@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Bell, BellOff, Users, Clock, Lock, Play, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Radio } from "lucide-react";
+import { LiveStoriesRail } from "@/components/rooms/LiveStoriesRail";
 
 type Room = {
   id: string;
@@ -137,6 +138,7 @@ export default function Rooms() {
         </TabsList>
 
         <TabsContent value="live" className="mt-4">
+          <LiveStoriesRail />
           {live.length === 0 && liveStudios.length === 0 ? (
             <Empty msg="No live rooms right now. Be the first — open a movie and hit Watch Together." />
           ) : (

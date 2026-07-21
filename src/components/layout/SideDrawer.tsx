@@ -14,9 +14,8 @@ import {
   Tv,
   Tv2,
   Trophy,
-  Users,
   MessageSquare,
-  UserPlus,
+  Users,
   Shield,
   LogOut,
   Bookmark,
@@ -45,7 +44,6 @@ const items = [
   { to: "/watchlist", label: "My Watchlist", icon: Bookmark },
   { to: "/tv", label: "TV", icon: Tv },
   { to: "/sports", label: "Sports", icon: Trophy },
-  { to: "/dms", label: "DMs", icon: UserPlus },
   { to: "/profile", label: "Profile", icon: User },
 ];
 
