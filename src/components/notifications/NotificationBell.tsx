@@ -1,13 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, Radio, UserPlus, MessageSquare } from "lucide-react";
+import { Bell, Radio, UserPlus, MessageSquare, CalendarClock, AlarmClock, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 type Notif = {
   id: string;
-  kind: "room_invite" | "studio_invite" | "live";
+  kind:
+    | "room_invite"
+    | "studio_invite"
+    | "live"
+    | "room_scheduled"
+    | "room_time_updated"
+    | "room_reminder"
+    | "room_live"
+    | "studio_live";
   title: string;
   href: string;
   at: string;
@@ -21,7 +29,7 @@ export function NotificationBell() {
 
   const load = async () => {
     if (!user) return;
-    const [ri, si, live] = await Promise.all([
+    const [ri, si, live, notifs] = await Promise.all([
       (supabase.from("room_invites" as any) as any)
         .select("id, room_id, from_user, status, created_at")
         .eq("to_user", user.id).eq("status", "pending")
@@ -34,6 +42,10 @@ export function NotificationBell() {
         .select("id, title, created_at")
         .eq("status", "live")
         .order("created_at", { ascending: false }).limit(5),
+      (supabase.from("notifications" as any) as any)
+        .select("id, kind, title, href, created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false }).limit(30),
     ]);
     const fromIds = new Set<string>([
       ...((ri.data || []) as any[]).map((r) => r.from_user),
@@ -62,6 +74,13 @@ export function NotificationBell() {
         title: `Live now: ${r.title}`,
         href: `/live-stream?stream=${r.id}`, at: r.created_at,
       })),
+      ...((notifs.data || []) as any[]).map((r) => ({
+        id: `n-${r.id}`,
+        kind: r.kind as Notif["kind"],
+        title: r.title,
+        href: r.href || "/rooms",
+        at: r.created_at,
+      })),
     ].sort((a, b) => (a.at < b.at ? 1 : -1));
     setItems(out);
   };
@@ -74,6 +93,7 @@ export function NotificationBell() {
       .on("postgres_changes", { event: "*", schema: "public", table: "room_invites", filter: `to_user=eq.${user.id}` }, () => load())
       .on("postgres_changes", { event: "*", schema: "public", table: "studio_invites", filter: `to_user=eq.${user.id}` }, () => load())
       .on("postgres_changes", { event: "*", schema: "public", table: "studio_streams" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` }, () => load())
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [user?.id]);
@@ -92,7 +112,10 @@ export function NotificationBell() {
   if (!user) return null;
 
   const iconFor = (k: Notif["kind"]) =>
-    k === "live" ? <Radio className="h-4 w-4 text-red-500" />
+    (k === "live" || k === "room_live" || k === "studio_live") ? <Radio className="h-4 w-4 text-red-500" />
+    : k === "room_scheduled" ? <CalendarClock className="h-4 w-4 text-primary" />
+    : k === "room_time_updated" ? <RefreshCw className="h-4 w-4 text-yellow-500" />
+    : k === "room_reminder" ? <AlarmClock className="h-4 w-4 text-yellow-400" />
     : k === "studio_invite" ? <MessageSquare className="h-4 w-4 text-primary" />
     : <UserPlus className="h-4 w-4 text-primary" />;
 

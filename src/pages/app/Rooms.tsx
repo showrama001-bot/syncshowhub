@@ -11,6 +11,7 @@ import { Bell, BellOff, Users, Clock, Lock, Play, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Radio } from "lucide-react";
 import { LiveStoriesRail } from "@/components/rooms/LiveStoriesRail";
+import { FollowHostButton } from "@/components/rooms/FollowHostButton";
 
 type Room = {
   id: string;
@@ -161,10 +162,13 @@ export default function Rooms() {
                   <div className="p-3 flex-1 flex flex-col">
                     <div className="font-semibold truncate">{s.title}</div>
                     <div className="text-xs text-muted-foreground truncate">Hosted by {s.host_name || "…"}</div>
-                    <Button size="sm" className="mt-3 bg-gradient-red shadow-neon"
-                      onClick={() => navigate(`/live-stream?stream=${s.id}`)}>
-                      Watch live
-                    </Button>
+                    <div className="mt-3 flex gap-2">
+                      <Button size="sm" className="flex-1 bg-gradient-red shadow-neon"
+                        onClick={() => navigate(`/live-stream?stream=${s.id}`)}>
+                        Watch live
+                      </Button>
+                      <FollowHostButton hostId={s.host_id} />
+                    </div>
                   </div>
                 </div>
               ))}
@@ -335,6 +339,7 @@ function RoomCard({
               {reminded ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
             </Button>
           )}
+          <FollowHostButton hostId={room.host_id} />
         </div>
       </div>
     </div>
