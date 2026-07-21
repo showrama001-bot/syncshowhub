@@ -502,6 +502,27 @@ export type Database = {
         }
         Relationships: []
       }
+      host_follows: {
+        Row: {
+          created_at: string
+          follower_id: string
+          host_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          follower_id: string
+          host_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          follower_id?: string
+          host_id?: string
+          id?: string
+        }
+        Relationships: []
+      }
       matches: {
         Row: {
           away_logo: string | null
@@ -789,6 +810,39 @@ export type Database = {
           tmdb_id?: number | null
           voe_sx_url?: string | null
           year?: number | null
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          href: string | null
+          id: string
+          kind: string
+          meta: Json
+          read_at: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          href?: string | null
+          id?: string
+          kind: string
+          meta?: Json
+          read_at?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          href?: string | null
+          id?: string
+          kind?: string
+          meta?: Json
+          read_at?: string | null
+          title?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -1701,6 +1755,7 @@ export type Database = {
           participant_count: number
           password_hash: string | null
           poster_url: string | null
+          reminder_sent_at: string | null
           scheduled_at: string | null
           status: string
           stream_url: string | null
@@ -1718,6 +1773,7 @@ export type Database = {
           participant_count?: number
           password_hash?: string | null
           poster_url?: string | null
+          reminder_sent_at?: string | null
           scheduled_at?: string | null
           status?: string
           stream_url?: string | null
@@ -1735,6 +1791,7 @@ export type Database = {
           participant_count?: number
           password_hash?: string | null
           poster_url?: string | null
+          reminder_sent_at?: string | null
           scheduled_at?: string | null
           status?: string
           stream_url?: string | null
@@ -1787,6 +1844,17 @@ export type Database = {
           permanent_banned: boolean
           suspended_until: string
         }[]
+      }
+      dispatch_room_reminders: { Args: never; Returns: undefined }
+      fanout_host_notification: {
+        Args: {
+          _host: string
+          _href: string
+          _kind: string
+          _meta: Json
+          _title: string
+        }
+        Returns: undefined
       }
       get_my_ban_status: {
         Args: never
