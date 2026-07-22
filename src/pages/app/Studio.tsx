@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import {
-  Radio, Upload, Search, Film, Loader2, Video, VideoOff, Mic, MicOff, StopCircle,
+  Radio, Upload, Search, Film, Loader2, StopCircle,
   AlertTriangle, CheckCircle2, Send, Volume2, VolumeX, Maximize2,
 } from "lucide-react";
 import { HostSoundboard, type AmbientState } from "@/components/studio/HostSoundboard";
