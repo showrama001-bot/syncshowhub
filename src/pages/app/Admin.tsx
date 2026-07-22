@@ -246,6 +246,7 @@ function MoviesTab() {
   const { user } = useAuth();
   const { mode: storageMode } = useStorageMode();
   const [items, setItems] = useState<any[]>([]);
+  const [q, setQ] = useState("");
   const [form, setForm] = useState<any>({ source_type: "mp4" as SourceType });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [tmdbQuery, setTmdbQuery] = useState("");
@@ -366,10 +367,13 @@ function MoviesTab() {
   };
 
   const del = async (id: string) => {
-    if (!confirm("Delete this movie?")) return;
+    const movie = items.find((m) => m.id === id);
+    if (!confirm(`Delete "${movie?.title ?? "this movie"}"? This cannot be undone.`)) return;
+    const prev = items;
+    setItems((list) => list.filter((m) => m.id !== id));
     const { error } = await supabase.from("movies").delete().eq("id", id);
-    if (error) return toast.error(error.message);
-    load();
+    if (error) { setItems(prev); return toast.error(error.message); }
+    toast.success("Movie deleted");
   };
 
   const startEdit = (m: any) => {
@@ -557,9 +561,18 @@ function MoviesTab() {
         </div>
       </form>
 
-      <div className="glass rounded-2xl divide-y divide-border/30">
-        {items.length === 0 && <div className="p-6 text-sm text-muted-foreground">No movies yet.</div>}
-        {items.map((m) => (
+      <div className="glass rounded-2xl overflow-hidden">
+        <div className="p-3 border-b border-border/30 flex items-center gap-2">
+          <Input
+            placeholder="Search movies by title, genre or year…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          <Badge variant="outline">{filteredMovies.length}</Badge>
+        </div>
+        <div className="divide-y divide-border/30">
+        {filteredMovies.length === 0 && <div className="p-6 text-sm text-muted-foreground">{items.length === 0 ? "No movies yet." : "No matches."}</div>}
+        {filteredMovies.map((m) => (
           <div key={m.id} className="p-4 flex items-center justify-between gap-3">
             <div className="flex gap-3 items-center min-w-0">
               {m.poster_url && <img src={m.poster_url} alt="" className="h-12 w-9 object-cover rounded" />}
@@ -574,12 +587,17 @@ function MoviesTab() {
                 </div>
               </div>
             </div>
-            <div className="flex gap-1">
-              <Button size="icon" variant="ghost" onClick={() => startEdit(m)}><Pencil className="h-4 w-4 text-primary" /></Button>
-              <Button size="icon" variant="ghost" onClick={() => del(m.id)}><Trash2 className="h-4 w-4 text-primary" /></Button>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={() => startEdit(m)}>
+                <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
+              </Button>
+              <Button size="sm" variant="destructive" onClick={() => del(m.id)}>
+                <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
+              </Button>
             </div>
           </div>
         ))}
+        </div>
       </div>
     </div>
   );
