@@ -56,8 +56,29 @@ function HostView({ userId }: { userId: string }) {
   const [rtmpUrl] = useState("rtmp://ingest.syncshow.live/live");
   const [showKey, setShowKey] = useState(false);
   const [ambient, setAmbient] = useState<AmbientState>({});
+  const [library, setLibrary] = useState<any[]>([]);
 
-  // Load an existing live stream owned by the user (resume).
+  const refreshLibrary = useCallback(async () => {
+    // Studio "Library" = every upload-mode stream this host ever created
+    // that has a persisted stream_url. Lets them re-broadcast without
+    // uploading the same file again.
+    const { data } = await (supabase.from("studio_streams" as any) as any)
+      .select("id, title, poster_url, stream_url, tmdb_id, mode, status, created_at")
+      .eq("host_id", userId).eq("mode", "upload")
+      .not("stream_url", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(24);
+    // De-duplicate by stream_url so the same movie doesn't appear twice.
+    const seen = new Set<string>();
+    const unique = (data || []).filter((r: any) => {
+      if (!r.stream_url || seen.has(r.stream_url)) return false;
+      seen.add(r.stream_url);
+      return true;
+    });
+    setLibrary(unique);
+  }, [userId]);
+
+  // Load an existing live stream owned by the user (resume) + library.
   useEffect(() => {
     (async () => {
       const { data } = await (supabase.from("studio_streams" as any) as any)
@@ -71,8 +92,9 @@ function HostView({ userId }: { userId: string }) {
         setAmbient((data.ambient_state as AmbientState) || {});
         setMode(data.mode === "upload" ? "upload" : "obs");
       }
+      refreshLibrary();
     })();
-  }, [userId]);
+  }, [userId, refreshLibrary]);
 
   const goLive = useCallback(async (opts: { mode: "obs" | "upload"; stream_url?: string | null; title: string; poster_url?: string | null; tmdb_id?: number | null; }) => {
     if (opts.title.trim().length < 3) { toast.error("Give your stream a title"); return null; }
@@ -103,6 +125,7 @@ function HostView({ userId }: { userId: string }) {
     // Stop all ambient audio server-side too.
     setStreamRow(null); setStreamId(null); setAmbient({});
     toast("Stream ended");
+    refreshLibrary();
   };
 
   return (
