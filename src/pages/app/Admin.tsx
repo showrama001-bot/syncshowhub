@@ -46,7 +46,6 @@ import CommunityUploadsQueue from "@/components/admin/CommunityUploadsQueue";
 import ReelsManager from "@/components/admin/ReelsManager";
 import { MovieSearchPicker } from "@/components/admin/MovieSearchPicker";
 import { SubtitlesManager } from "@/components/admin/SubtitlesManager";
-import ContentSearchTab from "@/components/admin/ContentSearchTab";
 import { useStorageMode } from "@/hooks/useStorageMode";
 
 type SourceType = "hls" | "iframe";
@@ -75,7 +74,6 @@ export default function Admin() {
       <Tabs defaultValue="overview" className="space-y-6">
         <TabsList className="bg-secondary/40 backdrop-blur flex flex-wrap h-auto">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="search">Search & Delete</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="movies">Movies</TabsTrigger>
           <TabsTrigger value="series">Series</TabsTrigger>
@@ -91,7 +89,6 @@ export default function Admin() {
         </TabsList>
 
         <TabsContent value="overview"><Overview /></TabsContent>
-        <TabsContent value="search"><ContentSearchTab /></TabsContent>
         <TabsContent value="users"><UsersTab /></TabsContent>
         <TabsContent value="movies"><MoviesTab /></TabsContent>
         <TabsContent value="series"><SeriesTab /></TabsContent>
@@ -249,6 +246,7 @@ function MoviesTab() {
   const { user } = useAuth();
   const { mode: storageMode } = useStorageMode();
   const [items, setItems] = useState<any[]>([]);
+  const [q, setQ] = useState("");
   const [form, setForm] = useState<any>({ source_type: "mp4" as SourceType });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [tmdbQuery, setTmdbQuery] = useState("");
@@ -369,10 +367,13 @@ function MoviesTab() {
   };
 
   const del = async (id: string) => {
-    if (!confirm("Delete this movie?")) return;
+    const movie = items.find((m) => m.id === id);
+    if (!confirm(`Delete "${movie?.title ?? "this movie"}"? This cannot be undone.`)) return;
+    const prev = items;
+    setItems((list) => list.filter((m) => m.id !== id));
     const { error } = await supabase.from("movies").delete().eq("id", id);
-    if (error) return toast.error(error.message);
-    load();
+    if (error) { setItems(prev); return toast.error(error.message); }
+    toast.success("Movie deleted");
   };
 
   const startEdit = (m: any) => {
@@ -401,6 +402,16 @@ function MoviesTab() {
     setFile(null);
     setDirectUrl("");
   };
+
+  const filteredMovies = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    if (!s) return items;
+    return items.filter((m) =>
+      (m.title ?? "").toLowerCase().includes(s) ||
+      (m.genre ?? "").toLowerCase().includes(s) ||
+      String(m.year ?? "").includes(s)
+    );
+  }, [items, q]);
 
   return (
     <div className="space-y-4">
@@ -560,9 +571,18 @@ function MoviesTab() {
         </div>
       </form>
 
-      <div className="glass rounded-2xl divide-y divide-border/30">
-        {items.length === 0 && <div className="p-6 text-sm text-muted-foreground">No movies yet.</div>}
-        {items.map((m) => (
+      <div className="glass rounded-2xl overflow-hidden">
+        <div className="p-3 border-b border-border/30 flex items-center gap-2">
+          <Input
+            placeholder="Search movies by title, genre or year…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          <Badge variant="outline">{filteredMovies.length}</Badge>
+        </div>
+        <div className="divide-y divide-border/30">
+        {filteredMovies.length === 0 && <div className="p-6 text-sm text-muted-foreground">{items.length === 0 ? "No movies yet." : "No matches."}</div>}
+        {filteredMovies.map((m) => (
           <div key={m.id} className="p-4 flex items-center justify-between gap-3">
             <div className="flex gap-3 items-center min-w-0">
               {m.poster_url && <img src={m.poster_url} alt="" className="h-12 w-9 object-cover rounded" />}
@@ -577,12 +597,17 @@ function MoviesTab() {
                 </div>
               </div>
             </div>
-            <div className="flex gap-1">
-              <Button size="icon" variant="ghost" onClick={() => startEdit(m)}><Pencil className="h-4 w-4 text-primary" /></Button>
-              <Button size="icon" variant="ghost" onClick={() => del(m.id)}><Trash2 className="h-4 w-4 text-primary" /></Button>
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={() => startEdit(m)}>
+                <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
+              </Button>
+              <Button size="sm" variant="destructive" onClick={() => del(m.id)}>
+                <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
+              </Button>
             </div>
           </div>
         ))}
+        </div>
       </div>
     </div>
   );
@@ -1056,6 +1081,7 @@ function TrailersTab() {
 function SeriesTab() {
   const { user } = useAuth();
   const [items, setItems] = useState<any[]>([]);
+  const [q, setQ] = useState("");
   const [form, setForm] = useState<any>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -1164,11 +1190,24 @@ function SeriesTab() {
   const cancelEdit = () => { setEditingId(null); setForm({}); setPendingTrailerUrl(null); };
 
   const del = async (id: string) => {
-    if (!confirm("Delete this series and all its seasons/episodes?")) return;
+    const s = items.find((x) => x.id === id);
+    if (!confirm(`Delete "${s?.title ?? "this series"}" and every season/episode? This cannot be undone.`)) return;
+    const prev = items;
+    setItems((list) => list.filter((x) => x.id !== id));
     const { error } = await (supabase.from("series" as any).delete().eq("id", id) as any);
-    if (error) return toast.error(error.message);
-    load();
+    if (error) { setItems(prev); return toast.error(error.message); }
+    toast.success("Series deleted");
   };
+
+  const filteredSeries = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    if (!s) return items;
+    return items.filter((x) =>
+      (x.title ?? "").toLowerCase().includes(s) ||
+      (x.genre ?? "").toLowerCase().includes(s) ||
+      String(x.year ?? "").includes(s)
+    );
+  }, [items, q]);
 
   return (
     <div className="space-y-4">
@@ -1232,9 +1271,18 @@ function SeriesTab() {
         <div className="sm:col-span-2"><Button className="bg-gradient-red shadow-neon">{editingId ? "Save changes" : "Add series"}</Button></div>
       </form>
 
-      <div className="glass rounded-2xl divide-y divide-border/30">
-        {items.length === 0 && <div className="p-6 text-sm text-muted-foreground">No series yet.</div>}
-        {items.map((s) => (
+      <div className="glass rounded-2xl overflow-hidden">
+        <div className="p-3 border-b border-border/30 flex items-center gap-2">
+          <Input
+            placeholder="Search series by title, genre or year…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          <Badge variant="outline">{filteredSeries.length}</Badge>
+        </div>
+        <div className="divide-y divide-border/30">
+        {filteredSeries.length === 0 && <div className="p-6 text-sm text-muted-foreground">{items.length === 0 ? "No series yet." : "No matches."}</div>}
+        {filteredSeries.map((s) => (
           <div key={s.id}>
             <div className="p-4 flex items-center justify-between gap-3">
               <button
@@ -1255,14 +1303,19 @@ function SeriesTab() {
                   </div>
                 </div>
               </button>
-              <div className="flex gap-1">
-                <Button size="icon" variant="ghost" onClick={() => startEdit(s)}><Pencil className="h-4 w-4 text-primary" /></Button>
-                <Button size="icon" variant="ghost" onClick={() => del(s.id)}><Trash2 className="h-4 w-4 text-primary" /></Button>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => startEdit(s)}>
+                  <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
+                </Button>
+                <Button size="sm" variant="destructive" onClick={() => del(s.id)}>
+                  <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
+                </Button>
               </div>
             </div>
             {expandedId === s.id && <SeasonsManager seriesId={s.id} />}
           </div>
         ))}
+        </div>
       </div>
     </div>
   );
@@ -1357,6 +1410,8 @@ function SeasonsManager({ seriesId }: { seriesId: string }) {
 
 function EpisodesManager({ seasonId }: { seasonId: string }) {
   const [eps, setEps] = useState<any[]>([]);
+  const [q, setQ] = useState("");
+  const [editingEp, setEditingEp] = useState<{ id: string; title: string; episode_number: number } | null>(null);
   const [form, setForm] = useState<any>({});
   const [sourceMode, setSourceMode] = useState<"upload" | "direct" | "telegram">("upload");
   const [file, setFile] = useState<File | null>(null);
@@ -1440,11 +1495,34 @@ function EpisodesManager({ seasonId }: { seasonId: string }) {
   };
 
   const delEp = async (id: string) => {
-    if (!confirm("Delete this episode?")) return;
+    const ep = eps.find((e) => e.id === id);
+    if (!confirm(`Delete Episode ${ep?.episode_number} — "${ep?.title ?? ""}"?`)) return;
+    const prev = eps;
+    setEps((list) => list.filter((e) => e.id !== id));
     const { error } = await (supabase.from("episodes" as any).delete().eq("id", id) as any);
-    if (error) return toast.error(error.message);
-    load();
+    if (error) { setEps(prev); return toast.error(error.message); }
+    toast.success("Episode deleted");
   };
+
+  const saveEpEdit = async () => {
+    if (!editingEp) return;
+    const { id, title, episode_number } = editingEp;
+    const { error } = await (supabase.from("episodes" as any)
+      .update({ title, episode_number }).eq("id", id) as any);
+    if (error) return toast.error(error.message);
+    setEps((list) => list.map((e) => e.id === id ? { ...e, title, episode_number } : e));
+    setEditingEp(null);
+    toast.success("Episode updated");
+  };
+
+  const filteredEps = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    if (!s) return eps;
+    return eps.filter((e) =>
+      (e.title ?? "").toLowerCase().includes(s) ||
+      String(e.episode_number ?? "").includes(s)
+    );
+  }, [eps, q]);
 
   return (
     <div className="space-y-2">
@@ -1480,17 +1558,51 @@ function EpisodesManager({ seasonId }: { seasonId: string }) {
           <Plus className="h-4 w-4 mr-1" /> {uploading ? "Working…" : "Add episode"}
         </Button>
       </div>
+      {eps.length > 0 && (
+        <div className="flex items-center gap-2 pt-2">
+          <Input placeholder="Search episodes…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Badge variant="outline">{filteredEps.length}</Badge>
+        </div>
+      )}
       {eps.length === 0 ? (
         <div className="text-xs text-muted-foreground">No episodes yet.</div>
+      ) : filteredEps.length === 0 ? (
+        <div className="text-xs text-muted-foreground">No matches.</div>
       ) : (
         <div className="divide-y divide-border/30">
-          {eps.map((ep) => (
+          {filteredEps.map((ep) => (
             <div key={ep.id} className="py-2 flex items-center justify-between gap-2">
-              <div className="min-w-0">
-                <div className="text-sm">EP {ep.episode_number} — <span className="font-medium">{ep.title}</span></div>
-                {ep.stream_url && <div className="text-xs text-muted-foreground truncate max-w-[420px]">{ep.stream_url}</div>}
-              </div>
-              <Button size="icon" variant="ghost" onClick={() => delEp(ep.id)}><Trash2 className="h-4 w-4 text-primary" /></Button>
+              {editingEp?.id === ep.id ? (
+                <>
+                  <div className="flex gap-2 flex-1 min-w-0">
+                    <Input type="number" className="w-20"
+                      value={editingEp.episode_number}
+                      onChange={(e) => setEditingEp({ ...editingEp, episode_number: Number(e.target.value) || 0 })} />
+                    <Input value={editingEp.title}
+                      onChange={(e) => setEditingEp({ ...editingEp, title: e.target.value })} />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={saveEpEdit} className="bg-gradient-red">Save</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditingEp(null)}>Cancel</Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="min-w-0">
+                    <div className="text-sm">EP {ep.episode_number} — <span className="font-medium">{ep.title}</span></div>
+                    {ep.stream_url && <div className="text-xs text-muted-foreground truncate max-w-[420px]">{ep.stream_url}</div>}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline"
+                      onClick={() => setEditingEp({ id: ep.id, title: ep.title, episode_number: ep.episode_number })}>
+                      <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
+                    </Button>
+                    <Button size="sm" variant="destructive" onClick={() => delEp(ep.id)}>
+                      <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           ))}
         </div>
