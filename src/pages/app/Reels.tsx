@@ -103,7 +103,7 @@ export default function Reels() {
     };
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => el.removeEventListener("scroll", onScroll);
-  }, [index, ads, adsOn]);
+  }, [index, ads, adsSettings]);
 
   const scrollTo = (i: number) => {
     const el = containerRef.current;
