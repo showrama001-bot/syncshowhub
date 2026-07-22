@@ -445,13 +445,7 @@ function PlayerStage({ streamRow, viewerOnly, isHost }: { streamRow: any; viewer
   const src: string | null = streamRow?.stream_url || null;
   const streamId: string | null = streamRow?.id || null;
   const mode: "obs" | "upload" = streamRow?.mode === "upload" ? "upload" : "obs";
-  const [camOn, setCamOn] = useState(false);
-  const [micOn, setMicOn] = useState(false);
-  const [pos, setPos] = useState({ x: 16, y: 16 });
-  const dragRef = useRef<{ dx: number; dy: number } | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const camRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
   const syncChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const suppressRef = useRef(false);
   const lastRemoteRef = useRef<{ action: "play" | "pause"; time: number; at: number } | null>(null);
@@ -587,38 +581,6 @@ function PlayerStage({ streamRow, viewerOnly, isHost }: { streamRow: any; viewer
     }
   }, [streamId, isHost, src]);
 
-  const requestCam = async () => {
-    try {
-      const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      streamRef.current = s;
-      if (camRef.current) { camRef.current.srcObject = s; camRef.current.play().catch(() => {}); }
-      setCamOn(true); setMicOn(true);
-    } catch { toast.error("Camera/mic denied"); }
-  };
-  const stopCam = () => {
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
-    setCamOn(false); setMicOn(false);
-  };
-  const toggleMic = () => {
-    const s = streamRef.current;
-    if (!s) return;
-    const track = s.getAudioTracks()[0]; if (!track) return;
-    track.enabled = !track.enabled; setMicOn(track.enabled);
-  };
-  useEffect(() => () => streamRef.current?.getTracks().forEach((t) => t.stop()), []);
-
-  const onDragStart = (e: React.PointerEvent) => {
-    const el = e.currentTarget as HTMLElement;
-    el.setPointerCapture(e.pointerId);
-    dragRef.current = { dx: e.clientX - pos.x, dy: e.clientY - pos.y };
-  };
-  const onDragMove = (e: React.PointerEvent) => {
-    if (!dragRef.current) return;
-    setPos({ x: e.clientX - dragRef.current.dx, y: e.clientY - dragRef.current.dy });
-  };
-  const onDragEnd = () => { dragRef.current = null; };
-
   return (
     <div className="relative rounded-2xl overflow-hidden bg-black aspect-video shadow-card">
       {src ? (
@@ -679,32 +641,6 @@ function PlayerStage({ streamRow, viewerOnly, isHost }: { streamRow: any; viewer
         </>
       )}
 
-      {/* Webcam PiP (host only) */}
-      {!viewerOnly && camOn && (
-        <div
-          onPointerDown={onDragStart} onPointerMove={onDragMove} onPointerUp={onDragEnd}
-          style={{ left: pos.x, top: pos.y }}
-          className="absolute h-28 w-28 rounded-full overflow-hidden border-2 border-primary shadow-neon cursor-grab active:cursor-grabbing"
-        >
-          <video ref={camRef} muted playsInline className="w-full h-full object-cover" />
-        </div>
-      )}
-
-      {/* Host controls overlay */}
-      {!viewerOnly && (
-        <div className="absolute bottom-3 right-3 flex gap-2">
-          {!camOn ? (
-            <Button size="sm" variant="secondary" onClick={requestCam}><Video className="h-4 w-4 mr-1" /> Camera</Button>
-          ) : (
-            <>
-              <Button size="sm" variant="outline" onClick={toggleMic}>
-                {micOn ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
-              </Button>
-              <Button size="sm" variant="destructive" onClick={stopCam}><VideoOff className="h-4 w-4 mr-1" /> Stop</Button>
-            </>
-          )}
-        </div>
-      )}
     </div>
   );
 }
@@ -835,9 +771,17 @@ function ViewerView({ streamId }: { streamId: string | null }) {
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
         <PlayerStage streamRow={row} viewerOnly isHost={false} />
         <aside className="space-y-4">
+          <ViewerMediaChat streamId={row.id} hostId={row.host_id} />
           <StudioChatPanel streamId={row.id} viewerOnly />
         </aside>
       </div>
     </div>
   );
+}
+
+/* Small wrapper so we can grab the logged-in user id for MediaChat on the viewer side. */
+function ViewerMediaChat({ streamId, hostId }: { streamId: string; hostId: string }) {
+  const { user } = useAuth();
+  if (!user) return null;
+  return <MediaChat roomId={`studio-${streamId}`} userId={user.id} hostId={hostId} />;
 }
