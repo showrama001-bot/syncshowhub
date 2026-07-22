@@ -403,6 +403,16 @@ function MoviesTab() {
     setDirectUrl("");
   };
 
+  const filteredMovies = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    if (!s) return items;
+    return items.filter((m) =>
+      (m.title ?? "").toLowerCase().includes(s) ||
+      (m.genre ?? "").toLowerCase().includes(s) ||
+      String(m.year ?? "").includes(s)
+    );
+  }, [items, q]);
+
   return (
     <div className="space-y-4">
       <div className="glass rounded-2xl p-5 space-y-3">
