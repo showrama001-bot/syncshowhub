@@ -135,7 +135,12 @@ export function NotificationBell() {
           )}
         </button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-80 p-0 bg-background/95 backdrop-blur-xl border-border/60">
+      <PopoverContent
+        align="end"
+        sideOffset={10}
+        collisionPadding={12}
+        className="z-[100] w-[calc(100vw-1.5rem)] sm:w-80 max-w-sm p-0 rounded-2xl shadow-xl bg-background/95 backdrop-blur-xl border border-border/60"
+      >
         <div className="p-3 border-b border-border/40 flex items-center justify-between">
           <span className="font-display tracking-widest text-sm">NOTIFICATIONS</span>
           <span className="text-[10px] text-muted-foreground">{items.length} total</span>
