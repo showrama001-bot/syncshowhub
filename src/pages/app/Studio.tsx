@@ -530,6 +530,7 @@ function UploadPanel({
 
 function PlayerStage({ streamRow, viewerOnly, isHost }: { streamRow: any; viewerOnly?: boolean; isHost?: boolean }) {
   const src: string | null = streamRow?.stream_url || null;
+  const poster: string | null = streamRow?.poster_url || null;
   const streamId: string | null = streamRow?.id || null;
   const mode: "obs" | "upload" = streamRow?.mode === "upload" ? "upload" : "obs";
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -537,6 +538,23 @@ function PlayerStage({ streamRow, viewerOnly, isHost }: { streamRow: any; viewer
   const suppressRef = useRef(false);
   const lastRemoteRef = useRef<{ action: "play" | "pause"; time: number; at: number } | null>(null);
   const [viewerMuted, setViewerMuted] = useState(true);
+  const [mediaReady, setMediaReady] = useState(false);
+
+  useEffect(() => { setMediaReady(false); }, [src]);
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const onReady = () => setMediaReady(true);
+    const onWait = () => setMediaReady(false);
+    v.addEventListener("loadeddata", onReady);
+    v.addEventListener("playing", onReady);
+    v.addEventListener("waiting", onWait);
+    return () => {
+      v.removeEventListener("loadeddata", onReady);
+      v.removeEventListener("playing", onReady);
+      v.removeEventListener("waiting", onWait);
+    };
+  }, [src]);
 
   const unmuteViewer = () => {
     const v = videoRef.current;
@@ -691,6 +709,7 @@ function PlayerStage({ streamRow, viewerOnly, isHost }: { streamRow: any; viewer
           playsInline
           autoPlay
           muted
+          poster={poster || undefined}
         />
       ) : (
         <div className="absolute inset-0 grid place-items-center text-muted-foreground">
@@ -701,6 +720,14 @@ function PlayerStage({ streamRow, viewerOnly, isHost }: { streamRow: any; viewer
                 ? (isHost ? "READY — POINT OBS AT THE RTMP URL" : "HOST IS LIVE VIA OBS · WAITING FOR INGEST")
                 : "WAITING FOR SIGNAL"}
             </div>
+          </div>
+        </div>
+      )}
+      {src && !mediaReady && (
+        <div className="absolute inset-0 grid place-items-center bg-black/60 pointer-events-none">
+          <div className="flex flex-col items-center gap-3 text-white/90">
+            <div className="h-10 w-10 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+            <div className="font-display tracking-widest text-xs">LOADING STREAM…</div>
           </div>
         </div>
       )}
@@ -826,17 +853,21 @@ function ViewerView({ streamId }: { streamId: string | null }) {
   useEffect(() => {
     if (!streamId) { setLoading(false); return; }
     let alive = true;
-    (async () => {
+    const fetchRow = async () => {
       const { data } = await (supabase.from("studio_streams" as any) as any)
         .select("*").eq("id", streamId).maybeSingle();
       if (!alive) return;
-      setRow(data); setLoading(false);
+      setRow(data);
+    };
+    (async () => {
+      await fetchRow();
+      if (alive) setLoading(false);
     })();
     const ch = supabase
       .channel(`studio-stream:${streamId}`)
       .on("postgres_changes",
         { event: "UPDATE", schema: "public", table: "studio_streams", filter: `id=eq.${streamId}` },
-        (payload) => setRow(payload.new))
+        () => { fetchRow(); })
       .subscribe();
     return () => { alive = false; supabase.removeChannel(ch); };
   }, [streamId]);
