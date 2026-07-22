@@ -853,17 +853,21 @@ function ViewerView({ streamId }: { streamId: string | null }) {
   useEffect(() => {
     if (!streamId) { setLoading(false); return; }
     let alive = true;
-    (async () => {
+    const fetchRow = async () => {
       const { data } = await (supabase.from("studio_streams" as any) as any)
         .select("*").eq("id", streamId).maybeSingle();
       if (!alive) return;
-      setRow(data); setLoading(false);
+      setRow(data);
+    };
+    (async () => {
+      await fetchRow();
+      if (alive) setLoading(false);
     })();
     const ch = supabase
       .channel(`studio-stream:${streamId}`)
       .on("postgres_changes",
         { event: "UPDATE", schema: "public", table: "studio_streams", filter: `id=eq.${streamId}` },
-        (payload) => setRow(payload.new))
+        () => { fetchRow(); })
       .subscribe();
     return () => { alive = false; supabase.removeChannel(ch); };
   }, [streamId]);
