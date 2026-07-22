@@ -923,10 +923,36 @@ function ViewerView({ streamId }: { streamId: string | null }) {
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
         <PlayerStage streamRow={row} viewerOnly isHost={false} />
         <aside className="space-y-4">
-          <ViewerMediaChat streamId={row.id} hostId={row.host_id} />
           <StudioChatPanel streamId={row.id} viewerOnly />
+          <ViewerMediaChat streamId={row.id} hostId={row.host_id} />
         </aside>
       </div>
+    </div>
+  );
+}
+
+/* --------------------------- Collapsible panel -------------------------- */
+
+function CollapsiblePanel({
+  icon, title, defaultOpen = false, children,
+}: {
+  icon?: React.ReactNode; title: string; defaultOpen?: boolean; children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="glass rounded-2xl border border-border/40 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="w-full flex items-center gap-2 px-4 py-3 text-sm font-medium hover:bg-white/5 transition"
+      >
+        {icon}
+        <span>{title}</span>
+        <span className="ml-auto text-xs text-muted-foreground">{open ? "Hide" : "Show"}</span>
+        {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+      </button>
+      {open && <div className="px-2 pb-3">{children}</div>}
     </div>
   );
 }
