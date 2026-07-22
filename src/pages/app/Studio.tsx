@@ -412,13 +412,28 @@ function UploadPanel({
   return (
     <section className="glass rounded-2xl p-6 border border-border/40 space-y-4">
       {library.length > 0 && (
-        <div className="rounded-xl border border-border/50 p-3 bg-background/40 space-y-2">
-          <div className="text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-            <Film className="h-3.5 w-3.5 text-primary" /> Your Studio Library
-            <span className="ml-auto normal-case tracking-normal text-[10px]">Re-broadcast without re-uploading</span>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-56 overflow-auto pr-1">
-            {library.map((item) => (
+        <div className="rounded-xl border border-border/50 bg-background/40">
+          <button
+            type="button"
+            onClick={() => setShowLibrary((v) => !v)}
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs uppercase tracking-widest text-muted-foreground hover:text-foreground transition"
+            aria-expanded={showLibrary}
+          >
+            <Film className="h-3.5 w-3.5 text-primary" />
+            <span>Media Library</span>
+            <span className="ml-1 rounded-full bg-primary/15 text-primary px-1.5 py-0.5 text-[10px] normal-case tracking-normal">
+              {library.length}
+            </span>
+            <span className="ml-auto normal-case tracking-normal text-[10px]">
+              {showLibrary ? "Hide" : "Show"}
+            </span>
+            {showLibrary
+              ? <ChevronUp className="h-4 w-4" />
+              : <ChevronDown className="h-4 w-4" />}
+          </button>
+          {showLibrary && (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-56 overflow-auto p-3 pt-0">
+              {library.map((item) => (
               <button
                 key={item.id}
                 type="button"
@@ -440,8 +455,9 @@ function UploadPanel({
                   </span>
                 </div>
               </button>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
