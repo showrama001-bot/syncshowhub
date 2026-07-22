@@ -187,25 +187,15 @@ function HostView({ userId }: { userId: string }) {
                 }}
                 onGoLiveWithFile={async ({ file, meta, isSeries, season, episode }) => {
                   if (isSeries && meta.tmdb_id) {
-                    // Duplicate episode guard — reuse this host's previous
-                    // upload of the same episode instead of erroring.
+                    // Duplicate episode guard.
                     const { data: series } = await supabase.from("series")
                       .select("id").eq("tmdb_id", meta.tmdb_id).maybeSingle();
                     if (series?.id) {
                       const { data: eps } = await (supabase.from("episodes" as any) as any)
-                        .select("id, season_number, episode_number, stream_url, created_by")
+                        .select("season_number, episode_number")
                         .eq("series_id", series.id);
-                      const match = (eps || []).find((e: any) => e.season_number === season && e.episode_number === episode);
-                      if (match) {
-                        if (match.stream_url && match.created_by === userId) {
-                          toast.success("Re-using your previous upload of this episode.");
-                          await goLive({
-                            mode: "upload", title: meta.title || `S${season}E${episode}`,
-                            stream_url: match.stream_url, poster_url: meta.poster_url ?? null,
-                            tmdb_id: meta.tmdb_id ?? null,
-                          });
-                          return;
-                        }
+                      const exists = (eps || []).some((e: any) => e.season_number === season && e.episode_number === episode);
+                      if (exists) {
                         const maxEp = Math.max(0, ...((eps || []).filter((e: any) => e.season_number === season).map((e: any) => e.episode_number)));
                         toast.error(`This episode already exists in the library! You left off at Episode ${maxEp}, please upload the next episode.`);
                         return;
