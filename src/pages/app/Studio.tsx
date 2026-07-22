@@ -56,8 +56,29 @@ function HostView({ userId }: { userId: string }) {
   const [rtmpUrl] = useState("rtmp://ingest.syncshow.live/live");
   const [showKey, setShowKey] = useState(false);
   const [ambient, setAmbient] = useState<AmbientState>({});
+  const [library, setLibrary] = useState<any[]>([]);
 
-  // Load an existing live stream owned by the user (resume).
+  const refreshLibrary = useCallback(async () => {
+    // Studio "Library" = every upload-mode stream this host ever created
+    // that has a persisted stream_url. Lets them re-broadcast without
+    // uploading the same file again.
+    const { data } = await (supabase.from("studio_streams" as any) as any)
+      .select("id, title, poster_url, stream_url, tmdb_id, mode, status, created_at")
+      .eq("host_id", userId).eq("mode", "upload")
+      .not("stream_url", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(24);
+    // De-duplicate by stream_url so the same movie doesn't appear twice.
+    const seen = new Set<string>();
+    const unique = (data || []).filter((r: any) => {
+      if (!r.stream_url || seen.has(r.stream_url)) return false;
+      seen.add(r.stream_url);
+      return true;
+    });
+    setLibrary(unique);
+  }, [userId]);
+
+  // Load an existing live stream owned by the user (resume) + library.
   useEffect(() => {
     (async () => {
       const { data } = await (supabase.from("studio_streams" as any) as any)
@@ -71,8 +92,9 @@ function HostView({ userId }: { userId: string }) {
         setAmbient((data.ambient_state as AmbientState) || {});
         setMode(data.mode === "upload" ? "upload" : "obs");
       }
+      refreshLibrary();
     })();
-  }, [userId]);
+  }, [userId, refreshLibrary]);
 
   const goLive = useCallback(async (opts: { mode: "obs" | "upload"; stream_url?: string | null; title: string; poster_url?: string | null; tmdb_id?: number | null; }) => {
     if (opts.title.trim().length < 3) { toast.error("Give your stream a title"); return null; }
@@ -103,6 +125,7 @@ function HostView({ userId }: { userId: string }) {
     // Stop all ambient audio server-side too.
     setStreamRow(null); setStreamId(null); setAmbient({});
     toast("Stream ended");
+    refreshLibrary();
   };
 
   return (
@@ -152,6 +175,16 @@ function HostView({ userId }: { userId: string }) {
             <TabsContent value="upload" className="mt-4">
               <UploadPanel
                 streamId={streamId}
+                library={library}
+                onGoLiveFromLibrary={async (item) => {
+                  await goLive({
+                    mode: "upload",
+                    title: item.title,
+                    stream_url: item.stream_url,
+                    poster_url: item.poster_url ?? null,
+                    tmdb_id: item.tmdb_id ?? null,
+                  });
+                }}
                 onGoLiveWithFile={async ({ file, meta, isSeries, season, episode }) => {
                   if (isSeries && meta.tmdb_id) {
                     // Duplicate episode guard.
@@ -169,8 +202,25 @@ function HostView({ userId }: { userId: string }) {
                       }
                     }
                   } else if (!isSeries && meta.tmdb_id) {
-                    const { data: dup } = await supabase.from("movies").select("id,title").eq("tmdb_id", meta.tmdb_id).maybeSingle();
-                    if (dup) { toast.error(`"${dup.title}" already exists in the library.`); return; }
+                    const { data: dup } = await supabase.from("movies")
+                      .select("id,title,stream_url,created_by,poster_url")
+                      .eq("tmdb_id", meta.tmdb_id).maybeSingle();
+                    if (dup) {
+                      // If this same host already uploaded the movie, skip
+                      // the re-upload and just re-broadcast from the library.
+                      if (dup.stream_url && dup.created_by === userId) {
+                        toast.success("Re-using your previous upload of this movie.");
+                        await goLive({
+                          mode: "upload", title: dup.title || meta.title || "Live movie",
+                          stream_url: dup.stream_url,
+                          poster_url: dup.poster_url ?? meta.poster_url ?? null,
+                          tmdb_id: meta.tmdb_id ?? null,
+                        });
+                        return;
+                      }
+                      toast.error(`"${dup.title}" already exists in the library.`);
+                      return;
+                    }
                   }
                   // Upload to Telegram, then create the live stream pointing at the resulting URL.
                   const res = await uploadToStudioTelegram(file, meta.title || "Studio upload");
@@ -202,6 +252,7 @@ function HostView({ userId }: { userId: string }) {
                     if (movErr) toast.error(`Movie catalog insert failed: ${movErr.message}`);
                     else toast.success("Movie published to catalog");
                   }
+                  refreshLibrary();
                 }}
               />
             </TabsContent>
@@ -271,10 +322,12 @@ function ObsPanel({
 /* --------------------------- Upload panel ------------------------------- */
 
 function UploadPanel({
-  streamId, onGoLiveWithFile,
+  streamId, library, onGoLiveWithFile, onGoLiveFromLibrary,
 }: {
   streamId: string | null;
+  library: any[];
   onGoLiveWithFile: (args: { file: File; meta: Meta; isSeries: boolean; season: number; episode: number }) => Promise<void>;
+  onGoLiveFromLibrary: (item: any) => Promise<void>;
 }) {
   const [query, setQuery] = useState("");
   const [tmdbBusy, setTmdbBusy] = useState(false);
@@ -350,6 +403,40 @@ function UploadPanel({
 
   return (
     <section className="glass rounded-2xl p-6 border border-border/40 space-y-4">
+      {library.length > 0 && (
+        <div className="rounded-xl border border-border/50 p-3 bg-background/40 space-y-2">
+          <div className="text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+            <Film className="h-3.5 w-3.5 text-primary" /> Your Studio Library
+            <span className="ml-auto normal-case tracking-normal text-[10px]">Re-broadcast without re-uploading</span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-56 overflow-auto pr-1">
+            {library.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                disabled={!!streamId || busy}
+                onClick={() => onGoLiveFromLibrary(item)}
+                className="group relative rounded-lg overflow-hidden border border-border/50 hover:border-primary/70 transition text-left disabled:opacity-50"
+              >
+                {item.poster_url ? (
+                  <img src={item.poster_url} alt="" className="w-full h-28 object-cover" />
+                ) : (
+                  <div className="w-full h-28 grid place-items-center bg-secondary/40 text-muted-foreground text-xs">
+                    No poster
+                  </div>
+                )}
+                <div className="p-1.5 text-[11px] font-medium line-clamp-2">{item.title}</div>
+                <div className="absolute inset-0 grid place-items-center bg-black/50 opacity-0 group-hover:opacity-100 transition">
+                  <span className="px-2.5 py-1 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold">
+                    Go Live
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center gap-3">
         <Label className="text-xs text-muted-foreground m-0">Kind</Label>
         <div className="flex gap-2">
@@ -499,13 +586,23 @@ function PlayerStage({ streamRow, viewerOnly, isHost }: { streamRow: any; viewer
       if (!v || !p) return;
       suppressRef.current = true;
       try {
-        if (typeof p.time === "number" && Math.abs(v.currentTime - p.time) > 1.2) {
-          v.currentTime = p.time;
+        // Project host's timeline forward using their broadcast wall-clock
+        // so a viewer joining mid-stream lands at the *current* position.
+        if (typeof p.time === "number") {
+          const drift = Date.now() - (typeof p.at === "number" ? p.at : Date.now());
+          const projected = p.action === "play"
+            ? p.time + Math.max(0, drift) / 1000
+            : p.time;
+          if (Math.abs(v.currentTime - projected) > 1.2) v.currentTime = projected;
         }
         if (p.action === "play") v.play().catch(() => {});
         else if (p.action === "pause") v.pause();
         if (p.action === "play" || p.action === "pause") {
-          lastRemoteRef.current = { action: p.action, time: typeof p.time === "number" ? p.time : v.currentTime, at: Date.now() };
+          lastRemoteRef.current = {
+            action: p.action,
+            time: typeof p.time === "number" ? p.time : v.currentTime,
+            at: typeof p.at === "number" ? p.at : Date.now(),
+          };
         }
       } finally {
         setTimeout(() => { suppressRef.current = false; }, 250);
@@ -518,7 +615,7 @@ function PlayerStage({ streamRow, viewerOnly, isHost }: { streamRow: any; viewer
         const v = videoRef.current;
         if (!v) return;
         ch.send({ type: "broadcast", event: "state", payload: {
-          action: v.paused ? "pause" : "play", time: v.currentTime,
+          action: v.paused ? "pause" : "play", time: v.currentTime, at: Date.now(),
         }});
       });
     }
@@ -537,7 +634,7 @@ function PlayerStage({ streamRow, viewerOnly, isHost }: { streamRow: any; viewer
     if (isHost) {
       const emit = (action: "play" | "pause") => {
         if (suppressRef.current) return;
-        syncChannelRef.current?.send({ type: "broadcast", event: "state", payload: { action, time: v.currentTime }});
+        syncChannelRef.current?.send({ type: "broadcast", event: "state", payload: { action, time: v.currentTime, at: Date.now() }});
       };
       const onPlay = () => emit("play");
       const onPause = () => emit("pause");
