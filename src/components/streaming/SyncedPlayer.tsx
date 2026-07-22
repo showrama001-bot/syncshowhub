@@ -178,7 +178,7 @@ export function SyncedPlayer({ roomId, src, poster, isHost, subtitles, introStar
       const v = videoRef.current;
       if (!v) return;
       ch.send({ type: "broadcast", event: "state", payload: {
-        action: v.paused ? "pause" : "play", time: v.currentTime,
+        action: v.paused ? "pause" : "play", time: v.currentTime, at: Date.now(),
       }});
     });
 
