@@ -8,6 +8,8 @@ interface Ctx {
   enabled: boolean;
   pick: (placement: AdPlacement) => AdAsset | null;
   refresh: () => Promise<void>;
+  registerClick: () => void;
+  clickCount: number;
 }
 
 const AdsCtx = createContext<Ctx | null>(null);
@@ -15,6 +17,7 @@ const AdsCtx = createContext<Ctx | null>(null);
 export const AdsProvider = ({ children }: { children: ReactNode }) => {
   const [settings, setSettings] = useState<AdsSettings>(DEFAULT_SETTINGS);
   const [assets, setAssets] = useState<AdAsset[]>([]);
+  const [clickCount, setClickCount] = useState(0);
 
   const refresh = useCallback(async () => {
     const [s, a] = await Promise.all([fetchAdsSettings(), fetchAdsAssets()]);
@@ -34,6 +37,8 @@ export const AdsProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [refresh]);
 
+  const registerClick = useCallback(() => setClickCount((c) => c + 1), []);
+
   const value = useMemo<Ctx>(
     () => ({
       settings,
@@ -41,8 +46,10 @@ export const AdsProvider = ({ children }: { children: ReactNode }) => {
       enabled: settings.master_enabled,
       pick: (p) => pickWeighted(assets, p),
       refresh,
+      registerClick,
+      clickCount,
     }),
-    [settings, assets, refresh],
+    [settings, assets, refresh, registerClick, clickCount],
   );
 
   return <AdsCtx.Provider value={value}>{children}</AdsCtx.Provider>;
