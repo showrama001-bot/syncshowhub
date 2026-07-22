@@ -347,6 +347,7 @@ function UploadPanel({
   const [progress, setProgress] = useState(0);
   const [dropHover, setDropHover] = useState(false);
   const [dupWarn, setDupWarn] = useState<string | null>(null);
+  const [showLibrary, setShowLibrary] = useState(false);
 
   const fetchTmdb = async () => {
     if (!query.trim()) return toast.error("Enter a title first");
