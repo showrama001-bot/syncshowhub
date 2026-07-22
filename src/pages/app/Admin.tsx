@@ -1410,6 +1410,8 @@ function SeasonsManager({ seriesId }: { seriesId: string }) {
 
 function EpisodesManager({ seasonId }: { seasonId: string }) {
   const [eps, setEps] = useState<any[]>([]);
+  const [q, setQ] = useState("");
+  const [editingEp, setEditingEp] = useState<{ id: string; title: string; episode_number: number } | null>(null);
   const [form, setForm] = useState<any>({});
   const [sourceMode, setSourceMode] = useState<"upload" | "direct" | "telegram">("upload");
   const [file, setFile] = useState<File | null>(null);
@@ -1493,11 +1495,34 @@ function EpisodesManager({ seasonId }: { seasonId: string }) {
   };
 
   const delEp = async (id: string) => {
-    if (!confirm("Delete this episode?")) return;
+    const ep = eps.find((e) => e.id === id);
+    if (!confirm(`Delete Episode ${ep?.episode_number} — "${ep?.title ?? ""}"?`)) return;
+    const prev = eps;
+    setEps((list) => list.filter((e) => e.id !== id));
     const { error } = await (supabase.from("episodes" as any).delete().eq("id", id) as any);
-    if (error) return toast.error(error.message);
-    load();
+    if (error) { setEps(prev); return toast.error(error.message); }
+    toast.success("Episode deleted");
   };
+
+  const saveEpEdit = async () => {
+    if (!editingEp) return;
+    const { id, title, episode_number } = editingEp;
+    const { error } = await (supabase.from("episodes" as any)
+      .update({ title, episode_number }).eq("id", id) as any);
+    if (error) return toast.error(error.message);
+    setEps((list) => list.map((e) => e.id === id ? { ...e, title, episode_number } : e));
+    setEditingEp(null);
+    toast.success("Episode updated");
+  };
+
+  const filteredEps = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    if (!s) return eps;
+    return eps.filter((e) =>
+      (e.title ?? "").toLowerCase().includes(s) ||
+      String(e.episode_number ?? "").includes(s)
+    );
+  }, [eps, q]);
 
   return (
     <div className="space-y-2">
@@ -1533,17 +1558,51 @@ function EpisodesManager({ seasonId }: { seasonId: string }) {
           <Plus className="h-4 w-4 mr-1" /> {uploading ? "Working…" : "Add episode"}
         </Button>
       </div>
+      {eps.length > 0 && (
+        <div className="flex items-center gap-2 pt-2">
+          <Input placeholder="Search episodes…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Badge variant="outline">{filteredEps.length}</Badge>
+        </div>
+      )}
       {eps.length === 0 ? (
         <div className="text-xs text-muted-foreground">No episodes yet.</div>
+      ) : filteredEps.length === 0 ? (
+        <div className="text-xs text-muted-foreground">No matches.</div>
       ) : (
         <div className="divide-y divide-border/30">
-          {eps.map((ep) => (
+          {filteredEps.map((ep) => (
             <div key={ep.id} className="py-2 flex items-center justify-between gap-2">
-              <div className="min-w-0">
-                <div className="text-sm">EP {ep.episode_number} — <span className="font-medium">{ep.title}</span></div>
-                {ep.stream_url && <div className="text-xs text-muted-foreground truncate max-w-[420px]">{ep.stream_url}</div>}
-              </div>
-              <Button size="icon" variant="ghost" onClick={() => delEp(ep.id)}><Trash2 className="h-4 w-4 text-primary" /></Button>
+              {editingEp?.id === ep.id ? (
+                <>
+                  <div className="flex gap-2 flex-1 min-w-0">
+                    <Input type="number" className="w-20"
+                      value={editingEp.episode_number}
+                      onChange={(e) => setEditingEp({ ...editingEp, episode_number: Number(e.target.value) || 0 })} />
+                    <Input value={editingEp.title}
+                      onChange={(e) => setEditingEp({ ...editingEp, title: e.target.value })} />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={saveEpEdit} className="bg-gradient-red">Save</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditingEp(null)}>Cancel</Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="min-w-0">
+                    <div className="text-sm">EP {ep.episode_number} — <span className="font-medium">{ep.title}</span></div>
+                    {ep.stream_url && <div className="text-xs text-muted-foreground truncate max-w-[420px]">{ep.stream_url}</div>}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline"
+                      onClick={() => setEditingEp({ id: ep.id, title: ep.title, episode_number: ep.episode_number })}>
+                      <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
+                    </Button>
+                    <Button size="sm" variant="destructive" onClick={() => delEp(ep.id)}>
+                      <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           ))}
         </div>
