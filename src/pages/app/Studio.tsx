@@ -175,25 +175,62 @@ function HostView({ userId }: { userId: string }) {
             <TabsContent value="upload" className="mt-4">
               <UploadPanel
                 streamId={streamId}
+                library={library}
+                onGoLiveFromLibrary={async (item) => {
+                  await goLive({
+                    mode: "upload",
+                    title: item.title,
+                    stream_url: item.stream_url,
+                    poster_url: item.poster_url ?? null,
+                    tmdb_id: item.tmdb_id ?? null,
+                  });
+                }}
                 onGoLiveWithFile={async ({ file, meta, isSeries, season, episode }) => {
                   if (isSeries && meta.tmdb_id) {
-                    // Duplicate episode guard.
+                    // Duplicate episode guard — reuse this host's previous
+                    // upload of the same episode instead of erroring.
                     const { data: series } = await supabase.from("series")
                       .select("id").eq("tmdb_id", meta.tmdb_id).maybeSingle();
                     if (series?.id) {
                       const { data: eps } = await (supabase.from("episodes" as any) as any)
-                        .select("season_number, episode_number")
+                        .select("id, season_number, episode_number, stream_url, created_by")
                         .eq("series_id", series.id);
-                      const exists = (eps || []).some((e: any) => e.season_number === season && e.episode_number === episode);
-                      if (exists) {
+                      const match = (eps || []).find((e: any) => e.season_number === season && e.episode_number === episode);
+                      if (match) {
+                        if (match.stream_url && match.created_by === userId) {
+                          toast.success("Re-using your previous upload of this episode.");
+                          await goLive({
+                            mode: "upload", title: meta.title || `S${season}E${episode}`,
+                            stream_url: match.stream_url, poster_url: meta.poster_url ?? null,
+                            tmdb_id: meta.tmdb_id ?? null,
+                          });
+                          return;
+                        }
                         const maxEp = Math.max(0, ...((eps || []).filter((e: any) => e.season_number === season).map((e: any) => e.episode_number)));
                         toast.error(`This episode already exists in the library! You left off at Episode ${maxEp}, please upload the next episode.`);
                         return;
                       }
                     }
                   } else if (!isSeries && meta.tmdb_id) {
-                    const { data: dup } = await supabase.from("movies").select("id,title").eq("tmdb_id", meta.tmdb_id).maybeSingle();
-                    if (dup) { toast.error(`"${dup.title}" already exists in the library.`); return; }
+                    const { data: dup } = await supabase.from("movies")
+                      .select("id,title,stream_url,created_by,poster_url")
+                      .eq("tmdb_id", meta.tmdb_id).maybeSingle();
+                    if (dup) {
+                      // If this same host already uploaded the movie, skip
+                      // the re-upload and just re-broadcast from the library.
+                      if (dup.stream_url && dup.created_by === userId) {
+                        toast.success("Re-using your previous upload of this movie.");
+                        await goLive({
+                          mode: "upload", title: dup.title || meta.title || "Live movie",
+                          stream_url: dup.stream_url,
+                          poster_url: dup.poster_url ?? meta.poster_url ?? null,
+                          tmdb_id: meta.tmdb_id ?? null,
+                        });
+                        return;
+                      }
+                      toast.error(`"${dup.title}" already exists in the library.`);
+                      return;
+                    }
                   }
                   // Upload to Telegram, then create the live stream pointing at the resulting URL.
                   const res = await uploadToStudioTelegram(file, meta.title || "Studio upload");
@@ -225,6 +262,7 @@ function HostView({ userId }: { userId: string }) {
                     if (movErr) toast.error(`Movie catalog insert failed: ${movErr.message}`);
                     else toast.success("Movie published to catalog");
                   }
+                  refreshLibrary();
                 }}
               />
             </TabsContent>
@@ -294,10 +332,12 @@ function ObsPanel({
 /* --------------------------- Upload panel ------------------------------- */
 
 function UploadPanel({
-  streamId, onGoLiveWithFile,
+  streamId, library, onGoLiveWithFile, onGoLiveFromLibrary,
 }: {
   streamId: string | null;
+  library: any[];
   onGoLiveWithFile: (args: { file: File; meta: Meta; isSeries: boolean; season: number; episode: number }) => Promise<void>;
+  onGoLiveFromLibrary: (item: any) => Promise<void>;
 }) {
   const [query, setQuery] = useState("");
   const [tmdbBusy, setTmdbBusy] = useState(false);
@@ -373,6 +413,40 @@ function UploadPanel({
 
   return (
     <section className="glass rounded-2xl p-6 border border-border/40 space-y-4">
+      {library.length > 0 && (
+        <div className="rounded-xl border border-border/50 p-3 bg-background/40 space-y-2">
+          <div className="text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+            <Film className="h-3.5 w-3.5 text-primary" /> Your Studio Library
+            <span className="ml-auto normal-case tracking-normal text-[10px]">Re-broadcast without re-uploading</span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-56 overflow-auto pr-1">
+            {library.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                disabled={!!streamId || busy}
+                onClick={() => onGoLiveFromLibrary(item)}
+                className="group relative rounded-lg overflow-hidden border border-border/50 hover:border-primary/70 transition text-left disabled:opacity-50"
+              >
+                {item.poster_url ? (
+                  <img src={item.poster_url} alt="" className="w-full h-28 object-cover" />
+                ) : (
+                  <div className="w-full h-28 grid place-items-center bg-secondary/40 text-muted-foreground text-xs">
+                    No poster
+                  </div>
+                )}
+                <div className="p-1.5 text-[11px] font-medium line-clamp-2">{item.title}</div>
+                <div className="absolute inset-0 grid place-items-center bg-black/50 opacity-0 group-hover:opacity-100 transition">
+                  <span className="px-2.5 py-1 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold">
+                    Go Live
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center gap-3">
         <Label className="text-xs text-muted-foreground m-0">Kind</Label>
         <div className="flex gap-2">
