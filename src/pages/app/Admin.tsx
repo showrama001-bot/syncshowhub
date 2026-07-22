@@ -1081,6 +1081,7 @@ function TrailersTab() {
 function SeriesTab() {
   const { user } = useAuth();
   const [items, setItems] = useState<any[]>([]);
+  const [q, setQ] = useState("");
   const [form, setForm] = useState<any>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -1189,11 +1190,24 @@ function SeriesTab() {
   const cancelEdit = () => { setEditingId(null); setForm({}); setPendingTrailerUrl(null); };
 
   const del = async (id: string) => {
-    if (!confirm("Delete this series and all its seasons/episodes?")) return;
+    const s = items.find((x) => x.id === id);
+    if (!confirm(`Delete "${s?.title ?? "this series"}" and every season/episode? This cannot be undone.`)) return;
+    const prev = items;
+    setItems((list) => list.filter((x) => x.id !== id));
     const { error } = await (supabase.from("series" as any).delete().eq("id", id) as any);
-    if (error) return toast.error(error.message);
-    load();
+    if (error) { setItems(prev); return toast.error(error.message); }
+    toast.success("Series deleted");
   };
+
+  const filteredSeries = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    if (!s) return items;
+    return items.filter((x) =>
+      (x.title ?? "").toLowerCase().includes(s) ||
+      (x.genre ?? "").toLowerCase().includes(s) ||
+      String(x.year ?? "").includes(s)
+    );
+  }, [items, q]);
 
   return (
     <div className="space-y-4">
@@ -1257,9 +1271,18 @@ function SeriesTab() {
         <div className="sm:col-span-2"><Button className="bg-gradient-red shadow-neon">{editingId ? "Save changes" : "Add series"}</Button></div>
       </form>
 
-      <div className="glass rounded-2xl divide-y divide-border/30">
-        {items.length === 0 && <div className="p-6 text-sm text-muted-foreground">No series yet.</div>}
-        {items.map((s) => (
+      <div className="glass rounded-2xl overflow-hidden">
+        <div className="p-3 border-b border-border/30 flex items-center gap-2">
+          <Input
+            placeholder="Search series by title, genre or year…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          <Badge variant="outline">{filteredSeries.length}</Badge>
+        </div>
+        <div className="divide-y divide-border/30">
+        {filteredSeries.length === 0 && <div className="p-6 text-sm text-muted-foreground">{items.length === 0 ? "No series yet." : "No matches."}</div>}
+        {filteredSeries.map((s) => (
           <div key={s.id}>
             <div className="p-4 flex items-center justify-between gap-3">
               <button
@@ -1280,14 +1303,19 @@ function SeriesTab() {
                   </div>
                 </div>
               </button>
-              <div className="flex gap-1">
-                <Button size="icon" variant="ghost" onClick={() => startEdit(s)}><Pencil className="h-4 w-4 text-primary" /></Button>
-                <Button size="icon" variant="ghost" onClick={() => del(s.id)}><Trash2 className="h-4 w-4 text-primary" /></Button>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => startEdit(s)}>
+                  <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
+                </Button>
+                <Button size="sm" variant="destructive" onClick={() => del(s.id)}>
+                  <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
+                </Button>
               </div>
             </div>
             {expandedId === s.id && <SeasonsManager seriesId={s.id} />}
           </div>
         ))}
+        </div>
       </div>
     </div>
   );
