@@ -586,13 +586,23 @@ function PlayerStage({ streamRow, viewerOnly, isHost }: { streamRow: any; viewer
       if (!v || !p) return;
       suppressRef.current = true;
       try {
-        if (typeof p.time === "number" && Math.abs(v.currentTime - p.time) > 1.2) {
-          v.currentTime = p.time;
+        // Project host's timeline forward using their broadcast wall-clock
+        // so a viewer joining mid-stream lands at the *current* position.
+        if (typeof p.time === "number") {
+          const drift = Date.now() - (typeof p.at === "number" ? p.at : Date.now());
+          const projected = p.action === "play"
+            ? p.time + Math.max(0, drift) / 1000
+            : p.time;
+          if (Math.abs(v.currentTime - projected) > 1.2) v.currentTime = projected;
         }
         if (p.action === "play") v.play().catch(() => {});
         else if (p.action === "pause") v.pause();
         if (p.action === "play" || p.action === "pause") {
-          lastRemoteRef.current = { action: p.action, time: typeof p.time === "number" ? p.time : v.currentTime, at: Date.now() };
+          lastRemoteRef.current = {
+            action: p.action,
+            time: typeof p.time === "number" ? p.time : v.currentTime,
+            at: typeof p.at === "number" ? p.at : Date.now(),
+          };
         }
       } finally {
         setTimeout(() => { suppressRef.current = false; }, 250);
@@ -605,7 +615,7 @@ function PlayerStage({ streamRow, viewerOnly, isHost }: { streamRow: any; viewer
         const v = videoRef.current;
         if (!v) return;
         ch.send({ type: "broadcast", event: "state", payload: {
-          action: v.paused ? "pause" : "play", time: v.currentTime,
+          action: v.paused ? "pause" : "play", time: v.currentTime, at: Date.now(),
         }});
       });
     }
@@ -624,7 +634,7 @@ function PlayerStage({ streamRow, viewerOnly, isHost }: { streamRow: any; viewer
     if (isHost) {
       const emit = (action: "play" | "pause") => {
         if (suppressRef.current) return;
-        syncChannelRef.current?.send({ type: "broadcast", event: "state", payload: { action, time: v.currentTime }});
+        syncChannelRef.current?.send({ type: "broadcast", event: "state", payload: { action, time: v.currentTime, at: Date.now() }});
       };
       const onPlay = () => emit("play");
       const onPause = () => emit("pause");
