@@ -40,6 +40,7 @@ const UploadShare = lazy(() => import("./pages/app/UploadShare"));
 const Reels = lazy(() => import("./pages/app/Reels"));
 const Trailers = lazy(() => import("./pages/app/Trailers"));
 const Studio = lazy(() => import("./pages/app/Studio"));
+const Discover = lazy(() => import("./pages/app/Discover"));
 
 const RouteFallback = () => (
   <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading…</div>
@@ -86,6 +87,7 @@ const App = () => {
               <Route path="/watch/room/:roomId" element={lazyRoute(<Watch />)} />
               <Route path="/dms" element={lazyRoute(<DMs />)} />
               <Route path="/friends" element={<Friends />} />
+              <Route path="/discover" element={lazyRoute(<Discover />)} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/upload-movie" element={lazyRoute(<UploadMovie />)} />
               <Route path="/upload-gateway" element={lazyRoute(<UploadMovie />)} />
