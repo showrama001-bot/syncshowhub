@@ -264,8 +264,8 @@ function HostView({ userId }: { userId: string }) {
         <aside className="space-y-4">
           {streamId ? (
             <>
-              <StudioChatPanel streamId={streamId} />
               <MediaChat roomId={`studio-${streamId}`} userId={userId} hostId={userId} isHost />
+              <StudioChatPanel streamId={streamId} />
               <CollapsiblePanel
                 icon={<Music2 className="h-4 w-4 text-primary" />}
                 title="Ambient sounds"
