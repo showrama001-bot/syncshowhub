@@ -80,19 +80,54 @@ export default function AdsManager() {
               onChange={(v) => setSettings({ ...settings, preroll_skip_seconds: v })}
             />
             <SettingRow
-              label="Pop-up Ads Enabled"
+              label="Mid-roll Ads Enabled"
+              checked={settings.midroll_enabled}
+              onCheckedChange={(v) => setSettings({ ...settings, midroll_enabled: v })}
+            />
+            <NumberField
+              label="Mid-roll Trigger After (sec of playback)"
+              value={settings.midroll_time_seconds}
+              onChange={(v) => setSettings({ ...settings, midroll_time_seconds: v })}
+            />
+            <NumberField
+              label="Mid-roll Skip Countdown (sec)"
+              value={settings.midroll_skip_seconds}
+              onChange={(v) => setSettings({ ...settings, midroll_skip_seconds: v })}
+            />
+            <SettingRow
+              label="Click-Counter Popup Enabled"
               checked={settings.popup_enabled}
               onCheckedChange={(v) => setSettings({ ...settings, popup_enabled: v })}
             />
             <NumberField
-              label="Pop-up Frequency (sec)"
-              value={settings.popup_interval_seconds}
-              onChange={(v) => setSettings({ ...settings, popup_interval_seconds: v })}
+              label="Popup Trigger — Every N Clicks"
+              value={settings.popup_click_threshold}
+              onChange={(v) => setSettings({ ...settings, popup_click_threshold: v })}
             />
             <NumberField
-              label="Pop-up Lock Duration (sec)"
+              label="Popup Skip Countdown (sec)"
               value={settings.popup_duration_seconds}
               onChange={(v) => setSettings({ ...settings, popup_duration_seconds: v })}
+            />
+            <SettingRow
+              label="Section Banner Ads Enabled"
+              checked={settings.section_banner_enabled}
+              onCheckedChange={(v) => setSettings({ ...settings, section_banner_enabled: v })}
+            />
+            <SettingRow
+              label="Reels Feed Ads Enabled"
+              checked={settings.reels_ads_enabled}
+              onCheckedChange={(v) => setSettings({ ...settings, reels_ads_enabled: v })}
+            />
+            <NumberField
+              label="Reels Ad Frequency (every N reels)"
+              value={settings.reels_ad_every}
+              onChange={(v) => setSettings({ ...settings, reels_ad_every: v })}
+            />
+            <NumberField
+              label="Reels Ad Duration (sec, non-skippable)"
+              value={settings.reels_ad_duration}
+              onChange={(v) => setSettings({ ...settings, reels_ad_duration: v })}
             />
             <NumberField
               label="Interstitial Wait (sec)"
