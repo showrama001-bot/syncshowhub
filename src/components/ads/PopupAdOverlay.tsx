@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { useAds } from "./AdsProvider";
 import { ScriptSlot } from "./ScriptSlot";
@@ -8,19 +8,29 @@ export const PopupAdOverlay = () => {
   const [open, setOpen] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [ad, setAd] = useState(() => pick("popup"));
+  const clicksRef = useRef(0);
 
-  // schedule popups
+  // Click-counter trigger: launch popup every N user clicks.
   useEffect(() => {
     if (!enabled || !settings.popup_enabled) return;
-    const interval = setInterval(() => {
-      const next = pick("popup");
-      if (!next) return;
-      setAd(next);
-      setCountdown(settings.popup_duration_seconds);
-      setOpen(true);
-    }, Math.max(15, settings.popup_interval_seconds) * 1000);
-    return () => clearInterval(interval);
-  }, [enabled, settings.popup_enabled, settings.popup_interval_seconds, settings.popup_duration_seconds, pick]);
+    const threshold = Math.max(1, settings.popup_click_threshold || 10);
+    const handler = (e: MouseEvent) => {
+      // Ignore clicks inside the ad overlay itself.
+      const target = e.target as HTMLElement | null;
+      if (target?.closest?.("[data-ad-overlay]")) return;
+      clicksRef.current += 1;
+      if (clicksRef.current >= threshold) {
+        clicksRef.current = 0;
+        const next = pick("popup");
+        if (!next) return;
+        setAd(next);
+        setCountdown(settings.popup_duration_seconds);
+        setOpen(true);
+      }
+    };
+    window.addEventListener("click", handler, true);
+    return () => window.removeEventListener("click", handler, true);
+  }, [enabled, settings.popup_enabled, settings.popup_click_threshold, settings.popup_duration_seconds, pick]);
 
   // countdown
   useEffect(() => {
@@ -41,7 +51,7 @@ export const PopupAdOverlay = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
+    <div data-ad-overlay className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="relative w-full max-w-2xl rounded-2xl overflow-hidden border border-primary/30 shadow-neon bg-card">
         <div className="absolute top-3 left-3 z-10 px-3 py-1 rounded-full bg-black/70 text-xs uppercase tracking-widest text-yellow-300 border border-yellow-400/50">
           Sponsored
