@@ -2,8 +2,8 @@ import { useAds } from "./AdsProvider";
 import { ScriptSlot } from "./ScriptSlot";
 
 export const GridBanner = () => {
-  const { enabled, pick } = useAds();
-  if (!enabled) return null;
+  const { enabled, settings, pick } = useAds();
+  if (!enabled || !settings.section_banner_enabled) return null;
   const ad = pick("banner_grid");
   if (!ad) return null;
   if (ad.ad_mode === "script" && ad.script_code) {
