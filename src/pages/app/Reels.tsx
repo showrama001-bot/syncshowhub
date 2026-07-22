@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { PlayCircle, Film, X, Heart, MessageCircle, Share2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchAdsAssets, fetchAdsSettings, pickWeighted, type AdAsset } from "@/lib/ads";
+import { fetchAdsAssets, fetchAdsSettings, pickWeighted, type AdAsset, type AdsSettings, DEFAULT_SETTINGS } from "@/lib/ads";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 
@@ -16,12 +16,10 @@ type Reel = {
   poster_url: string | null;
 };
 
-const AD_EVERY = 4; // 1 ad every 4 reels (fits "3-5 swipes")
-
 export default function Reels() {
   const [reels, setReels] = useState<Reel[]>([]);
   const [ads, setAds] = useState<AdAsset[]>([]);
-  const [adsOn, setAdsOn] = useState(true);
+  const [adsSettings, setAdsSettings] = useState<AdsSettings>(DEFAULT_SETTINGS);
   const [index, setIndex] = useState(0);
   const [adGate, setAdGate] = useState<AdAsset | null>(null);
   const [adCountdown, setAdCountdown] = useState(0);
@@ -52,18 +50,22 @@ export default function Reels() {
         setReels(list);
       }
       const [a, s] = await Promise.all([fetchAdsAssets(), fetchAdsSettings()]);
-      setAds(a); setAdsOn(!!s.master_enabled);
+      setAds(a); setAdsSettings(s);
     })();
   }, [targetId]);
 
   // Enforce ad on scroll transitions.
   const showAdIfNeeded = (nextIdx: number) => {
-    if (!adsOn) return false;
-    if (nextIdx > 0 && nextIdx % AD_EVERY === 0) {
-      const ad = pickWeighted(ads, "interstitial") || pickWeighted(ads, "preroll");
+    if (!adsSettings.master_enabled || !adsSettings.reels_ads_enabled) return false;
+    const every = Math.max(1, adsSettings.reels_ad_every || 3);
+    if (nextIdx > 0 && nextIdx % every === 0) {
+      const ad =
+        pickWeighted(ads, "reels") ||
+        pickWeighted(ads, "interstitial") ||
+        pickWeighted(ads, "preroll");
       if (ad) {
         setAdGate(ad);
-        setAdCountdown(6);
+        setAdCountdown(Math.max(1, adsSettings.reels_ad_duration || 15));
         return true;
       }
     }
@@ -101,7 +103,7 @@ export default function Reels() {
     };
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => el.removeEventListener("scroll", onScroll);
-  }, [index, ads, adsOn]);
+  }, [index, ads, adsSettings]);
 
   const scrollTo = (i: number) => {
     const el = containerRef.current;
@@ -137,15 +139,19 @@ export default function Reels() {
         <div className="absolute inset-0 z-30 bg-black/95 flex flex-col">
           <div className="flex items-center justify-between px-4 py-3 text-white">
             <span className="text-xs uppercase tracking-widest text-primary">Sponsored</span>
-            <Button
-              size="sm"
-              variant={adCountdown > 0 ? "ghost" : "default"}
-              disabled={adCountdown > 0}
-              onClick={() => { setAdGate(null); scrollTo(index + 1); }}
-              className={adCountdown > 0 ? "text-white/60" : "bg-white text-black"}
-            >
-              {adCountdown > 0 ? `Skip in ${adCountdown}s` : (<><X className="h-4 w-4 mr-1" /> Skip</>)}
-            </Button>
+            {adCountdown > 0 ? (
+              <div className="text-xs text-white/70 px-3 py-1 rounded-full border border-white/20">
+                Ad ends in {adCountdown}s
+              </div>
+            ) : (
+              <Button
+                size="sm"
+                onClick={() => { setAdGate(null); scrollTo(index + 1); }}
+                className="bg-white text-black"
+              >
+                <X className="h-4 w-4 mr-1" /> Continue
+              </Button>
+            )}
           </div>
           <div className="flex-1 grid place-items-center px-4">
             {adGate.media_type === "video" && adGate.media_url ? (

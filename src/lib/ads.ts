@@ -2,11 +2,13 @@ import { supabase } from "@/integrations/supabase/client";
 
 export type AdPlacement =
   | "preroll"
+  | "midroll"
   | "popup"
   | "banner_header"
   | "banner_grid"
   | "banner_under_player"
-  | "interstitial";
+  | "interstitial"
+  | "reels";
 
 export interface AdAsset {
   id: string;
@@ -32,6 +34,14 @@ export interface AdsSettings {
   interstitial_seconds: number;
   global_scripts: string;
   antiadblock_message: string;
+  popup_click_threshold: number;
+  midroll_enabled: boolean;
+  midroll_time_seconds: number;
+  midroll_skip_seconds: number;
+  reels_ad_every: number;
+  reels_ad_duration: number;
+  section_banner_enabled: boolean;
+  reels_ads_enabled: boolean;
 }
 
 export const DEFAULT_SETTINGS: AdsSettings = {
@@ -46,6 +56,14 @@ export const DEFAULT_SETTINGS: AdsSettings = {
   global_scripts: "",
   antiadblock_message:
     "We rely on ads to keep SyncShow free. Please disable your ad blocker and reload the page to continue watching.",
+  popup_click_threshold: 10,
+  midroll_enabled: false,
+  midroll_time_seconds: 900,
+  midroll_skip_seconds: 10,
+  reels_ad_every: 3,
+  reels_ad_duration: 15,
+  section_banner_enabled: true,
+  reels_ads_enabled: true,
 };
 
 export async function fetchAdsSettings(): Promise<AdsSettings> {
