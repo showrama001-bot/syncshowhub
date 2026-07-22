@@ -46,7 +46,6 @@ import CommunityUploadsQueue from "@/components/admin/CommunityUploadsQueue";
 import ReelsManager from "@/components/admin/ReelsManager";
 import { MovieSearchPicker } from "@/components/admin/MovieSearchPicker";
 import { SubtitlesManager } from "@/components/admin/SubtitlesManager";
-import ContentSearchTab from "@/components/admin/ContentSearchTab";
 import { useStorageMode } from "@/hooks/useStorageMode";
 
 type SourceType = "hls" | "iframe";
