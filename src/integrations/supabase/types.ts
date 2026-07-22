@@ -912,6 +912,8 @@ export type Database = {
           bio: string | null
           created_at: string
           display_name: string | null
+          favorite_genres: string[]
+          favorite_movie: string | null
           id: string
           is_banned: boolean
           permanent_banned: boolean
@@ -924,6 +926,8 @@ export type Database = {
           bio?: string | null
           created_at?: string
           display_name?: string | null
+          favorite_genres?: string[]
+          favorite_movie?: string | null
           id: string
           is_banned?: boolean
           permanent_banned?: boolean
@@ -936,6 +940,8 @@ export type Database = {
           bio?: string | null
           created_at?: string
           display_name?: string | null
+          favorite_genres?: string[]
+          favorite_movie?: string | null
           id?: string
           is_banned?: boolean
           permanent_banned?: boolean

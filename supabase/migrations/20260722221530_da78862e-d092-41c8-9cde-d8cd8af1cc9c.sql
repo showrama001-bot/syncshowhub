@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS favorite_genres text[] NOT NULL DEFAULT '{}'::text[]; ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS favorite_movie text;

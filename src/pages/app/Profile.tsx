@@ -8,11 +8,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { uploadAvatar } from "@/lib/avatars";
 import { Upload } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+
+const GENRES = ["Action","Adventure","Animation","Anime","Comedy","Crime","Documentary","Drama","Family","Fantasy","Horror","Music","Mystery","Romance","Sci-Fi","Sports","Thriller","War","Western"];
 
 export default function Profile() {
   const { user, isAdmin } = useAuth();
-  const [p, setP] = useState<any>({ username: "", display_name: "", avatar_url: "", bio: "" });
+  const [p, setP] = useState<any>({ username: "", display_name: "", avatar_url: "", bio: "", favorite_genres: [] as string[], favorite_movie: "" });
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -26,11 +29,11 @@ export default function Profile() {
     if (!user) return;
     supabase
       .from("profiles")
-      .select("id, username, display_name, avatar_url, bio, created_at, updated_at")
+      .select("id, username, display_name, avatar_url, bio, favorite_genres, favorite_movie, created_at, updated_at" as any)
       .eq("id", user.id)
       .maybeSingle()
       .then(({ data }) => {
-      if (data) setP(data);
+      if (data) setP({ favorite_genres: [], favorite_movie: "", ...(data as any) });
     });
   }, [user]);
 
@@ -69,9 +72,16 @@ export default function Profile() {
       display_name: p.display_name,
       avatar_url: p.avatar_url,
       bio: p.bio,
-    });
+      favorite_genres: p.favorite_genres ?? [],
+      favorite_movie: p.favorite_movie ?? null,
+    } as any);
     setLoading(false);
     if (error) toast.error(error.message); else toast.success("Profile updated");
+  };
+
+  const toggleGenre = (g: string) => {
+    const cur: string[] = Array.isArray(p.favorite_genres) ? p.favorite_genres : [];
+    setP({ ...p, favorite_genres: cur.includes(g) ? cur.filter((x) => x !== g) : [...cur, g] });
   };
 
   const onPickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -143,16 +153,6 @@ export default function Profile() {
             <AvatarFallback>{(p.display_name || p.username || "?").slice(0,1).toUpperCase()}</AvatarFallback>
           </Avatar>
           <div>
-            {(p.display_name || p.username) && (
-              <div className="mb-2">
-                {p.display_name && (
-                  <div className="font-display text-lg leading-tight">{p.display_name}</div>
-                )}
-                {p.username && (
-                  <div className="text-sm text-muted-foreground">@{p.username}</div>
-                )}
-              </div>
-            )}
             <input ref={fileRef} type="file" accept="image/*" hidden onChange={onPickFile} />
             <Button type="button" variant="outline" onClick={() => fileRef.current?.click()} disabled={uploading}>
               <Upload className="h-4 w-4 mr-1" /> {uploading ? "Uploading…" : "Change photo"}
@@ -164,6 +164,29 @@ export default function Profile() {
         <div><Label>Display name</Label><Input value={p.display_name ?? ""} onChange={(e) => setP({ ...p, display_name: e.target.value })} /></div>
         <div><Label>Avatar URL</Label><Input value={p.avatar_url ?? ""} onChange={(e) => setP({ ...p, avatar_url: e.target.value })} /></div>
         <div><Label>Bio</Label><Textarea value={p.bio ?? ""} onChange={(e) => setP({ ...p, bio: e.target.value })} /></div>
+        <div>
+          <Label>Favorite movie</Label>
+          <Input placeholder="e.g. The Matrix" value={p.favorite_movie ?? ""} onChange={(e) => setP({ ...p, favorite_movie: e.target.value })} />
+        </div>
+        <div>
+          <Label>Favorite genres</Label>
+          <p className="text-xs text-muted-foreground mb-2">Pick a few — we'll use these to match you with like-minded members.</p>
+          <div className="flex flex-wrap gap-2">
+            {GENRES.map((g) => {
+              const selected = (p.favorite_genres ?? []).includes(g);
+              return (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => toggleGenre(g)}
+                  className={`px-3 py-1.5 rounded-full text-xs border transition ${selected ? "bg-primary text-primary-foreground border-primary shadow-neon" : "border-border/60 text-muted-foreground hover:text-foreground hover:border-primary/50"}`}
+                >
+                  {g}
+                </button>
+              );
+            })}
+          </div>
+        </div>
         <Button onClick={save} disabled={loading} className="bg-gradient-red shadow-neon">Save</Button>
       </div>
     </div>

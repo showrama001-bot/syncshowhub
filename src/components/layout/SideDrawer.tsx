@@ -37,6 +37,7 @@ const items = [
   { to: "/trailers", label: "Trailers", icon: Clapperboard },
   { to: "/rooms", label: "Shared Rooms", icon: Users },
   { to: "/friends", label: "Friends & Messages", icon: MessageSquare },
+  { to: "/discover", label: "Discover Friends", icon: Sparkles },
   { to: "/upload-gateway", label: "Upload Gateway", icon: Upload },
   { to: "/movies", label: "Movies", icon: Film },
   { to: "/series", label: "Series", icon: Tv2 },
