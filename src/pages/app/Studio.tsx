@@ -15,6 +15,7 @@ import {
 import { HostSoundboard, type AmbientState } from "@/components/studio/HostSoundboard";
 import { ViewerAmbientSync } from "@/components/studio/ViewerAmbientSync";
 import { InviteFriendsPanel } from "@/components/studio/InviteFriendsPanel";
+import { MediaChat } from "@/components/rooms/MediaChat";
 import { uploadToStudioTelegram, STUDIO_TELEGRAM_MAX_BYTES } from "@/lib/studioTelegramUpload";
 
 type Meta = {
@@ -211,6 +212,7 @@ function HostView({ userId }: { userId: string }) {
         <aside className="space-y-4">
           {streamId ? (
             <>
+              <MediaChat roomId={`studio-${streamId}`} userId={userId} hostId={userId} isHost />
               <HostSoundboard streamId={streamId} state={ambient} onChange={setAmbient} />
               <InviteFriendsPanel streamId={streamId} />
               <StudioChatPanel streamId={streamId} />
