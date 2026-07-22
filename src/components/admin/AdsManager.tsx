@@ -13,12 +13,14 @@ import { Trash2, Plus, Save, Megaphone, Code2, Image as ImageIcon } from "lucide
 import { AdAsset, AdsSettings, AdPlacement, DEFAULT_SETTINGS } from "@/lib/ads";
 
 const PLACEMENT_LABELS: Record<AdPlacement, string> = {
-  preroll: "Pre-roll Video Ad (before content plays)",
-  popup: "Pop-up Video/Image Ad (periodic overlay)",
+  preroll: "Player Pre-roll Ad (YouTube-style, before content)",
+  midroll: "Player Mid-roll Ad (during playback)",
+  popup: "Click-Counter Popup Ad (triggers after N clicks)",
   banner_header: "Header Banner (top of every page)",
-  banner_grid: "Grid Banner (between movie cards)",
+  banner_grid: "Section Banner (between Trending / Series / Grid)",
   banner_under_player: "Under-Player Banner (below video)",
   interstitial: "Interstitial / Redirect Banner",
+  reels: "Reels Feed Ad (every N reels, non-skippable)",
 };
 
 const PLACEMENTS = Object.keys(PLACEMENT_LABELS) as AdPlacement[];
