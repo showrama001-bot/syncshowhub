@@ -70,9 +70,9 @@ export function FloatingReactions({
           </span>
         ))}
       </div>
-      {/* Emoji bar — hidden by default, revealed on hover/focus/tap of the player. */}
+      {/* Emoji bar — always visible so viewers can react from anywhere. */}
       <div
-        className="absolute bottom-14 left-3 z-30 flex gap-1 rounded-full bg-black/60 backdrop-blur px-2 py-1 border border-white/10 opacity-0 translate-y-1 transition-all duration-200 pointer-events-none group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto group-[.is-touched]:opacity-100 group-[.is-touched]:pointer-events-auto"
+        className="absolute bottom-14 left-3 z-30 flex gap-1 rounded-full bg-black/60 backdrop-blur px-2 py-1 border border-white/10 opacity-80 hover:opacity-100 transition-opacity duration-200 pointer-events-auto"
       >
         {REACTION_EMOJIS.map((e) => (
           <button
