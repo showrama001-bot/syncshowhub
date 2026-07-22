@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import {
   Radio, Upload, Search, Film, Loader2, StopCircle,
   AlertTriangle, CheckCircle2, Send, Volume2, VolumeX, Maximize2,
+  ChevronDown, ChevronUp, Music2,
 } from "lucide-react";
 import { HostSoundboard, type AmbientState } from "@/components/studio/HostSoundboard";
 import { ViewerAmbientSync } from "@/components/studio/ViewerAmbientSync";
@@ -259,14 +260,20 @@ function HostView({ userId }: { userId: string }) {
           </Tabs>
         </div>
 
-        {/* Sidebar: soundboard + invite + chat (host-only chat participation) */}
+        {/* Sidebar: chat sits right under the player, ambient + invites tucked below */}
         <aside className="space-y-4">
           {streamId ? (
             <>
-              <MediaChat roomId={`studio-${streamId}`} userId={userId} hostId={userId} isHost />
-              <HostSoundboard streamId={streamId} state={ambient} onChange={setAmbient} />
-              <InviteFriendsPanel streamId={streamId} />
               <StudioChatPanel streamId={streamId} />
+              <MediaChat roomId={`studio-${streamId}`} userId={userId} hostId={userId} isHost />
+              <CollapsiblePanel
+                icon={<Music2 className="h-4 w-4 text-primary" />}
+                title="Ambient sounds"
+                defaultOpen={false}
+              >
+                <HostSoundboard streamId={streamId} state={ambient} onChange={setAmbient} />
+              </CollapsiblePanel>
+              <InviteFriendsPanel streamId={streamId} />
             </>
           ) : (
             <div className="glass rounded-2xl p-6 border border-border/40 text-center text-sm text-muted-foreground">
@@ -340,6 +347,7 @@ function UploadPanel({
   const [progress, setProgress] = useState(0);
   const [dropHover, setDropHover] = useState(false);
   const [dupWarn, setDupWarn] = useState<string | null>(null);
+  const [showLibrary, setShowLibrary] = useState(false);
 
   const fetchTmdb = async () => {
     if (!query.trim()) return toast.error("Enter a title first");
@@ -404,13 +412,28 @@ function UploadPanel({
   return (
     <section className="glass rounded-2xl p-6 border border-border/40 space-y-4">
       {library.length > 0 && (
-        <div className="rounded-xl border border-border/50 p-3 bg-background/40 space-y-2">
-          <div className="text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-            <Film className="h-3.5 w-3.5 text-primary" /> Your Studio Library
-            <span className="ml-auto normal-case tracking-normal text-[10px]">Re-broadcast without re-uploading</span>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-56 overflow-auto pr-1">
-            {library.map((item) => (
+        <div className="rounded-xl border border-border/50 bg-background/40">
+          <button
+            type="button"
+            onClick={() => setShowLibrary((v) => !v)}
+            className="w-full flex items-center gap-2 px-3 py-2 text-xs uppercase tracking-widest text-muted-foreground hover:text-foreground transition"
+            aria-expanded={showLibrary}
+          >
+            <Film className="h-3.5 w-3.5 text-primary" />
+            <span>Media Library</span>
+            <span className="ml-1 rounded-full bg-primary/15 text-primary px-1.5 py-0.5 text-[10px] normal-case tracking-normal">
+              {library.length}
+            </span>
+            <span className="ml-auto normal-case tracking-normal text-[10px]">
+              {showLibrary ? "Hide" : "Show"}
+            </span>
+            {showLibrary
+              ? <ChevronUp className="h-4 w-4" />
+              : <ChevronDown className="h-4 w-4" />}
+          </button>
+          {showLibrary && (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-56 overflow-auto p-3 pt-0">
+              {library.map((item) => (
               <button
                 key={item.id}
                 type="button"
@@ -432,8 +455,9 @@ function UploadPanel({
                   </span>
                 </div>
               </button>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -899,10 +923,36 @@ function ViewerView({ streamId }: { streamId: string | null }) {
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6">
         <PlayerStage streamRow={row} viewerOnly isHost={false} />
         <aside className="space-y-4">
-          <ViewerMediaChat streamId={row.id} hostId={row.host_id} />
           <StudioChatPanel streamId={row.id} viewerOnly />
+          <ViewerMediaChat streamId={row.id} hostId={row.host_id} />
         </aside>
       </div>
+    </div>
+  );
+}
+
+/* --------------------------- Collapsible panel -------------------------- */
+
+function CollapsiblePanel({
+  icon, title, defaultOpen = false, children,
+}: {
+  icon?: React.ReactNode; title: string; defaultOpen?: boolean; children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="glass rounded-2xl border border-border/40 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="w-full flex items-center gap-2 px-4 py-3 text-sm font-medium hover:bg-white/5 transition"
+      >
+        {icon}
+        <span>{title}</span>
+        <span className="ml-auto text-xs text-muted-foreground">{open ? "Hide" : "Show"}</span>
+        {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+      </button>
+      {open && <div className="px-2 pb-3">{children}</div>}
     </div>
   );
 }
