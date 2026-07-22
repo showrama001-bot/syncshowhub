@@ -88,6 +88,7 @@ const App = () => {
               <Route path="/dms" element={lazyRoute(<DMs />)} />
               <Route path="/friends" element={<Friends />} />
               <Route path="/discover" element={lazyRoute(<Discover />)} />
+              <Route path="/community" element={lazyRoute(<Discover />)} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/upload-movie" element={lazyRoute(<UploadMovie />)} />
               <Route path="/upload-gateway" element={lazyRoute(<UploadMovie />)} />
