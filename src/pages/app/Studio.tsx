@@ -260,14 +260,20 @@ function HostView({ userId }: { userId: string }) {
           </Tabs>
         </div>
 
-        {/* Sidebar: soundboard + invite + chat (host-only chat participation) */}
+        {/* Sidebar: chat sits right under the player, ambient + invites tucked below */}
         <aside className="space-y-4">
           {streamId ? (
             <>
-              <MediaChat roomId={`studio-${streamId}`} userId={userId} hostId={userId} isHost />
-              <HostSoundboard streamId={streamId} state={ambient} onChange={setAmbient} />
-              <InviteFriendsPanel streamId={streamId} />
               <StudioChatPanel streamId={streamId} />
+              <MediaChat roomId={`studio-${streamId}`} userId={userId} hostId={userId} isHost />
+              <CollapsiblePanel
+                icon={<Music2 className="h-4 w-4 text-primary" />}
+                title="Ambient sounds"
+                defaultOpen={false}
+              >
+                <HostSoundboard streamId={streamId} state={ambient} onChange={setAmbient} />
+              </CollapsiblePanel>
+              <InviteFriendsPanel streamId={streamId} />
             </>
           ) : (
             <div className="glass rounded-2xl p-6 border border-border/40 text-center text-sm text-muted-foreground">
