@@ -125,9 +125,15 @@ export function SyncedPlayer({ roomId, src, poster, isHost, subtitles, introStar
       if (!v || !payload) return;
       suppressRef.current = true;
       try {
+        // Project the host's timeline forward using the wall-clock stamp so
+        // late joiners land at the host's *current* position, not where the
+        // host was when the last state was broadcast.
         if (typeof payload.time === "number") {
-          const drift = Math.abs(v.currentTime - payload.time);
-          if (drift > 1.2) v.currentTime = payload.time;
+          const drift = Date.now() - (typeof payload.at === "number" ? payload.at : Date.now());
+          const projected = payload.action === "play"
+            ? payload.time + Math.max(0, drift) / 1000
+            : payload.time;
+          if (Math.abs(v.currentTime - projected) > 1.2) v.currentTime = projected;
         }
         if (payload.action === "play") {
           v.play().catch(() => {
@@ -198,7 +204,7 @@ export function SyncedPlayer({ roomId, src, poster, isHost, subtitles, introStar
     if (!v || !ch) return;
     const emit = (action: string) => {
       if (suppressRef.current) return;
-      ch.send({ type: "broadcast", event: "state", payload: { action, time: v.currentTime }});
+      ch.send({ type: "broadcast", event: "state", payload: { action, time: v.currentTime, at: Date.now() }});
     };
     const onPlay = () => emit("play");
     const onPause = () => emit("pause");
