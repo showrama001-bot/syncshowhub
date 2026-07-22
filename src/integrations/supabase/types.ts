@@ -107,11 +107,19 @@ export type Database = {
           id: number
           interstitial_seconds: number
           master_enabled: boolean
+          midroll_enabled: boolean
+          midroll_skip_seconds: number
+          midroll_time_seconds: number
+          popup_click_threshold: number
           popup_duration_seconds: number
           popup_enabled: boolean
           popup_interval_seconds: number
           preroll_enabled: boolean
           preroll_skip_seconds: number
+          reels_ad_duration: number
+          reels_ad_every: number
+          reels_ads_enabled: boolean
+          section_banner_enabled: boolean
           updated_at: string
         }
         Insert: {
@@ -122,11 +130,19 @@ export type Database = {
           id?: number
           interstitial_seconds?: number
           master_enabled?: boolean
+          midroll_enabled?: boolean
+          midroll_skip_seconds?: number
+          midroll_time_seconds?: number
+          popup_click_threshold?: number
           popup_duration_seconds?: number
           popup_enabled?: boolean
           popup_interval_seconds?: number
           preroll_enabled?: boolean
           preroll_skip_seconds?: number
+          reels_ad_duration?: number
+          reels_ad_every?: number
+          reels_ads_enabled?: boolean
+          section_banner_enabled?: boolean
           updated_at?: string
         }
         Update: {
@@ -137,11 +153,19 @@ export type Database = {
           id?: number
           interstitial_seconds?: number
           master_enabled?: boolean
+          midroll_enabled?: boolean
+          midroll_skip_seconds?: number
+          midroll_time_seconds?: number
+          popup_click_threshold?: number
           popup_duration_seconds?: number
           popup_enabled?: boolean
           popup_interval_seconds?: number
           preroll_enabled?: boolean
           preroll_skip_seconds?: number
+          reels_ad_duration?: number
+          reels_ad_every?: number
+          reels_ads_enabled?: boolean
+          section_banner_enabled?: boolean
           updated_at?: string
         }
         Relationships: []
