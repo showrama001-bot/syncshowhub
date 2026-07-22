@@ -74,7 +74,6 @@ export default function Admin() {
       <Tabs defaultValue="overview" className="space-y-6">
         <TabsList className="bg-secondary/40 backdrop-blur flex flex-wrap h-auto">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="search">Search & Delete</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="movies">Movies</TabsTrigger>
           <TabsTrigger value="series">Series</TabsTrigger>
@@ -90,7 +89,6 @@ export default function Admin() {
         </TabsList>
 
         <TabsContent value="overview"><Overview /></TabsContent>
-        <TabsContent value="search"><ContentSearchTab /></TabsContent>
         <TabsContent value="users"><UsersTab /></TabsContent>
         <TabsContent value="movies"><MoviesTab /></TabsContent>
         <TabsContent value="series"><SeriesTab /></TabsContent>
