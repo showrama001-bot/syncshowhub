@@ -31,6 +31,7 @@ export default function Rooms() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [liveStudios, setLiveStudios] = useState<Array<{ id: string; title: string; host_id: string; poster_url: string | null; viewer_count: number; host_name?: string }>>([]);
   const [reminderIds, setReminderIds] = useState<Set<string>>(new Set());
+  const [followedHosts, setFollowedHosts] = useState<Set<string>>(new Set());
   const [tab, setTab] = useState("live");
 
   const load = async () => {
@@ -74,10 +75,19 @@ export default function Rooms() {
     setReminderIds(new Set((data || []).map((r: any) => r.room_id)));
   };
 
+  const loadFollowedHosts = async () => {
+    if (!user) { setFollowedHosts(new Set()); return; }
+    const { data } = await (supabase.from("host_follows" as any) as any)
+      .select("host_id")
+      .eq("follower_id", user.id);
+    setFollowedHosts(new Set((data || []).map((r: any) => r.host_id)));
+  };
+
   useEffect(() => {
     load();
     loadStudios();
     loadReminders();
+    loadFollowedHosts();
     const ch = supabase
       .channel("rooms-directory")
       .on("postgres_changes", { event: "*", schema: "public", table: "watch_rooms" }, () => load())
@@ -86,9 +96,18 @@ export default function Rooms() {
       .channel("rooms-directory-studios")
       .on("postgres_changes", { event: "*", schema: "public", table: "studio_streams" }, () => loadStudios())
       .subscribe();
+    const chF = user
+      ? supabase
+          .channel(`rooms-directory-follows:${user.id}`)
+          .on("postgres_changes",
+            { event: "*", schema: "public", table: "host_follows", filter: `follower_id=eq.${user.id}` },
+            () => loadFollowedHosts())
+          .subscribe()
+      : null;
     return () => {
       supabase.removeChannel(ch);
       supabase.removeChannel(chS);
+      if (chF) supabase.removeChannel(chF);
     };
   }, [user?.id]);
 
@@ -97,6 +116,19 @@ export default function Rooms() {
     () => rooms.filter((r) => r.status === "scheduled" && r.scheduled_at && new Date(r.scheduled_at) > new Date()),
     [rooms]
   );
+  const followedLiveRooms = useMemo(
+    () => live.filter((r) => followedHosts.has(r.host_id)),
+    [live, followedHosts]
+  );
+  const followedLiveStudios = useMemo(
+    () => liveStudios.filter((s) => followedHosts.has(s.host_id)),
+    [liveStudios, followedHosts]
+  );
+  const followedScheduled = useMemo(
+    () => scheduled.filter((r) => followedHosts.has(r.host_id)),
+    [scheduled, followedHosts]
+  );
+  const followedTotal = followedLiveRooms.length + followedLiveStudios.length + followedScheduled.length;
 
   const toggleReminder = async (room: Room) => {
     if (!user) {
@@ -136,6 +168,7 @@ export default function Rooms() {
         <TabsList>
           <TabsTrigger value="live">Live now ({live.length})</TabsTrigger>
           <TabsTrigger value="scheduled">Scheduled ({scheduled.length})</TabsTrigger>
+          <TabsTrigger value="following">Following ({followedTotal})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="live" className="mt-4">
@@ -191,6 +224,55 @@ export default function Rooms() {
           ) : (
             <Grid>
               {scheduled.map((r) => (
+                <RoomCard
+                  key={r.id}
+                  room={r}
+                  scheduled
+                  reminded={reminderIds.has(r.id)}
+                  onRemind={() => toggleReminder(r)}
+                  onJoin={() => navigate(`/watch/${r.id}`)}
+                />
+              ))}
+            </Grid>
+          )}
+        </TabsContent>
+
+        <TabsContent value="following" className="mt-4">
+          {!user ? (
+            <Empty msg="Sign in to follow hosts and see their rooms here." />
+          ) : followedTotal === 0 ? (
+            <Empty msg="You're not following any live or scheduled hosts yet. Tap Follow on a room or studio to get notified." />
+          ) : (
+            <Grid>
+              {followedLiveStudios.map((s) => (
+                <div key={s.id} className="glass rounded-2xl overflow-hidden flex flex-col group hover:shadow-neon transition">
+                  <div className="relative aspect-[2/3] bg-secondary/40">
+                    {s.poster_url ? (
+                      <img src={s.poster_url} alt={s.title} className="w-full h-full object-cover" loading="lazy" />
+                    ) : (
+                      <div className="w-full h-full grid place-items-center text-muted-foreground"><Radio className="h-8 w-8" /></div>
+                    )}
+                    <span className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-red-500/90 text-white text-xs font-semibold animate-pulse flex items-center gap-1">
+                      <Radio className="h-3 w-3" /> LIVE STUDIO
+                    </span>
+                  </div>
+                  <div className="p-3 flex-1 flex flex-col">
+                    <div className="font-semibold truncate">{s.title}</div>
+                    <div className="text-xs text-muted-foreground truncate">Hosted by {s.host_name || "…"}</div>
+                    <div className="mt-3 flex gap-2">
+                      <Button size="sm" className="flex-1 bg-gradient-red shadow-neon"
+                        onClick={() => navigate(`/live-stream?stream=${s.id}`)}>
+                        Watch live
+                      </Button>
+                      <FollowHostButton hostId={s.host_id} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {followedLiveRooms.map((r) => (
+                <RoomCard key={r.id} room={r} onJoin={() => navigate(`/watch/${r.id}`)} />
+              ))}
+              {followedScheduled.map((r) => (
                 <RoomCard
                   key={r.id}
                   room={r}
