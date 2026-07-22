@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import {
   Radio, Upload, Search, Film, Loader2, StopCircle,
   AlertTriangle, CheckCircle2, Send, Volume2, VolumeX, Maximize2,
+  ChevronDown, ChevronUp, Music2,
 } from "lucide-react";
 import { HostSoundboard, type AmbientState } from "@/components/studio/HostSoundboard";
 import { ViewerAmbientSync } from "@/components/studio/ViewerAmbientSync";
