@@ -1,3 +1,5 @@
+import { sanitizeMessage, sanitizeBody, sanitizeTitle, sanitizeUrl } from "@/lib/sanitize";
+import { checkRate, RATE_RULES, rateMessage } from "@/lib/submitGuard";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";

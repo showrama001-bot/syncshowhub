@@ -1,3 +1,5 @@
+import { sanitizeMessage, sanitizeBody, sanitizeTitle, sanitizeUrl } from "@/lib/sanitize";
+import { checkRate, RATE_RULES, rateMessage } from "@/lib/submitGuard";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Newspaper, Heart, MessageCircle, ImagePlus, Send, Trash2, Film, Clapperboard, PlaySquare, Search, X, Loader2 } from "lucide-react";
