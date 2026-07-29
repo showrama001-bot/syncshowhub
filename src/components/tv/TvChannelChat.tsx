@@ -94,8 +94,10 @@ export const TvChannelChat = ({ channelId }: { channelId: string }) => {
 
   const send = async (e: FormEvent) => {
     e.preventDefault();
-    const content = text.trim();
+    const content = sanitizeMessage(text);
     if (!content || !user) return;
+    const rl = checkRate(`tvchat:${channelId}`, RATE_RULES.chat);
+    if (!rl.ok) return toast.error(rateMessage(rl));
     setSending(true);
     const { error } = await supabase
       .from("tv_channel_messages")

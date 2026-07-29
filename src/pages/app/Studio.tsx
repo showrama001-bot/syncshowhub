@@ -838,8 +838,10 @@ function StudioChatPanel({ streamId, viewerOnly }: { streamId: string; viewerOnl
   }, [msgs.length]);
 
   const send = async () => {
-    const text = body.trim().slice(0, 500);
+    const text = sanitizeMessage(body);
     if (!text || !user) return;
+    const rl = checkRate(`studiochat:${streamId}`, RATE_RULES.chat);
+    if (!rl.ok) return toast.error(rateMessage(rl));
     setBody("");
     const { error } = await (supabase.from("studio_chat_messages" as any) as any)
       .insert({ stream_id: streamId, user_id: user.id, body: text });

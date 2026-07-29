@@ -61,8 +61,11 @@ export default function DMs() {
   }, [msgs]);
 
   const send = async () => {
-    if (!user || !active || !text.trim()) return;
-    const content = text.trim();
+    if (!user || !active) return;
+    const content = sanitizeMessage(text);
+    if (!content) return;
+    const rl = checkRate(`dm:${user.id}`, RATE_RULES.dm);
+    if (!rl.ok) return toast.error(rateMessage(rl));
     setText("");
     const { error } = await supabase.from("direct_messages").insert({
       sender_id: user.id, recipient_id: active.id, content,
