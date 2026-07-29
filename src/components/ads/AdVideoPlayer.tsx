@@ -96,7 +96,6 @@ export const AdPlayerShell = ({ children }: { children: ReactNode }) => {
     v.addEventListener("ended", onEnded);
     return () => {
       v.removeEventListener("pause", onPause);
-      v.removeEventListener("play", onPause as any);
       v.removeEventListener("play", onPlay);
       v.removeEventListener("timeupdate", onTime);
       v.removeEventListener("ended", onEnded);
