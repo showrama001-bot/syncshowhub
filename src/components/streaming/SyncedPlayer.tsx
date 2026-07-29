@@ -6,12 +6,15 @@ import { useLocalPref } from "@/hooks/useLocalPref";
 import { PopoutButton } from "@/components/miniplayer/MiniPlayerProvider";
 import { SkipIntroButton } from "@/components/player/SkipIntroButton";
 import { ReactionHeatmap } from "@/components/player/ReactionHeatmap";
+import { getRoomAuthz } from "@/lib/roomAuthz";
 
 interface Props {
   roomId: string;
   src: string;
   poster?: string;
   isHost: boolean;
+  /** Room owner id — guests only accept sync stamped with this id. */
+  hostId?: string;
   subtitles?: SubtitleTrack[];
   introStart?: number | null;
   introEnd?: number | null;
@@ -24,8 +27,11 @@ interface Props {
  * Supabase Realtime broadcast channel. Host is authoritative — guests apply
  * events with drift correction.
  */
-export function SyncedPlayer({ roomId, src, poster, isHost, subtitles, introStart, introEnd, onEnded, reactionChannelKey }: Props) {
+export function SyncedPlayer({ roomId, src, poster, isHost, hostId, subtitles, introStart, introEnd, onEnded, reactionChannelKey }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  // Server-verified: may this user participate in this room's sync channel?
+  const [canSync, setCanSync] = useState(false);
+  const verifiedHostRef = useRef<string | null>(hostId ?? null);
   const tracks = useSubtitleTracks(subtitles);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const suppressRef = useRef(false); // ignore events we just applied
@@ -117,12 +123,32 @@ export function SyncedPlayer({ roomId, src, poster, isHost, subtitles, introStar
   // Realtime sync channel.
   useEffect(() => {
     if (!roomId) return;
+    let cancelled = false;
+    let ch: ReturnType<typeof supabase.channel> | null = null;
+
+    (async () => {
+      // Permission gate: only verified room members (or the host) may join the
+      // sync channel, so play/pause/seek can never leak into or out of a room
+      // the user isn't part of.
+      const authz = await getRoomAuthz(roomId);
+      if (cancelled) return;
+      verifiedHostRef.current = hostId ?? verifiedHostRef.current;
+      if (!authz.canSync) { setCanSync(false); return; }
+      setCanSync(true);
+      ch = attach(authz.isHost);
+    })();
+
+    function attach(hostVerified: boolean) {
     const ch = supabase.channel(`sync:${roomId}`, { config: { broadcast: { self: false } } });
     channelRef.current = ch;
 
     const apply = (payload: any) => {
       const v = videoRef.current;
       if (!v || !payload) return;
+      // Reject state that isn't stamped by this room's actual host.
+      const expected = verifiedHostRef.current;
+      if (expected && payload.hostId !== expected) return;
+      if (hostVerified) return; // host is authoritative, never follows others
       suppressRef.current = true;
       try {
         // Project the host's timeline forward using the wall-clock stamp so
@@ -174,16 +200,17 @@ export function SyncedPlayer({ roomId, src, poster, isHost, subtitles, introStar
 
     // Guest asks for current state on join.
     ch.on("broadcast", { event: "sync-req" }, () => {
-      if (!isHost) return;
+      if (!hostVerified) return;
       const v = videoRef.current;
       if (!v) return;
       ch.send({ type: "broadcast", event: "state", payload: {
         action: v.paused ? "pause" : "play", time: v.currentTime, at: Date.now(),
+        hostId: verifiedHostRef.current,
       }});
     });
 
     ch.subscribe(async (status) => {
-      if (status === "SUBSCRIBED" && !isHost) {
+      if (status === "SUBSCRIBED" && !hostVerified) {
         ch.send({ type: "broadcast", event: "sync-req", payload: {} });
       }
       if (status === "SUBSCRIBED") {
@@ -192,19 +219,27 @@ export function SyncedPlayer({ roomId, src, poster, isHost, subtitles, introStar
         } catch {}
       }
     });
+      return ch;
+    }
 
-    return () => { supabase.removeChannel(ch); };
-  }, [roomId, isHost]);
+    return () => {
+      cancelled = true;
+      if (ch) supabase.removeChannel(ch);
+      channelRef.current = null;
+    };
+  }, [roomId, isHost, hostId]);
 
   // Host emits state changes.
   useEffect(() => {
-    if (!isHost) return;
+    if (!isHost || !canSync) return;
     const v = videoRef.current;
     const ch = channelRef.current;
     if (!v || !ch) return;
     const emit = (action: string) => {
       if (suppressRef.current) return;
-      ch.send({ type: "broadcast", event: "state", payload: { action, time: v.currentTime, at: Date.now() }});
+      ch.send({ type: "broadcast", event: "state", payload: {
+        action, time: v.currentTime, at: Date.now(), hostId: verifiedHostRef.current,
+      }});
     };
     const onPlay = () => emit("play");
     const onPause = () => emit("pause");
@@ -220,7 +255,7 @@ export function SyncedPlayer({ roomId, src, poster, isHost, subtitles, introStar
       v.removeEventListener("seeked", onSeeked);
       clearInterval(hb);
     };
-  }, [isHost, src]);
+  }, [isHost, src, canSync]);
 
   // Guest tap: satisfies user-gesture requirement so playback (and unmuting) works.
   const handleGuestTap = () => {
