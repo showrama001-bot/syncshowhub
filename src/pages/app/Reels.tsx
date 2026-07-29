@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { PlayCircle, Film, X, Heart, MessageCircle, Share2 } from "lucide-react";
+import { PlayCircle, Film, Heart, MessageCircle, Share2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 
 type Reel = {
