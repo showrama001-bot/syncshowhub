@@ -25,6 +25,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useDisplayIdentity } from "@/hooks/useDisplayIdentity";
 import { toast } from "sonner";
 import { sha256Hex } from "@/lib/watchRooms";
+import { joinRoom, leaveRoom, removeRoomMember } from "@/lib/roomMembership";
 import { FriendsSidebar } from "@/components/friends/FriendsSidebar";
 import { RoomInvitePopover } from "@/components/rooms/RoomInvitePopover";
 import { FollowHostButton } from "@/components/rooms/FollowHostButton";
@@ -228,12 +229,14 @@ export default function Watch() {
     });
     ch.subscribe(async (status) => {
       if (status === "SUBSCRIBED") {
+        if (user) await joinRoom(roomId, user.id);
         await ch.track({ user: identity.displayName || "Guest", joined_at: Date.now() });
       }
     });
     channelRef.current = ch;
     presenceRef.current = ch;
     return () => {
+      if (user && roomId) leaveRoom(roomId, user.id);
       supabase.removeChannel(ch);
     };
   }, [roomId, user?.id, room?.host_id, room?.id, navigate]);
@@ -256,6 +259,7 @@ export default function Watch() {
     await (supabase.from("room_kicks" as any) as any).insert({
       room_id: room.id, user_id: targetId, kicked_by: user!.id,
     });
+    await removeRoomMember(room.id, targetId);
     channelRef.current?.send({ type: "broadcast", event: "kick", payload: { userId: targetId } });
     toast.success("User kicked");
   };
