@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import heroBg from "@/assets/hero-bg.jpg";
 import { Play, Film, Tv, Trophy, Clapperboard, Tv2, Flame, Radio } from "lucide-react";
 import { TrailerModal } from "@/components/movies/TrailerModal";
+import { HeroVipBanner } from "@/components/ads/VipSpots";
 
 type Movie = {
   id: string;
@@ -107,6 +108,8 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <div className="px-6 md:px-12 pt-6 max-w-6xl mx-auto"><HeroVipBanner /></div>
 
       {/* Quick categories */}
       <section className="px-6 md:px-12 -mt-16 relative z-20 grid grid-cols-3 md:grid-cols-7 gap-3 md:gap-4 max-w-6xl mx-auto">
