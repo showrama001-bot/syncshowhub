@@ -27,7 +27,7 @@ export default function RedirectPage() {
       </Link>
       <h1 className="font-display text-2xl md:text-4xl tracking-wider mb-6 neon-text">Redirecting…</h1>
 
-            <div className="mb-6"><GridBanner /></div>
+      <div className="mb-6"><GridBanner /></div>
 
       <div className="glass rounded-2xl p-6 md:p-10 text-center border border-border/40">
         {!valid ? (
@@ -54,7 +54,7 @@ export default function RedirectPage() {
         )}
       </div>
 
-            <div className="mt-6"><GridBanner /></div>
+      <div className="mt-6"><GridBanner /></div>
     </div>
   );
 }
