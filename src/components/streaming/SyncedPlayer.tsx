@@ -130,12 +130,20 @@ export function SyncedPlayer({ roomId, src, poster, isHost, hostId, subtitles, i
       // Permission gate: only verified room members (or the host) may join the
       // sync channel, so play/pause/seek can never leak into or out of a room
       // the user isn't part of.
-      const authz = await getRoomAuthz(roomId);
-      if (cancelled) return;
-      verifiedHostRef.current = hostId ?? verifiedHostRef.current;
-      if (!authz.canSync) { setCanSync(false); return; }
-      setCanSync(true);
-      ch = attach(authz.isHost);
+      // Membership is registered by the room page right after mount, so retry
+      // briefly before giving up on a legitimate guest.
+      for (let attempt = 0; attempt < 6 && !cancelled; attempt++) {
+        const authz = await getRoomAuthz(roomId);
+        if (cancelled) return;
+        verifiedHostRef.current = hostId ?? verifiedHostRef.current;
+        if (authz.canSync) {
+          setCanSync(true);
+          ch = attach(authz.isHost);
+          return;
+        }
+        setCanSync(false);
+        await new Promise((r) => setTimeout(r, 1500));
+      }
     })();
 
     function attach(hostVerified: boolean) {
