@@ -44,7 +44,7 @@ function persist(key: string, b: Bucket) {
   } catch {}
 }
 
-export type RateResult = { ok: true } | { ok: false; retryInMs: number };
+export type RateResult = { ok: boolean; retryInMs?: number };
 
 /** Records an attempt and reports whether it is allowed. */
 export function checkRate(key: string, rule: RateRule = RATE_RULES.form): RateResult {
@@ -64,6 +64,6 @@ export function checkRate(key: string, rule: RateRule = RATE_RULES.form): RateRe
 /** Human-friendly message for a blocked attempt. */
 export function rateMessage(res: RateResult): string {
   if (res.ok) return "";
-  const secs = Math.ceil(res.retryInMs / 1000);
+  const secs = Math.ceil((res.retryInMs ?? 1000) / 1000);
   return `Slow down — try again in ${secs}s.`;
 }
