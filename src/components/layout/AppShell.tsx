@@ -3,15 +3,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { SideDrawer } from "./SideDrawer";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { HeaderBanner } from "@/components/ads/HeaderBanner";
-import { PopupAdOverlay } from "@/components/ads/PopupAdOverlay";
-import { AntiAdblock } from "@/components/ads/AntiAdblock";
 import { GlobalScriptInjector } from "@/components/ads/ScriptSlot";
 import { useAds } from "@/components/ads/AdsProvider";
 import { Footer } from "./Footer";
 
 export const AppShell = () => {
   const { user, loading } = useAuth();
-  const { enabled, settings } = useAds();
+  const { enabled, config } = useAds();
   if (loading) {
     return (
       <div className="min-h-screen grid place-items-center bg-background">
@@ -29,9 +27,7 @@ export const AppShell = () => {
         <Outlet />
       </main>
       <Footer />
-      <PopupAdOverlay />
-      <AntiAdblock />
-      {enabled && settings.global_scripts ? <GlobalScriptInjector html={settings.global_scripts} /> : null}
+      {enabled && config.network_enabled && config.global_scripts ? <GlobalScriptInjector html={config.global_scripts} /> : null}
     </div>
   );
 };

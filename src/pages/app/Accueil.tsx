@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { fetchAdsAssets, fetchAdsSettings, pickWeighted, type AdAsset } from "@/lib/ads";
+import { GridBanner } from "@/components/ads/GridBanner";
 import { toast } from "sonner";
 
 type Post = {
@@ -41,8 +41,6 @@ export default function Accueil() {
   const [uploadingImg, setUploadingImg] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
   const [posting, setPosting] = useState(false);
-  const [ads, setAds] = useState<AdAsset[]>([]);
-  const [adsOn, setAdsOn] = useState(true);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerQ, setPickerQ] = useState("");
@@ -81,9 +79,6 @@ export default function Accueil() {
 
   useEffect(() => {
     load();
-    Promise.all([fetchAdsAssets(), fetchAdsSettings()]).then(([a, s]) => {
-      setAds(a); setAdsOn(!!s.master_enabled);
-    });
     loadCatalog();
     const ch = supabase.channel("feed-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "feed_posts" }, () => load())
@@ -165,16 +160,13 @@ export default function Accueil() {
 
   // Injected banner ad every 3 posts.
   const interleaved = useMemo(() => {
-    const out: Array<{ type: "post"; post: Post } | { type: "ad"; ad: AdAsset; k: string }> = [];
+    const out: Array<{ type: "post"; post: Post } | { type: "ad"; k: string }> = [];
     posts.forEach((p, i) => {
       out.push({ type: "post", post: p });
-      if (adsOn && (i + 1) % 3 === 0) {
-        const ad = pickWeighted(ads, "banner_grid");
-        if (ad) out.push({ type: "ad", ad, k: `ad-${i}` });
-      }
+      if ((i + 1) % 3 === 0) out.push({ type: "ad", k: `ad-${i}` });
     });
     return out;
-  }, [posts, ads, adsOn]);
+  }, [posts]);
 
   return (
     <div className="pt-20 px-4 md:px-6 max-w-2xl mx-auto pb-16">
@@ -271,7 +263,7 @@ export default function Accueil() {
         )}
         {interleaved.map((item) =>
           item.type === "ad" ? (
-            <FeedAdCard key={item.k} ad={item.ad} />
+            <GridBanner key={item.k} />
           ) : (
             <PostCard key={item.post.id} post={item.post} onLike={() => toggleLike(item.post)} onDelete={() => del(item.post)} me={user?.id} />
           )
@@ -390,19 +382,3 @@ function AttachmentCard({ kind, id, title, thumb }: { kind: "movie" | "series" |
   );
 }
 
-function FeedAdCard({ ad }: { ad: AdAsset }) {
-  const body = (
-    <div className="glass rounded-2xl overflow-hidden border border-primary/30">
-      <div className="px-3 py-1 text-[10px] uppercase tracking-widest text-primary bg-primary/10">Sponsored</div>
-      {ad.media_type === "video" && ad.media_url ? (
-        <video src={ad.media_url} muted playsInline autoPlay loop className="w-full max-h-[360px] object-cover" />
-      ) : ad.media_url ? (
-        <img src={ad.media_url} alt={ad.title || "ad"} className="w-full max-h-[360px] object-cover" loading="lazy" />
-      ) : null}
-      {ad.title && <div className="px-3 py-2 text-sm font-medium">{ad.title}</div>}
-    </div>
-  );
-  return ad.redirect_url
-    ? <a href={ad.redirect_url} target="_blank" rel="noopener noreferrer sponsored">{body}</a>
-    : body;
-}

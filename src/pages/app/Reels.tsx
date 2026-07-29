@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { PlayCircle, Film, X, Heart, MessageCircle, Share2 } from "lucide-react";
+import { PlayCircle, Film, Heart, MessageCircle, Share2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchAdsAssets, fetchAdsSettings, pickWeighted, type AdAsset, type AdsSettings, DEFAULT_SETTINGS } from "@/lib/ads";
-import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 
 type Reel = {
@@ -18,11 +16,7 @@ type Reel = {
 
 export default function Reels() {
   const [reels, setReels] = useState<Reel[]>([]);
-  const [ads, setAds] = useState<AdAsset[]>([]);
-  const [adsSettings, setAdsSettings] = useState<AdsSettings>(DEFAULT_SETTINGS);
   const [index, setIndex] = useState(0);
-  const [adGate, setAdGate] = useState<AdAsset | null>(null);
-  const [adCountdown, setAdCountdown] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const [searchParams] = useSearchParams();
   const targetId = searchParams.get("id");
@@ -49,35 +43,8 @@ export default function Reels() {
       } else {
         setReels(list);
       }
-      const [a, s] = await Promise.all([fetchAdsAssets(), fetchAdsSettings()]);
-      setAds(a); setAdsSettings(s);
     })();
   }, [targetId]);
-
-  // Enforce ad on scroll transitions.
-  const showAdIfNeeded = (nextIdx: number) => {
-    if (!adsSettings.master_enabled || !adsSettings.reels_ads_enabled) return false;
-    const every = Math.max(1, adsSettings.reels_ad_every || 3);
-    if (nextIdx > 0 && nextIdx % every === 0) {
-      const ad =
-        pickWeighted(ads, "reels") ||
-        pickWeighted(ads, "interstitial") ||
-        pickWeighted(ads, "preroll");
-      if (ad) {
-        setAdGate(ad);
-        setAdCountdown(Math.max(1, adsSettings.reels_ad_duration || 15));
-        return true;
-      }
-    }
-    return false;
-  };
-
-  useEffect(() => {
-    if (!adGate) return;
-    if (adCountdown <= 0) return;
-    const t = setTimeout(() => setAdCountdown(c => c - 1), 1000);
-    return () => clearTimeout(t);
-  }, [adGate, adCountdown]);
 
   // Snap-scroll observer to track active reel.
   useEffect(() => {
@@ -90,20 +57,13 @@ export default function Reels() {
       requestAnimationFrame(() => {
         const h = el.clientHeight;
         const next = Math.round(el.scrollTop / h);
-        if (next !== index) {
-          const gated = showAdIfNeeded(next);
-          if (!gated) setIndex(next);
-          else {
-            // Bounce back until user closes the ad
-            el.scrollTo({ top: index * h, behavior: "smooth" });
-          }
-        }
+        if (next !== index) setIndex(next);
         ticking = false;
       });
     };
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => el.removeEventListener("scroll", onScroll);
-  }, [index, ads, adsSettings]);
+  }, [index]);
 
   const scrollTo = (i: number) => {
     const el = containerRef.current;
@@ -131,41 +91,10 @@ export default function Reels() {
         style={{ scrollSnapType: "y mandatory" }}
       >
         {reels.map((r, i) => (
-          <ReelSlide key={r.id} reel={r} active={i === index && !adGate} />
+          <ReelSlide key={r.id} reel={r} active={i === index} />
         ))}
       </div>
 
-      {adGate && (
-        <div className="absolute inset-0 z-30 bg-black/95 flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 text-white">
-            <span className="text-xs uppercase tracking-widest text-primary">Sponsored</span>
-            {adCountdown > 0 ? (
-              <div className="text-xs text-white/70 px-3 py-1 rounded-full border border-white/20">
-                Ad ends in {adCountdown}s
-              </div>
-            ) : (
-              <Button
-                size="sm"
-                onClick={() => { setAdGate(null); scrollTo(index + 1); }}
-                className="bg-white text-black"
-              >
-                <X className="h-4 w-4 mr-1" /> Continue
-              </Button>
-            )}
-          </div>
-          <div className="flex-1 grid place-items-center px-4">
-            {adGate.media_type === "video" && adGate.media_url ? (
-              <video src={adGate.media_url} autoPlay muted playsInline className="max-h-full max-w-full" />
-            ) : adGate.media_url ? (
-              <a href={adGate.redirect_url || "#"} target="_blank" rel="noopener noreferrer sponsored" className="block max-h-full">
-                <img src={adGate.media_url} alt={adGate.title || "ad"} className="max-h-full max-w-full" />
-              </a>
-            ) : (
-              <div className="text-white/70 text-sm">{adGate.title || "Advertisement"}</div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

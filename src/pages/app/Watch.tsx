@@ -30,6 +30,7 @@ import { RoomInvitePopover } from "@/components/rooms/RoomInvitePopover";
 import { FollowHostButton } from "@/components/rooms/FollowHostButton";
 import { FloatingReactions } from "@/components/reactions/FloatingReactions";
 import { AmbientSounds } from "@/components/ambient/AmbientSounds";
+import { RoomTakeoverBackground } from "@/components/ads/VipSpots";
 import confetti from "canvas-confetti";
 
 type Room = {
@@ -350,6 +351,7 @@ export default function Watch() {
 
   return (
     <div className="pt-20 px-3 md:px-6 pb-10 max-w-[1600px] mx-auto">
+      <RoomTakeoverBackground />
       {/* Header */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <h1 className="font-display text-xl md:text-3xl tracking-wider flex-1 min-w-0 truncate">{room.title}</h1>

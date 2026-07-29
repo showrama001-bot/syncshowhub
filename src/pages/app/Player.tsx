@@ -10,7 +10,7 @@ import { WatchlistButton } from "@/components/movies/WatchlistButton";
 import { MovieComments } from "@/components/movies/MovieComments";
 import { ReportMovieButton } from "@/components/movies/ReportMovieButton";
 import { WatchTogetherButton } from "@/components/watch/WatchTogetherButton";
-import { VideoAdPlayer } from "@/components/ads/VideoAdPlayer";
+import { AdPlayerShell } from "@/components/ads/AdVideoPlayer";
 import { UnderPlayerBanner } from "@/components/ads/UnderPlayerBanner";
 import { TvChannelChat } from "@/components/tv/TvChannelChat";
 import { PlaybackReportButton } from "@/components/player/PlaybackReportButton";
@@ -176,13 +176,13 @@ export default function Player() {
           <div className="min-w-0">
             {src ? (
               <div className="relative">
-                <VideoAdPlayer>
+                <AdPlayerShell>
                   {useIframePlayer || isEmbedUrl(src) ? (
                     <EmbedPlayer src={src} title={title} />
                   ) : (
                     <HlsPlayer src={src} poster={item.logo_url} subtitles={activeSubs} reactionChannelKey={reactionChannel} />
                   )}
-                </VideoAdPlayer>
+                </AdPlayerShell>
                 <FloatingReactions channelKey={`tv:${id}`} />
               </div>
             ) : (
@@ -297,7 +297,7 @@ export default function Player() {
       )}
       {src ? (
         <div className="relative">
-        <VideoAdPlayer>
+        <AdPlayerShell>
           {isMovie || isSeries ? (
             isEmbedUrl(src) ? (
               <EmbedPlayer src={src} title={title} poster={item.backdrop_url || item.poster_url} />
@@ -327,7 +327,7 @@ export default function Player() {
           ) : (
             <HlsPlayer src={src} poster={item.backdrop_url || item.poster_url} subtitles={activeSubs} introStart={introStart} introEnd={introEnd} reactionChannelKey={reactionChannel} />
           )}
-        </VideoAdPlayer>
+        </AdPlayerShell>
         <FloatingReactions channelKey={reactionChannel} />
         </div>
       ) : (

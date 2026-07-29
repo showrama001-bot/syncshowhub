@@ -5,47 +5,43 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Trash2, Plus, Save, Megaphone, Code2, Image as ImageIcon } from "lucide-react";
-import { AdAsset, AdsSettings, AdPlacement, DEFAULT_SETTINGS } from "@/lib/ads";
-
-const PLACEMENT_LABELS: Record<AdPlacement, string> = {
-  preroll: "Player Pre-roll Ad (YouTube-style, before content)",
-  midroll: "Player Mid-roll Ad (during playback)",
-  popup: "Click-Counter Popup Ad (triggers after N clicks)",
-  banner_header: "Header Banner (top of every page)",
-  banner_grid: "Section Banner (between Trending / Series / Grid)",
-  banner_under_player: "Under-Player Banner (below video)",
-  interstitial: "Interstitial / Redirect Banner",
-  reels: "Reels Feed Ad (every N reels, non-skippable)",
-};
-
-const PLACEMENTS = Object.keys(PLACEMENT_LABELS) as AdPlacement[];
+import { Megaphone, Save, Crown, Film, Tv, Plus, Trash2 } from "lucide-react";
+import { AdConfig, BreakAd, DEFAULT_AD_CONFIG, fetchAdConfig, formatClock } from "@/lib/ads";
 
 export default function AdsManager() {
-  const [settings, setSettings] = useState<AdsSettings>(DEFAULT_SETTINGS);
-  const [assets, setAssets] = useState<AdAsset[]>([]);
+  const [cfg, setCfg] = useState<AdConfig>(DEFAULT_AD_CONFIG);
   const [saving, setSaving] = useState(false);
 
-  const load = async () => {
-    const [{ data: s }, { data: a }] = await Promise.all([
-      (supabase.from("ads_settings" as any).select("*").eq("id", 1).maybeSingle() as any),
-      (supabase.from("ads_assets" as any).select("*").order("created_at", { ascending: false }) as any),
-    ]);
-    if (s) setSettings(s as AdsSettings);
-    if (a) setAssets(a as AdAsset[]);
+  useEffect(() => {
+    fetchAdConfig().then(setCfg);
+  }, []);
+
+  const set = <K extends keyof AdConfig>(key: K, value: AdConfig[K]) => setCfg((c) => ({ ...c, [key]: value }));
+
+  const save = async () => {
+    setSaving(true);
+    const { error } = await (supabase.from("ad_system" as any).update({ ...cfg }).eq("id", 1) as any);
+    setSaving(false);
+    if (error) toast.error(error.message);
+    else toast.success("Ad system saved");
   };
 
-  useEffect(() => { load(); }, []);
+  const addBreakAd = () =>
+    set("break_queue", [...cfg.break_queue, { id: crypto.randomUUID(), url: "", title: "", link: "" }]);
 
-  const saveSettings = async () => {
-    setSaving(true);
-    const { error } = await (supabase.from("ads_settings" as any).update(settings).eq("id", 1) as any);
-    setSaving(false);
-    if (error) toast.error(error.message); else toast.success("Ad settings saved");
+  const updateBreakAd = (id: string, patch: Partial<BreakAd>) =>
+    set("break_queue", cfg.break_queue.map((a) => (a.id === id ? { ...a, ...patch } : a)));
+
+  const removeBreakAd = (id: string) => set("break_queue", cfg.break_queue.filter((a) => a.id !== id));
+
+  const move = (index: number, dir: -1 | 1) => {
+    const next = [...cfg.break_queue];
+    const target = index + dir;
+    if (target < 0 || target >= next.length) return;
+    [next[index], next[target]] = [next[target], next[index]];
+    set("break_queue", next);
   };
 
   return (
@@ -53,322 +49,180 @@ export default function AdsManager() {
       <Card className="border-primary/40">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Megaphone className="h-5 w-5 text-primary" /> Master Ad Controls
+            <Megaphone className="h-5 w-5 text-primary" /> Advanced Ad System
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex items-center justify-between p-4 rounded-xl bg-primary/10 border border-primary/30">
-            <div>
-              <div className="font-semibold">Master Ads Switch</div>
-              <div className="text-xs text-muted-foreground">Globally enable or disable every ad on the platform.</div>
-            </div>
-            <Switch
-              checked={settings.master_enabled}
-              onCheckedChange={(v) => setSettings({ ...settings, master_enabled: v })}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <SettingRow
-              label="Pre-roll Ads Enabled"
-              checked={settings.preroll_enabled}
-              onCheckedChange={(v) => setSettings({ ...settings, preroll_enabled: v })}
-            />
-            <NumberField
-              label="Pre-roll Skip Countdown (sec)"
-              value={settings.preroll_skip_seconds}
-              onChange={(v) => setSettings({ ...settings, preroll_skip_seconds: v })}
-            />
-            <SettingRow
-              label="Mid-roll Ads Enabled"
-              checked={settings.midroll_enabled}
-              onCheckedChange={(v) => setSettings({ ...settings, midroll_enabled: v })}
-            />
-            <NumberField
-              label="Mid-roll Trigger After (sec of playback)"
-              value={settings.midroll_time_seconds}
-              onChange={(v) => setSettings({ ...settings, midroll_time_seconds: v })}
-            />
-            <NumberField
-              label="Mid-roll Skip Countdown (sec)"
-              value={settings.midroll_skip_seconds}
-              onChange={(v) => setSettings({ ...settings, midroll_skip_seconds: v })}
-            />
-            <SettingRow
-              label="Click-Counter Popup Enabled"
-              checked={settings.popup_enabled}
-              onCheckedChange={(v) => setSettings({ ...settings, popup_enabled: v })}
-            />
-            <NumberField
-              label="Popup Trigger — Every N Clicks"
-              value={settings.popup_click_threshold}
-              onChange={(v) => setSettings({ ...settings, popup_click_threshold: v })}
-            />
-            <NumberField
-              label="Popup Skip Countdown (sec)"
-              value={settings.popup_duration_seconds}
-              onChange={(v) => setSettings({ ...settings, popup_duration_seconds: v })}
-            />
-            <SettingRow
-              label="Section Banner Ads Enabled"
-              checked={settings.section_banner_enabled}
-              onCheckedChange={(v) => setSettings({ ...settings, section_banner_enabled: v })}
-            />
-            <SettingRow
-              label="Reels Feed Ads Enabled"
-              checked={settings.reels_ads_enabled}
-              onCheckedChange={(v) => setSettings({ ...settings, reels_ads_enabled: v })}
-            />
-            <NumberField
-              label="Reels Ad Frequency (every N reels)"
-              value={settings.reels_ad_every}
-              onChange={(v) => setSettings({ ...settings, reels_ad_every: v })}
-            />
-            <NumberField
-              label="Reels Ad Duration (sec, non-skippable)"
-              value={settings.reels_ad_duration}
-              onChange={(v) => setSettings({ ...settings, reels_ad_duration: v })}
-            />
-            <NumberField
-              label="Interstitial Wait (sec)"
-              value={settings.interstitial_seconds}
-              onChange={(v) => setSettings({ ...settings, interstitial_seconds: v })}
-            />
-            <SettingRow
-              label="Anti-AdBlock Detection"
-              checked={settings.antiadblock_enabled}
-              onCheckedChange={(v) => setSettings({ ...settings, antiadblock_enabled: v })}
-            />
-          </div>
-
-          <Button onClick={saveSettings} disabled={saving} className="bg-gradient-red shadow-neon">
-            <Save className="h-4 w-4" /> Save Settings
-          </Button>
-
-          <div className="space-y-2 pt-4 border-t border-border/40">
-            <Label className="text-sm font-semibold">Sitewide Global Ad Scripts</Label>
-            <p className="text-xs text-muted-foreground">
-              Paste Adsterra / PropellerAds Popunder, Social Bar, or Direct Link loaders. Injected once on every page.
-            </p>
-            <Textarea
-              value={settings.global_scripts ?? ""}
-              onChange={(e) => setSettings({ ...settings, global_scripts: e.target.value })}
-              placeholder={`<script src="//pl12345.example.com/invoke.js"></script>`}
-              className="font-mono text-xs min-h-[120px]"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label className="text-sm font-semibold">Anti-AdBlock Message</Label>
-            <Textarea
-              value={settings.antiadblock_message ?? ""}
-              onChange={(e) => setSettings({ ...settings, antiadblock_message: e.target.value })}
-              placeholder="Please whitelist our site to continue…"
-              className="min-h-[80px]"
-            />
-          </div>
+        <CardContent>
+          <Toggle
+            label="Master Ads Switch"
+            hint="Globally enable or disable every ad on the platform."
+            checked={cfg.master_enabled}
+            onChange={(v) => set("master_enabled", v)}
+          />
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Ad Assets</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <NewAssetForm onCreated={load} />
-          {PLACEMENTS.map((p) => {
-            const list = assets.filter((a) => a.placement === p);
-            return (
-              <div key={p} className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="uppercase tracking-wider">{p}</Badge>
-                  <span className="text-sm text-muted-foreground">{PLACEMENT_LABELS[p]}</span>
+      {/* 1 — External & banner ad networks */}
+      <Section title="1 · External & Banner Ad Networks" icon={<Megaphone className="h-5 w-5 text-primary" />}>
+        <Toggle label="Network & banner ads enabled" checked={cfg.network_enabled} onChange={(v) => set("network_enabled", v)} />
+        <Field label="Sitewide global script (popunder / social bar / loader)">
+          <Textarea
+            value={cfg.global_scripts}
+            onChange={(e) => set("global_scripts", e.target.value)}
+            placeholder={`<script src="//pl12345.example.com/invoke.js"></script>`}
+            className="font-mono text-xs min-h-[100px]"
+          />
+        </Field>
+        <Field label="Header banner script (top of every page)">
+          <Textarea value={cfg.header_banner_script} onChange={(e) => set("header_banner_script", e.target.value)} className="font-mono text-xs min-h-[80px]" />
+        </Field>
+        <Field label="Section / grid banner script (between content rows)">
+          <Textarea value={cfg.grid_banner_script} onChange={(e) => set("grid_banner_script", e.target.value)} className="font-mono text-xs min-h-[80px]" />
+        </Field>
+        <Field label="Under-player banner script">
+          <Textarea value={cfg.under_player_script} onChange={(e) => set("under_player_script", e.target.value)} className="font-mono text-xs min-h-[80px]" />
+        </Field>
+      </Section>
+
+      {/* 2 — VIP premium spots */}
+      <Section title="2 · VIP Premium Spots" icon={<Crown className="h-5 w-5 text-yellow-400" />}>
+        <Toggle label="VIP spots enabled" checked={cfg.vip_enabled} onChange={(v) => set("vip_enabled", v)} />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Field label="Pause Ad Banner — image URL (shown when the viewer pauses)">
+            <Input value={cfg.pause_banner_url ?? ""} onChange={(e) => set("pause_banner_url", e.target.value || null)} placeholder="https://…/pause-banner.jpg" />
+          </Field>
+          <Field label="Pause banner click URL">
+            <Input value={cfg.pause_banner_link ?? ""} onChange={(e) => set("pause_banner_link", e.target.value || null)} placeholder="https://advertiser.com" />
+          </Field>
+          <Field label="Hero VIP Banner — image URL (top of home page)">
+            <Input value={cfg.hero_banner_url ?? ""} onChange={(e) => set("hero_banner_url", e.target.value || null)} placeholder="https://…/hero.jpg" />
+          </Field>
+          <Field label="Hero banner click URL">
+            <Input value={cfg.hero_banner_link ?? ""} onChange={(e) => set("hero_banner_link", e.target.value || null)} />
+          </Field>
+          <Field label="Room Takeover Background — image URL (watch rooms)">
+            <Input value={cfg.room_takeover_url ?? ""} onChange={(e) => set("room_takeover_url", e.target.value || null)} placeholder="https://…/takeover.jpg" />
+          </Field>
+        </div>
+        <PreviewRow urls={[cfg.pause_banner_url, cfg.hero_banner_url, cfg.room_takeover_url]} />
+      </Section>
+
+      {/* 3 — Timeline video ads */}
+      <Section title="3 · Timeline Video Ads" icon={<Film className="h-5 w-5 text-primary" />}>
+        <Toggle label="Pre-roll & post-roll enabled" checked={cfg.timeline_enabled} onChange={(v) => set("timeline_enabled", v)} />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Field label="Pre-roll video URL (plays before the movie)">
+            <Input value={cfg.preroll_url ?? ""} onChange={(e) => set("preroll_url", e.target.value || null)} placeholder="https://…/preroll.mp4" />
+          </Field>
+          <Field label="Pre-roll click URL">
+            <Input value={cfg.preroll_link ?? ""} onChange={(e) => set("preroll_link", e.target.value || null)} />
+          </Field>
+          <Field label="Post-roll video URL (plays when the movie ends)">
+            <Input value={cfg.postroll_url ?? ""} onChange={(e) => set("postroll_url", e.target.value || null)} placeholder="https://…/postroll.mp4" />
+          </Field>
+          <Field label="Post-roll click URL">
+            <Input value={cfg.postroll_link ?? ""} onChange={(e) => set("postroll_link", e.target.value || null)} />
+          </Field>
+          <Field label="Skip Ad Timer (seconds)">
+            <Input type="number" min={0} value={cfg.skip_seconds} onChange={(e) => set("skip_seconds", Number(e.target.value) || 0)} />
+          </Field>
+        </div>
+      </Section>
+
+      {/* 4 — TV commercial break */}
+      <Section title="4 · TV Commercial Break (Mid-roll Queue)" icon={<Tv className="h-5 w-5 text-primary" />}>
+        <Toggle label="Commercial break enabled" checked={cfg.break_enabled} onChange={(v) => set("break_enabled", v)} />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <Field label={`Trigger time (seconds into the movie) — ${formatClock(cfg.break_trigger_seconds)}`}>
+            <Input type="number" min={5} value={cfg.break_trigger_seconds} onChange={(e) => set("break_trigger_seconds", Number(e.target.value) || 0)} />
+          </Field>
+          <Field label="Static Hook Image URL (break intro screen)">
+            <Input value={cfg.hook_image_url ?? ""} onChange={(e) => set("hook_image_url", e.target.value || null)} placeholder="https://…/break-logo.jpg" />
+          </Field>
+          <Field label="Hook image duration (seconds)">
+            <Input type="number" min={1} value={cfg.hook_duration_seconds} onChange={(e) => set("hook_duration_seconds", Number(e.target.value) || 5)} />
+          </Field>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-semibold">Ad Playlist (plays in order, then the movie resumes)</Label>
+            <Button type="button" size="sm" variant="outline" onClick={addBreakAd} className="glass">
+              <Plus className="h-4 w-4" /> Add ad
+            </Button>
+          </div>
+          {cfg.break_queue.length === 0 && (
+            <div className="text-xs text-muted-foreground italic">No ads queued yet.</div>
+          )}
+          {cfg.break_queue.map((ad, i) => (
+            <div key={ad.id} className="p-3 rounded-xl border border-border/40 bg-secondary/20 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-widest text-primary">Ad {i + 1}</span>
+                <div className="flex items-center gap-1">
+                  <Button type="button" size="sm" variant="ghost" onClick={() => move(i, -1)} disabled={i === 0}>↑</Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => move(i, 1)} disabled={i === cfg.break_queue.length - 1}>↓</Button>
+                  <Button type="button" size="icon" variant="ghost" className="text-destructive" onClick={() => removeBreakAd(ad.id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
-                {list.length === 0 ? (
-                  <div className="text-xs text-muted-foreground italic px-2">No assets yet.</div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {list.map((a) => (
-                      <AssetCard key={a.id} asset={a} onChanged={load} />
-                    ))}
-                  </div>
-                )}
               </div>
-            );
-          })}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-function SettingRow({ label, checked, onCheckedChange }: { label: string; checked: boolean; onCheckedChange: (v: boolean) => void }) {
-  return (
-    <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/40 border border-border/40">
-      <Label className="text-sm">{label}</Label>
-      <Switch checked={checked} onCheckedChange={onCheckedChange} />
-    </div>
-  );
-}
-
-function NumberField({ label, value, onChange }: { label: string; value: number; onChange: (n: number) => void }) {
-  return (
-    <div className="space-y-1">
-      <Label className="text-xs text-muted-foreground">{label}</Label>
-      <Input type="number" min={0} value={value} onChange={(e) => onChange(Number(e.target.value) || 0)} />
-    </div>
-  );
-}
-
-function NewAssetForm({ onCreated }: { onCreated: () => void }) {
-  const [placement, setPlacement] = useState<AdPlacement>("banner_grid");
-  const [ad_mode, setAdMode] = useState<"direct" | "script">("direct");
-  const [media_type, setMediaType] = useState<"video" | "image">("image");
-  const [media_url, setMediaUrl] = useState("");
-  const [script_code, setScriptCode] = useState("");
-  const [redirect_url, setRedirectUrl] = useState("");
-  const [title, setTitle] = useState("");
-  const [weight, setWeight] = useState(1);
-  const [busy, setBusy] = useState(false);
-
-  const submit = async () => {
-    if (ad_mode === "direct" && !media_url) { toast.error("Media URL required"); return; }
-    if (ad_mode === "script" && !script_code.trim()) { toast.error("Script / HTML snippet required"); return; }
-    setBusy(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    const { error } = await (supabase.from("ads_assets" as any).insert({
-      placement,
-      ad_mode,
-      media_type,
-      media_url: ad_mode === "direct" ? media_url : null,
-      script_code: ad_mode === "script" ? script_code : null,
-      redirect_url: redirect_url || null,
-      title: title || null,
-      weight,
-      active: true,
-      created_by: user?.id,
-    }) as any);
-    setBusy(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Ad asset added");
-    setMediaUrl(""); setScriptCode(""); setRedirectUrl(""); setTitle(""); setWeight(1);
-    onCreated();
-  };
-
-  return (
-    <div className="p-4 rounded-xl border border-dashed border-primary/40 bg-secondary/20 space-y-3">
-      <div className="flex items-center gap-2 font-semibold"><Plus className="h-4 w-4" /> Add new ad asset</div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div>
-          <Label className="text-xs">Placement</Label>
-          <Select value={placement} onValueChange={(v) => setPlacement(v as AdPlacement)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {PLACEMENTS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label className="text-xs">Ad Source Mode</Label>
-          <Select value={ad_mode} onValueChange={(v) => setAdMode(v as any)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="direct">Direct media (MP4 / image URL)</SelectItem>
-              <SelectItem value="script">Network script / HTML / iframe</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        {ad_mode === "direct" ? (
-          <>
-            <div>
-              <Label className="text-xs">Media Type</Label>
-              <Select value={media_type} onValueChange={(v) => setMediaType(v as any)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="image">Image (banner)</SelectItem>
-                  <SelectItem value="video">Video (mp4)</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <Input value={ad.url} onChange={(e) => updateBreakAd(ad.id, { url: e.target.value })} placeholder="Video URL (mp4)" />
+                <Input value={ad.title ?? ""} onChange={(e) => updateBreakAd(ad.id, { title: e.target.value })} placeholder="Title (internal)" />
+                <Input value={ad.link ?? ""} onChange={(e) => updateBreakAd(ad.id, { link: e.target.value })} placeholder="Click URL" />
+              </div>
             </div>
-            <div>
-              <Label className="text-xs">Click-through URL (redirect)</Label>
-              <Input value={redirect_url} onChange={(e) => setRedirectUrl(e.target.value)} placeholder="https://advertiser.com" />
-            </div>
-            <div className="md:col-span-2">
-              <Label className="text-xs">Media URL</Label>
-              <Input value={media_url} onChange={(e) => setMediaUrl(e.target.value)} placeholder="https://…/banner.jpg or ad.mp4" />
-            </div>
-          </>
-        ) : (
-          <div className="md:col-span-2">
-            <Label className="text-xs flex items-center gap-1"><Code2 className="h-3 w-3" /> Ad Network Snippet (HTML / JS / iframe / VAST)</Label>
-            <Textarea
-              value={script_code}
-              onChange={(e) => setScriptCode(e.target.value)}
-              placeholder={`<script async src="//www.example-ads.com/tag.js" data-zone="12345"></script>`}
-              className="font-mono text-xs min-h-[120px]"
-            />
-          </div>
-        )}
-        <div>
-          <Label className="text-xs">Title (internal)</Label>
-          <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+          ))}
         </div>
-        <div>
-          <Label className="text-xs">Weight (rotation)</Label>
-          <Input type="number" min={1} value={weight} onChange={(e) => setWeight(Number(e.target.value) || 1)} />
-        </div>
-      </div>
-      <Button onClick={submit} disabled={busy} className="bg-gradient-red shadow-neon">
-        <Plus className="h-4 w-4" /> Add Asset
+      </Section>
+
+      <Button onClick={save} disabled={saving} className="bg-gradient-red shadow-neon">
+        <Save className="h-4 w-4" /> Save Ad System
       </Button>
     </div>
   );
 }
 
-function AssetCard({ asset, onChanged }: { asset: AdAsset; onChanged: () => void }) {
-  const toggle = async () => {
-    await (supabase.from("ads_assets" as any).update({ active: !asset.active }).eq("id", asset.id) as any);
-    onChanged();
-  };
-  const remove = async () => {
-    if (!confirm("Delete this ad asset?")) return;
-    await (supabase.from("ads_assets" as any).delete().eq("id", asset.id) as any);
-    onChanged();
-  };
+function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-border/40 bg-card overflow-hidden">
-      <div className="aspect-video bg-black grid place-items-center">
-        {asset.ad_mode === "script" ? (
-          <div className="text-center p-3 text-xs text-muted-foreground">
-            <Code2 className="h-6 w-6 mx-auto mb-1 text-primary" />
-            Network script ad
-          </div>
-        ) : asset.media_type === "image" && asset.media_url ? (
-          <img src={asset.media_url} alt={asset.title ?? ""} className="w-full h-full object-cover" />
-        ) : asset.media_url ? (
-          <video src={asset.media_url} muted className="w-full h-full object-cover" />
-        ) : (
-          <ImageIcon className="h-6 w-6 text-muted-foreground" />
-        )}
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">{icon} {title}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">{children}</CardContent>
+    </Card>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1">
+      <Label className="text-xs text-muted-foreground">{label}</Label>
+      {children}
+    </div>
+  );
+}
+
+function Toggle({ label, hint, checked, onChange }: { label: string; hint?: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/40 border border-border/40">
+      <div>
+        <Label className="text-sm">{label}</Label>
+        {hint && <div className="text-xs text-muted-foreground">{hint}</div>}
       </div>
-      <div className="p-3 space-y-2">
-        <div className="text-sm font-medium truncate">
-          {asset.title || asset.media_url || (asset.ad_mode === "script" ? "Script ad" : "Ad")}
-        </div>
-        {asset.redirect_url && (
-          <div className="text-[11px] text-muted-foreground truncate">→ {asset.redirect_url}</div>
-        )}
-        <div className="flex items-center justify-between pt-2">
-          <div className="flex items-center gap-2">
-            <Switch checked={asset.active} onCheckedChange={toggle} />
-            <span className="text-xs">{asset.active ? "Active" : "Paused"}</span>
-          </div>
-          <Button variant="ghost" size="icon" onClick={remove} className="text-destructive">
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+      <Switch checked={checked} onCheckedChange={onChange} />
+    </div>
+  );
+}
+
+function PreviewRow({ urls }: { urls: (string | null)[] }) {
+  const list = urls.filter(Boolean) as string[];
+  if (!list.length) return null;
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      {list.map((u) => (
+        <img key={u} src={u} alt="" className="w-full h-28 object-cover rounded-lg border border-border/40 bg-black" />
+      ))}
     </div>
   );
 }

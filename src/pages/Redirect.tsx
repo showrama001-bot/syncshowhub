@@ -1,16 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { useAds } from "@/components/ads/AdsProvider";
+import { GridBanner } from "@/components/ads/GridBanner";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 
 export default function RedirectPage() {
   const [params] = useSearchParams();
   const target = params.get("to") || "";
-  const { settings, pick, enabled } = useAds();
-  const wait = enabled ? settings.interstitial_seconds : 0;
+  const { enabled } = useAds();
+  const wait = enabled ? 5 : 0;
   const [count, setCount] = useState(wait);
-  const topAd = useMemo(() => pick("interstitial") || pick("banner_grid"), [pick]);
-  const bottomAd = useMemo(() => pick("interstitial") || pick("banner_grid"), [pick]);
 
   useEffect(() => {
     setCount(wait);
@@ -28,15 +27,7 @@ export default function RedirectPage() {
       </Link>
       <h1 className="font-display text-2xl md:text-4xl tracking-wider mb-6 neon-text">Redirecting…</h1>
 
-      {topAd && (
-        <a href={topAd.redirect_url || "#"} target="_blank" rel="noopener noreferrer" className="block mb-6">
-          {topAd.media_type === "image" ? (
-            <img src={topAd.media_url} alt="" className="w-full max-h-40 object-cover rounded-xl border border-border/40" />
-          ) : (
-            <video src={topAd.media_url} autoPlay muted loop playsInline className="w-full max-h-60 object-cover rounded-xl border border-border/40" />
-          )}
-        </a>
-      )}
+      <div className="mb-6"><GridBanner /></div>
 
       <div className="glass rounded-2xl p-6 md:p-10 text-center border border-border/40">
         {!valid ? (
@@ -63,15 +54,7 @@ export default function RedirectPage() {
         )}
       </div>
 
-      {bottomAd && (
-        <a href={bottomAd.redirect_url || "#"} target="_blank" rel="noopener noreferrer" className="block mt-6">
-          {bottomAd.media_type === "image" ? (
-            <img src={bottomAd.media_url} alt="" className="w-full max-h-40 object-cover rounded-xl border border-border/40" />
-          ) : (
-            <video src={bottomAd.media_url} autoPlay muted loop playsInline className="w-full max-h-60 object-cover rounded-xl border border-border/40" />
-          )}
-        </a>
-      )}
+      <div className="mt-6"><GridBanner /></div>
     </div>
   );
 }
