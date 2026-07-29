@@ -401,6 +401,7 @@ export default function Watch() {
                 src={src}
                 poster={room.poster_url || undefined}
                 isHost={isHost}
+                hostId={room.host_id}
                 subtitles={subtitles}
                 introStart={introStart}
                 introEnd={introEnd}
