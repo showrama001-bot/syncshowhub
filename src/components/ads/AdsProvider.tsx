@@ -1,55 +1,36 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { AdAsset, AdsSettings, DEFAULT_SETTINGS, fetchAdsAssets, fetchAdsSettings, pickWeighted, AdPlacement } from "@/lib/ads";
+import { AdConfig, DEFAULT_AD_CONFIG, fetchAdConfig } from "@/lib/ads";
 
 interface Ctx {
-  settings: AdsSettings;
-  assets: AdAsset[];
+  config: AdConfig;
   enabled: boolean;
-  pick: (placement: AdPlacement) => AdAsset | null;
   refresh: () => Promise<void>;
-  registerClick: () => void;
-  clickCount: number;
 }
 
 const AdsCtx = createContext<Ctx | null>(null);
 
 export const AdsProvider = ({ children }: { children: ReactNode }) => {
-  const [settings, setSettings] = useState<AdsSettings>(DEFAULT_SETTINGS);
-  const [assets, setAssets] = useState<AdAsset[]>([]);
-  const [clickCount, setClickCount] = useState(0);
+  const [config, setConfig] = useState<AdConfig>(DEFAULT_AD_CONFIG);
 
   const refresh = useCallback(async () => {
-    const [s, a] = await Promise.all([fetchAdsSettings(), fetchAdsAssets()]);
-    setSettings(s);
-    setAssets(a);
+    setConfig(await fetchAdConfig());
   }, []);
 
   useEffect(() => {
     refresh();
     const ch = supabase
-      .channel("ads-live")
-      .on("postgres_changes", { event: "*", schema: "public", table: "ads_settings" }, () => refresh())
-      .on("postgres_changes", { event: "*", schema: "public", table: "ads_assets" }, () => refresh())
+      .channel("ad-system-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "ad_system" }, () => refresh())
       .subscribe();
     return () => {
       supabase.removeChannel(ch);
     };
   }, [refresh]);
 
-  const registerClick = useCallback(() => setClickCount((c) => c + 1), []);
-
   const value = useMemo<Ctx>(
-    () => ({
-      settings,
-      assets,
-      enabled: settings.master_enabled,
-      pick: (p) => pickWeighted(assets, p),
-      refresh,
-      registerClick,
-      clickCount,
-    }),
-    [settings, assets, refresh, registerClick, clickCount],
+    () => ({ config, enabled: config.master_enabled, refresh }),
+    [config, refresh],
   );
 
   return <AdsCtx.Provider value={value}>{children}</AdsCtx.Provider>;
