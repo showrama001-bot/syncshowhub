@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Clapperboard } from "lucide-react";
+import { Clapperboard, Play } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 
 type Trailer = {
   id: string;
@@ -23,6 +24,7 @@ export default function Trailers() {
   const [rows, setRows] = useState<Trailer[]>([]);
   const [q, setQ] = useState("");
   const [loading, setLoading] = useState(true);
+  const [active, setActive] = useState<Trailer | null>(null);
   const [searchParams] = useSearchParams();
   const targetId = searchParams.get("id");
   const targetRef = useRef<HTMLDivElement | null>(null);
@@ -84,22 +86,30 @@ export default function Trailers() {
                   isTarget ? "border-primary shadow-neon ring-2 ring-primary/60" : "border-border/40"
                 }`}
               >
-                <div className="relative aspect-video bg-black">
-                  {yt ? (
-                    <iframe
-                      src={`https://www.youtube.com/embed/${yt}${isTarget ? "?autoplay=1" : ""}`}
-                      title={t.movie_title ?? "Trailer"}
+                {yt ? (
+                  <button
+                    type="button"
+                    onClick={() => setActive(t)}
+                    aria-label={`Play trailer for ${t.movie_title ?? "Untitled"}`}
+                    className="group relative aspect-video w-full bg-black block"
+                  >
+                    <img
+                      src={`https://i.ytimg.com/vi/${yt}/hqdefault.jpg`}
+                      alt={`${t.movie_title ?? "Trailer"} cover`}
                       loading="lazy"
-                      allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                      className="w-full h-full"
+                      className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition"
                     />
-                  ) : (
-                    <div className="w-full h-full grid place-items-center text-muted-foreground text-xs">
-                      No preview
-                    </div>
-                  )}
-                </div>
+                    <span className="absolute inset-0 grid place-items-center bg-black/30 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition">
+                      <span className="h-14 w-14 rounded-full bg-primary/90 grid place-items-center shadow-neon">
+                        <Play className="h-6 w-6 text-primary-foreground fill-current" />
+                      </span>
+                    </span>
+                  </button>
+                ) : (
+                  <div className="aspect-video w-full grid place-items-center bg-black text-muted-foreground text-xs">
+                    No preview
+                  </div>
+                )}
                 <div className="p-3">
                   <p className="text-sm font-medium truncate">{t.movie_title ?? "Untitled"}</p>
                   <p className="text-xs text-muted-foreground capitalize">{t.kind ?? "movie"}</p>
@@ -109,6 +119,24 @@ export default function Trailers() {
           })}
         </div>
       )}
+
+      <Dialog open={!!active} onOpenChange={(v) => !v && setActive(null)}>
+        <DialogContent className="max-w-5xl w-[95vw] p-0 bg-black border-border/40 overflow-hidden">
+          <DialogTitle className="sr-only">{active?.movie_title ?? "Trailer"}</DialogTitle>
+          {active && (
+            <div className="aspect-video w-full bg-black">
+              <iframe
+                key={active.id}
+                src={`https://www.youtube.com/embed/${youtubeId(active.youtube_url)}?autoplay=1&rel=0&controls=1&modestbranding=1`}
+                title={active.movie_title ?? "Trailer"}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                allowFullScreen
+                className="w-full h-full"
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
