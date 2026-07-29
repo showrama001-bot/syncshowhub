@@ -1,3 +1,5 @@
+import { sanitizeMessage, sanitizeBody, sanitizeTitle, sanitizeUrl } from "@/lib/sanitize";
+import { checkRate, RATE_RULES, rateMessage } from "@/lib/submitGuard";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Newspaper, Heart, MessageCircle, ImagePlus, Send, Trash2, Film, Clapperboard, PlaySquare, Search, X, Loader2 } from "lucide-react";
@@ -108,15 +110,20 @@ export default function Accueil() {
 
   const submit = async () => {
     if (!user) return toast.error("Sign in to post");
-    if (!content.trim() && !imageUrl.trim() && !attachment) return;
+    const cleanContent = sanitizeBody(content);
+    const cleanImage = sanitizeUrl(imageUrl);
+    if (!cleanContent && !cleanImage && !attachment) return;
+    if (imageUrl.trim() && !cleanImage) return toast.error("Image link must be a valid http(s) URL");
+    const rl = checkRate(`post:${user.id}`, RATE_RULES.post);
+    if (!rl.ok) return toast.error(rateMessage(rl));
     setPosting(true);
     const { error } = await (supabase.from("feed_posts" as any) as any).insert({
       user_id: user.id,
-      content: content.trim() || null,
-      image_url: imageUrl.trim() || null,
+      content: cleanContent || null,
+      image_url: cleanImage,
       attachment_kind: attachment?.kind ?? null,
       attachment_id: attachment?.id ?? null,
-      attachment_title: attachment?.title ?? null,
+      attachment_title: attachment?.title ? sanitizeTitle(attachment.title) : null,
       attachment_thumb: attachment?.thumb ?? null,
     });
     setPosting(false);
@@ -294,8 +301,11 @@ function PostCard({ post, onLike, onDelete, me }: { post: Post; onLike: () => vo
   }, [showComments, post.id, post.comment_count]);
 
   const send = async () => {
-    if (!me || !text.trim()) return;
-    await (supabase.from("feed_comments" as any) as any).insert({ post_id: post.id, user_id: me, content: text.trim().slice(0, 500) });
+    const content = sanitizeMessage(text);
+    if (!me || !content) return;
+    const rl = checkRate(`comment:${post.id}`, RATE_RULES.comment);
+    if (!rl.ok) return toast.error(rateMessage(rl));
+    await (supabase.from("feed_comments" as any) as any).insert({ post_id: post.id, user_id: me, content });
     setText("");
   };
 

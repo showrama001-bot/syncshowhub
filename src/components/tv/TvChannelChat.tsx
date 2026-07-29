@@ -1,3 +1,5 @@
+import { sanitizeMessage, sanitizeBody, sanitizeTitle, sanitizeUrl } from "@/lib/sanitize";
+import { checkRate, RATE_RULES, rateMessage } from "@/lib/submitGuard";
 import { useEffect, useRef, useState, FormEvent } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -94,8 +96,10 @@ export const TvChannelChat = ({ channelId }: { channelId: string }) => {
 
   const send = async (e: FormEvent) => {
     e.preventDefault();
-    const content = text.trim();
+    const content = sanitizeMessage(text);
     if (!content || !user) return;
+    const rl = checkRate(`tvchat:${channelId}`, RATE_RULES.chat);
+    if (!rl.ok) return toast.error(rateMessage(rl));
     setSending(true);
     const { error } = await supabase
       .from("tv_channel_messages")
