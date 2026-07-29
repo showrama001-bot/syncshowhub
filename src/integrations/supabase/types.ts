@@ -50,123 +50,90 @@ export type Database = {
         }
         Relationships: []
       }
-      ads_assets: {
+      ad_system: {
         Row: {
-          active: boolean
-          ad_mode: string
+          break_enabled: boolean
+          break_queue: Json
+          break_trigger_seconds: number
           created_at: string
-          created_by: string | null
-          id: string
-          media_type: string
-          media_url: string | null
-          placement: Database["public"]["Enums"]["ad_placement"]
-          redirect_url: string | null
-          script_code: string | null
-          title: string | null
-          updated_at: string
-          weight: number
-        }
-        Insert: {
-          active?: boolean
-          ad_mode?: string
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          media_type: string
-          media_url?: string | null
-          placement: Database["public"]["Enums"]["ad_placement"]
-          redirect_url?: string | null
-          script_code?: string | null
-          title?: string | null
-          updated_at?: string
-          weight?: number
-        }
-        Update: {
-          active?: boolean
-          ad_mode?: string
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          media_type?: string
-          media_url?: string | null
-          placement?: Database["public"]["Enums"]["ad_placement"]
-          redirect_url?: string | null
-          script_code?: string | null
-          title?: string | null
-          updated_at?: string
-          weight?: number
-        }
-        Relationships: []
-      }
-      ads_settings: {
-        Row: {
-          antiadblock_enabled: boolean
-          antiadblock_message: string | null
-          created_at: string
-          global_scripts: string | null
+          global_scripts: string
+          grid_banner_script: string
+          header_banner_script: string
+          hero_banner_link: string | null
+          hero_banner_url: string | null
+          hook_duration_seconds: number
+          hook_image_url: string | null
           id: number
-          interstitial_seconds: number
           master_enabled: boolean
-          midroll_enabled: boolean
-          midroll_skip_seconds: number
-          midroll_time_seconds: number
-          popup_click_threshold: number
-          popup_duration_seconds: number
-          popup_enabled: boolean
-          popup_interval_seconds: number
-          preroll_enabled: boolean
-          preroll_skip_seconds: number
-          reels_ad_duration: number
-          reels_ad_every: number
-          reels_ads_enabled: boolean
-          section_banner_enabled: boolean
+          network_enabled: boolean
+          pause_banner_link: string | null
+          pause_banner_url: string | null
+          postroll_link: string | null
+          postroll_url: string | null
+          preroll_link: string | null
+          preroll_url: string | null
+          room_takeover_url: string | null
+          skip_seconds: number
+          timeline_enabled: boolean
+          under_player_script: string
           updated_at: string
+          vip_enabled: boolean
         }
         Insert: {
-          antiadblock_enabled?: boolean
-          antiadblock_message?: string | null
+          break_enabled?: boolean
+          break_queue?: Json
+          break_trigger_seconds?: number
           created_at?: string
-          global_scripts?: string | null
+          global_scripts?: string
+          grid_banner_script?: string
+          header_banner_script?: string
+          hero_banner_link?: string | null
+          hero_banner_url?: string | null
+          hook_duration_seconds?: number
+          hook_image_url?: string | null
           id?: number
-          interstitial_seconds?: number
           master_enabled?: boolean
-          midroll_enabled?: boolean
-          midroll_skip_seconds?: number
-          midroll_time_seconds?: number
-          popup_click_threshold?: number
-          popup_duration_seconds?: number
-          popup_enabled?: boolean
-          popup_interval_seconds?: number
-          preroll_enabled?: boolean
-          preroll_skip_seconds?: number
-          reels_ad_duration?: number
-          reels_ad_every?: number
-          reels_ads_enabled?: boolean
-          section_banner_enabled?: boolean
+          network_enabled?: boolean
+          pause_banner_link?: string | null
+          pause_banner_url?: string | null
+          postroll_link?: string | null
+          postroll_url?: string | null
+          preroll_link?: string | null
+          preroll_url?: string | null
+          room_takeover_url?: string | null
+          skip_seconds?: number
+          timeline_enabled?: boolean
+          under_player_script?: string
           updated_at?: string
+          vip_enabled?: boolean
         }
         Update: {
-          antiadblock_enabled?: boolean
-          antiadblock_message?: string | null
+          break_enabled?: boolean
+          break_queue?: Json
+          break_trigger_seconds?: number
           created_at?: string
-          global_scripts?: string | null
+          global_scripts?: string
+          grid_banner_script?: string
+          header_banner_script?: string
+          hero_banner_link?: string | null
+          hero_banner_url?: string | null
+          hook_duration_seconds?: number
+          hook_image_url?: string | null
           id?: number
-          interstitial_seconds?: number
           master_enabled?: boolean
-          midroll_enabled?: boolean
-          midroll_skip_seconds?: number
-          midroll_time_seconds?: number
-          popup_click_threshold?: number
-          popup_duration_seconds?: number
-          popup_enabled?: boolean
-          popup_interval_seconds?: number
-          preroll_enabled?: boolean
-          preroll_skip_seconds?: number
-          reels_ad_duration?: number
-          reels_ad_every?: number
-          reels_ads_enabled?: boolean
-          section_banner_enabled?: boolean
+          network_enabled?: boolean
+          pause_banner_link?: string | null
+          pause_banner_url?: string | null
+          postroll_link?: string | null
+          postroll_url?: string | null
+          preroll_link?: string | null
+          preroll_url?: string | null
+          room_takeover_url?: string | null
+          skip_seconds?: number
+          timeline_enabled?: boolean
+          under_player_script?: string
           updated_at?: string
+          vip_enabled?: boolean
         }
         Relationships: []
       }
@@ -1909,13 +1876,6 @@ export type Database = {
       }
     }
     Enums: {
-      ad_placement:
-        | "preroll"
-        | "popup"
-        | "banner_header"
-        | "banner_grid"
-        | "banner_under_player"
-        | "interstitial"
       app_role: "admin" | "user" | "pending_streamer" | "approved_streamer"
       friendship_status: "pending" | "accepted" | "declined" | "blocked"
     }
@@ -2045,14 +2005,6 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      ad_placement: [
-        "preroll",
-        "popup",
-        "banner_header",
-        "banner_grid",
-        "banner_under_player",
-        "interstitial",
-      ],
       app_role: ["admin", "user", "pending_streamer", "approved_streamer"],
       friendship_status: ["pending", "accepted", "declined", "blocked"],
     },
