@@ -62,7 +62,7 @@ export function checkRate(key: string, rule: RateRule = RATE_RULES.form): RateRe
 }
 
 /** Human-friendly message for a blocked attempt. */
-export function rateMessage(res: Extract<RateResult, { ok: false }>): string {
-  const secs = Math.ceil(res.retryInMs / 1000);
+export function rateMessage(res: RateResult): string {
+  const secs = Math.ceil((res.ok ? 0 : res.retryInMs) / 1000);
   return `Slow down — try again in ${secs}s.`;
 }

@@ -301,8 +301,11 @@ function PostCard({ post, onLike, onDelete, me }: { post: Post; onLike: () => vo
   }, [showComments, post.id, post.comment_count]);
 
   const send = async () => {
-    if (!me || !text.trim()) return;
-    await (supabase.from("feed_comments" as any) as any).insert({ post_id: post.id, user_id: me, content: text.trim().slice(0, 500) });
+    const content = sanitizeMessage(text);
+    if (!me || !content) return;
+    const rl = checkRate(`comment:${post.id}`, RATE_RULES.comment);
+    if (!rl.ok) return toast.error(rateMessage(rl));
+    await (supabase.from("feed_comments" as any) as any).insert({ post_id: post.id, user_id: me, content });
     setText("");
   };
 
