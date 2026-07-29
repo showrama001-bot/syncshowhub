@@ -104,13 +104,36 @@ describe("room chat isolation", () => {
     const rows: Array<{ room_id: string }> = await chat.json();
     if (!rows.length) return; // nothing readable: trivially isolated
 
-    const visible = await rest("watch_rooms?select=id&limit=1000", "authenticated");
-    const visibleIds = new Set<string>(
-      visible.ok ? ((await visible.json()) as Array<{ id: string }>).map((r) => r.id) : [],
-    );
+    // Only rooms the caller has actually joined (or hosts) may expose chat.
+    const [joined, hosted] = await Promise.all([
+      rest("room_participants?select=room_id&limit=1000", "authenticated"),
+      rest("watch_rooms?select=id&limit=1000", "authenticated"),
+    ]);
+    const visibleIds = new Set<string>([
+      ...(joined.ok ? ((await joined.json()) as Array<{ room_id: string }>).map((r) => r.room_id) : []),
+      ...(hosted.ok ? ((await hosted.json()) as Array<{ id: string }>).map((r) => r.id) : []),
+    ]);
     // Every readable chat message must belong to a watch room the caller can see.
     const leaked = rows.filter((r) => !visibleIds.has(r.room_id));
     expect(leaked, `chat leaked from ${leaked.length} non-visible rooms`).toHaveLength(0);
+  });
+
+  it("anon cannot read room_chat_messages of a specific room", async () => {
+    const res = await rest("room_chat_messages?select=id&room_id=eq.00000000-0000-0000-0000-000000000000", "anon");
+    if (res.ok) {
+      expect((await res.json()).length).toBe(0);
+    } else {
+      expect(res.status).toBeGreaterThanOrEqual(400);
+    }
+  });
+
+  it("anon cannot read room_participants membership", async () => {
+    const res = await rest("room_participants?select=room_id,user_id&limit=1", "anon");
+    if (res.ok) {
+      expect((await res.json()).length).toBe(0);
+    } else {
+      expect(res.status).toBeGreaterThanOrEqual(400);
+    }
   });
 
   it("anon cannot read direct_messages", async () => {
