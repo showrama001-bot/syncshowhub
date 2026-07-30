@@ -166,7 +166,8 @@ export const AdPlayerShell = ({ children }: { children: ReactNode }) => {
     if (stage !== "break") return;
     if (queue.length === 0 || !queue[queueIdx]) {
       setStage("idle");
-      resumeContent(resumeAtRef.current);
+      const at = resumeAtRef.current;
+      setTimeout(() => resumeContent(at), 0);
     }
   }, [stage, queue.length, queueIdx, resumeContent]);
 
@@ -199,7 +200,9 @@ export const AdPlayerShell = ({ children }: { children: ReactNode }) => {
       setQueueIdx((i) => i + 1);
     } else {
       setStage("idle");
-      resumeContent(resumeAtRef.current);
+      const at = resumeAtRef.current;
+      // Defer so the hold listeners are torn down before we resume.
+      setTimeout(() => resumeContent(at), 0);
     }
   };
 
