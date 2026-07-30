@@ -180,7 +180,8 @@ export const AdPlayerShell = ({ children }: { children: ReactNode }) => {
 
   const finishPreroll = () => {
     setStage("idle");
-    resumeContent(0);
+    // Defer so the pre-roll hold listeners are torn down before we play.
+    setTimeout(() => resumeContent(0), 0);
   };
 
   const nextBreakAd = () => {
