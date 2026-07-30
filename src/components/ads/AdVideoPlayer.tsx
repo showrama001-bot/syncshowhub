@@ -27,6 +27,7 @@ export const AdPlayerShell = ({ children }: { children: ReactNode }) => {
   const [skipLeft, setSkipLeft] = useState(0);
   const [hookLeft, setHookLeft] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [ended, setEnded] = useState(false);
 
   const timeline = enabled && config.timeline_enabled;
   const hasPre = Boolean(timeline && config.preroll_url);
@@ -70,7 +71,10 @@ export const AdPlayerShell = ({ children }: { children: ReactNode }) => {
     if (!v) return;
 
     const onPause = () => setPaused(true);
-    const onPlay = () => setPaused(false);
+    const onPlay = () => {
+      setPaused(false);
+      setEnded(false);
+    };
 
     const onTime = () => {
       if (stage !== "idle" || breakDoneRef.current || !queue.length) return;
@@ -89,6 +93,7 @@ export const AdPlayerShell = ({ children }: { children: ReactNode }) => {
     };
 
     const onEnded = () => {
+      setEnded(true);
       if (stage !== "idle") return;
       if (hasPost) {
         setSkipLeft(Math.max(0, config.skip_seconds || 0));
@@ -119,17 +124,18 @@ export const AdPlayerShell = ({ children }: { children: ReactNode }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasPre]);
 
-  // Hard-hold the content video while the pre-roll overlay is on screen:
+  // Hard-hold the content video while ANY blocking ad overlay is on screen:
   // mute it and re-pause on any autoplay attempt from the child player.
   useEffect(() => {
-    if (stage !== "preroll") return;
+    if (stage !== "preroll" && stage !== "hook" && stage !== "break") return;
+    const seekToStart = stage === "preroll";
     let cancelled = false;
     const hold = (v: HTMLVideoElement) => {
       if (prevMutedRef.current === null) prevMutedRef.current = v.muted;
       v.muted = true;
       if (!v.paused) v.pause();
       try {
-        if (v.currentTime > 0) v.currentTime = 0;
+        if (seekToStart && v.currentTime > 0) v.currentTime = 0;
       } catch {
         /* ignore seek errors */
       }
@@ -160,6 +166,16 @@ export const AdPlayerShell = ({ children }: { children: ReactNode }) => {
     };
   }, [stage]);
 
+  // Safety valve: never leave the viewer stuck on an empty commercial break.
+  useEffect(() => {
+    if (stage !== "break") return;
+    if (queue.length === 0 || !queue[queueIdx]) {
+      setStage("idle");
+      const at = resumeAtRef.current;
+      setTimeout(() => resumeContent(at), 0);
+    }
+  }, [stage, queue.length, queueIdx, resumeContent]);
+
   // Skip countdown for pre-roll / post-roll.
   useEffect(() => {
     if ((stage !== "preroll" && stage !== "postroll") || skipLeft <= 0) return;
@@ -189,7 +205,9 @@ export const AdPlayerShell = ({ children }: { children: ReactNode }) => {
       setQueueIdx((i) => i + 1);
     } else {
       setStage("idle");
-      resumeContent(resumeAtRef.current);
+      const at = resumeAtRef.current;
+      // Defer so the hold listeners are torn down before we resume.
+      setTimeout(() => resumeContent(at), 0);
     }
   };
 
@@ -221,7 +239,7 @@ export const AdPlayerShell = ({ children }: { children: ReactNode }) => {
   );
 
   const showPauseBanner =
-    enabled && config.vip_enabled && Boolean(config.pause_banner_url) && paused && stage === "idle";
+    enabled && config.vip_enabled && Boolean(config.pause_banner_url) && paused && !ended && stage === "idle";
 
   return (
     <div ref={hostRef} className="relative">
