@@ -119,17 +119,18 @@ export const AdPlayerShell = ({ children }: { children: ReactNode }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasPre]);
 
-  // Hard-hold the content video while the pre-roll overlay is on screen:
+  // Hard-hold the content video while ANY blocking ad overlay is on screen:
   // mute it and re-pause on any autoplay attempt from the child player.
   useEffect(() => {
-    if (stage !== "preroll") return;
+    if (stage !== "preroll" && stage !== "hook" && stage !== "break") return;
+    const seekToStart = stage === "preroll";
     let cancelled = false;
     const hold = (v: HTMLVideoElement) => {
       if (prevMutedRef.current === null) prevMutedRef.current = v.muted;
       v.muted = true;
       if (!v.paused) v.pause();
       try {
-        if (v.currentTime > 0) v.currentTime = 0;
+        if (seekToStart && v.currentTime > 0) v.currentTime = 0;
       } catch {
         /* ignore seek errors */
       }
@@ -159,6 +160,15 @@ export const AdPlayerShell = ({ children }: { children: ReactNode }) => {
       attached?.removeEventListener("playing", onPlayAttempt);
     };
   }, [stage]);
+
+  // Safety valve: never leave the viewer stuck on an empty commercial break.
+  useEffect(() => {
+    if (stage !== "break") return;
+    if (queue.length === 0 || !queue[queueIdx]) {
+      setStage("idle");
+      resumeContent(resumeAtRef.current);
+    }
+  }, [stage, queue.length, queueIdx, resumeContent]);
 
   // Skip countdown for pre-roll / post-roll.
   useEffect(() => {
