@@ -61,6 +61,8 @@ describe("AdPlayerShell timeline", () => {
 
     await act(async () => { ad.dispatchEvent(new Event("ended")); vi.advanceTimersByTime(50); });
     expect(container.querySelector('video[src="https://cdn.test/ad1.mp4"]')).toBeNull();
+    // content audio is restored (no lingering mute) after the break resumes
+    expect(content.muted).toBe(false);
     vi.useRealTimers();
   });
 });
