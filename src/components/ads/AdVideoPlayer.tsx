@@ -19,6 +19,8 @@ export const AdPlayerShell = ({ children }: { children: ReactNode }) => {
   const adRef = useRef<HTMLVideoElement>(null);
   const resumeAtRef = useRef(0);
   const breakDoneRef = useRef(false);
+  const prerollDoneRef = useRef(false);
+  const prevMutedRef = useRef<boolean | null>(null);
 
   const [stage, setStage] = useState<Stage>("idle");
   const [queueIdx, setQueueIdx] = useState(0);
@@ -48,6 +50,10 @@ export const AdPlayerShell = ({ children }: { children: ReactNode }) => {
   const resumeContent = useCallback((at?: number) => {
     const v = videoRef.current;
     if (!v) return;
+    if (prevMutedRef.current !== null) {
+      v.muted = prevMutedRef.current;
+      prevMutedRef.current = null;
+    }
     if (typeof at === "number" && Number.isFinite(at)) {
       try {
         v.currentTime = at;
@@ -104,13 +110,55 @@ export const AdPlayerShell = ({ children }: { children: ReactNode }) => {
 
   // Kick off the pre-roll once, before the content is allowed to play.
   useEffect(() => {
-    if (!hasPre) return;
+    if (!hasPre || prerollDoneRef.current) return;
+    prerollDoneRef.current = true;
     setStage("preroll");
     setSkipLeft(Math.max(0, config.skip_seconds || 0));
     const v = videoRef.current;
     if (v) v.pause();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasPre]);
+
+  // Hard-hold the content video while the pre-roll overlay is on screen:
+  // mute it and re-pause on any autoplay attempt from the child player.
+  useEffect(() => {
+    if (stage !== "preroll") return;
+    let cancelled = false;
+    const hold = (v: HTMLVideoElement) => {
+      if (prevMutedRef.current === null) prevMutedRef.current = v.muted;
+      v.muted = true;
+      if (!v.paused) v.pause();
+      try {
+        if (v.currentTime > 0) v.currentTime = 0;
+      } catch {
+        /* ignore seek errors */
+      }
+    };
+    const onPlayAttempt = (e: Event) => hold(e.currentTarget as HTMLVideoElement);
+    let attached: HTMLVideoElement | null = null;
+    const tick = () => {
+      if (cancelled) return;
+      const v = videoRef.current ?? (hostRef.current?.querySelector("video") as HTMLVideoElement | null);
+      if (!v) return;
+      videoRef.current = v;
+      if (attached !== v) {
+        attached?.removeEventListener("play", onPlayAttempt);
+        attached?.removeEventListener("playing", onPlayAttempt);
+        v.addEventListener("play", onPlayAttempt);
+        v.addEventListener("playing", onPlayAttempt);
+        attached = v;
+      }
+      hold(v);
+    };
+    tick();
+    const t = setInterval(tick, 200);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+      attached?.removeEventListener("play", onPlayAttempt);
+      attached?.removeEventListener("playing", onPlayAttempt);
+    };
+  }, [stage]);
 
   // Skip countdown for pre-roll / post-roll.
   useEffect(() => {
@@ -132,7 +180,8 @@ export const AdPlayerShell = ({ children }: { children: ReactNode }) => {
 
   const finishPreroll = () => {
     setStage("idle");
-    resumeContent();
+    // Defer so the pre-roll hold listeners are torn down before we play.
+    setTimeout(() => resumeContent(0), 0);
   };
 
   const nextBreakAd = () => {
