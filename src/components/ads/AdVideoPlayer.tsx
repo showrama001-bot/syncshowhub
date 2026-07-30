@@ -27,6 +27,7 @@ export const AdPlayerShell = ({ children }: { children: ReactNode }) => {
   const [skipLeft, setSkipLeft] = useState(0);
   const [hookLeft, setHookLeft] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [ended, setEnded] = useState(false);
 
   const timeline = enabled && config.timeline_enabled;
   const hasPre = Boolean(timeline && config.preroll_url);
@@ -70,7 +71,10 @@ export const AdPlayerShell = ({ children }: { children: ReactNode }) => {
     if (!v) return;
 
     const onPause = () => setPaused(true);
-    const onPlay = () => setPaused(false);
+    const onPlay = () => {
+      setPaused(false);
+      setEnded(false);
+    };
 
     const onTime = () => {
       if (stage !== "idle" || breakDoneRef.current || !queue.length) return;
@@ -89,6 +93,7 @@ export const AdPlayerShell = ({ children }: { children: ReactNode }) => {
     };
 
     const onEnded = () => {
+      setEnded(true);
       if (stage !== "idle") return;
       if (hasPost) {
         setSkipLeft(Math.max(0, config.skip_seconds || 0));
@@ -234,7 +239,7 @@ export const AdPlayerShell = ({ children }: { children: ReactNode }) => {
   );
 
   const showPauseBanner =
-    enabled && config.vip_enabled && Boolean(config.pause_banner_url) && paused && stage === "idle";
+    enabled && config.vip_enabled && Boolean(config.pause_banner_url) && paused && !ended && stage === "idle";
 
   return (
     <div ref={hostRef} className="relative">
