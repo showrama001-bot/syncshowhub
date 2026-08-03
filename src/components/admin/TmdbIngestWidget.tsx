@@ -126,7 +126,11 @@ export default function TmdbIngestWidget() {
         const { data: struct } = await supabase.functions.invoke("tmdb-scraper", {
           body: { action: "series_structure", kind: "series", tmdb_id: r.tmdb_id },
         });
-        const seasons = ((struct as any)?.seasons ?? []) as any[];
+        let seasons = ((struct as any)?.seasons ?? []) as any[];
+        // Guarantee at least S1E1 so the series is never left without a playable source.
+        if (!seasons.length) {
+          seasons = [{ season_number: 1, title: "Season 1", episodes: [{ episode_number: 1, title: "Episode 1" }] }];
+        }
         let epCount = 0;
         for (const s of seasons) {
           const { data: exSeason } = await (supabase.from("seasons") as any)
@@ -142,7 +146,10 @@ export default function TmdbIngestWidget() {
           const { data: exEps } = await (supabase.from("episodes") as any)
             .select("id, episode_number").eq("season_id", seasonId);
           const have = new Map<number, string>((exEps ?? []).map((e: any) => [e.episode_number, e.id]));
-          for (const ep of s.episodes ?? []) {
+          const episodes = (s.episodes ?? []).length
+            ? s.episodes
+            : [{ episode_number: 1, title: "Episode 1" }];
+          for (const ep of episodes) {
             const url = episodeEmbed(r.tmdb_id, s.season_number, ep.episode_number);
             const row = {
               season_id: seasonId,
@@ -153,9 +160,11 @@ export default function TmdbIngestWidget() {
             };
             const existingEp = have.get(ep.episode_number);
             if (existingEp) {
-              await (supabase.from("episodes") as any).update(row).eq("id", existingEp);
+              const { error } = await (supabase.from("episodes") as any).update(row).eq("id", existingEp);
+              if (error) throw error;
             } else {
-              await (supabase.from("episodes") as any).insert(row);
+              const { error } = await (supabase.from("episodes") as any).insert(row);
+              if (error) throw error;
             }
             epCount++;
           }
