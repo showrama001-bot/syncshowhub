@@ -7,14 +7,12 @@ interface EmbedPlayerProps {
 export function isEmbedUrl(url: string | null | undefined): boolean {
   if (!url) return false;
   const normalized = url.trim();
-  // Known embed providers always render as iframe
-  const knownDomains = /vidsrc\.|embed\.su|autoembed|multiembed/i;
-  if (knownDomains.test(normalized)) return true;
-  // Direct video files should NOT be iframe
-  const directVideo = /\.(m3u8|mp4|webm|ogg|mov)($|\?)/i;
+  // Direct video / stream links always play natively in the HTML5 player.
+  const directVideo = /\.(m3u8|mpd|mp4|webm|ogg|ogv|mov|mkv|ts)($|\?)/i;
   if (directVideo.test(normalized)) return false;
-  // Anything else HTTP(S) that isn't a direct video file → iframe
-  return /^https?:\/\//i.test(normalized);
+  // Only page-based players that must run in a document render as an iframe.
+  const iframeOnly = /(youtube\.com|youtu\.be|dailymotion\.com|vimeo\.com|\/embed\/|player\.)/i;
+  return iframeOnly.test(normalized);
 }
 
 function normalizeEmbedSrc(url: string) {
