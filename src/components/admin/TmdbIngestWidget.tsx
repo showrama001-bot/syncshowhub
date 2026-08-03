@@ -65,6 +65,8 @@ export default function TmdbIngestWidget() {
       const uid = auth?.user?.id ?? null;
 
       if (kind === "movie") {
+        const streamUrl = movieEmbed(r.tmdb_id);
+        if (!streamUrl) throw new Error("Could not build stream URL");
         const { data: existing } = await (supabase.from("movies") as any)
           .select("id").eq("tmdb_id", r.tmdb_id).maybeSingle();
         const payload = {
@@ -79,8 +81,8 @@ export default function TmdbIngestWidget() {
           imdb_rating: d.imdb_rating,
           rating: d.rating,
           tmdb_id: r.tmdb_id,
-          stream_url: movieEmbed(r.tmdb_id),
-          stream_sources: [{ label: "VidSrc", url: movieEmbed(r.tmdb_id), type: "embed" }],
+          stream_url: streamUrl,
+          stream_sources: [{ label: "VidSrc", url: streamUrl, type: "embed" }],
           source_type: "embed",
           status: "published",
           is_admin_upload: true,
@@ -91,7 +93,7 @@ export default function TmdbIngestWidget() {
           if (error) throw error;
           toast.success(`Updated "${d.title}" in the catalog`);
         } else {
-          const { error } = await (supabase.from("movies") as any).insert(payload);
+          const { error } = await (supabase.from("movies") as any).insert([payload]);
           if (error) throw error;
           toast.success(`Imported "${d.title}"`);
         }
@@ -150,7 +152,10 @@ export default function TmdbIngestWidget() {
             ? s.episodes
             : [{ episode_number: 1, title: "Episode 1" }];
           for (const ep of episodes) {
-            const url = episodeEmbed(r.tmdb_id, s.season_number, ep.episode_number);
+            const url =
+              episodeEmbed(r.tmdb_id, s.season_number ?? 1, ep.episode_number ?? 1) ||
+              episodeEmbed(r.tmdb_id, 1, 1);
+            if (!url) throw new Error("Could not build episode stream URL");
             const row = {
               season_id: seasonId,
               episode_number: ep.episode_number,
