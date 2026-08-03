@@ -16,10 +16,10 @@ type Result = {
   year?: string | null;
 };
 
-/** vidsrc.to clean embed sources */
-const movieEmbed = (tmdbId: number) => `https://vidsrc.to/embed/movie/${tmdbId}`;
+/** Multi-provider embed sources (full-length streams, with fallbacks) */
+const movieEmbed = (tmdbId: number) => movieEmbedSources(tmdbId)[0].url;
 const episodeEmbed = (tmdbId: number, s: number, e: number) =>
-  `https://vidsrc.to/embed/tv/${tmdbId}/${s}/${e}`;
+  episodeEmbedSources(tmdbId, s, e)[0].url;
 
 export default function TmdbIngestWidget() {
   const [kind, setKind] = useState<Kind>("movie");
@@ -82,7 +82,7 @@ export default function TmdbIngestWidget() {
           rating: d.rating,
           tmdb_id: r.tmdb_id,
           stream_url: streamUrl,
-          stream_sources: [{ label: "VidSrc", url: streamUrl, type: "embed" }],
+          stream_sources: movieEmbedSources(r.tmdb_id),
           source_type: "embed",
           status: "published",
           is_admin_upload: true,
@@ -161,7 +161,7 @@ export default function TmdbIngestWidget() {
               episode_number: ep.episode_number,
               title: ep.title,
               stream_url: url,
-              stream_sources: [{ label: "VidSrc", url, type: "embed" }],
+              stream_sources: episodeEmbedSources(r.tmdb_id, s.season_number ?? 1, ep.episode_number ?? 1),
             };
             const existingEp = have.get(ep.episode_number);
             if (existingEp) {
