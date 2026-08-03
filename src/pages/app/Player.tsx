@@ -16,7 +16,6 @@ import { TvChannelChat } from "@/components/tv/TvChannelChat";
 import { PlaybackReportButton } from "@/components/player/PlaybackReportButton";
 import { AutoNextOverlay } from "@/components/player/AutoNextOverlay";
 import { FloatingReactions } from "@/components/reactions/FloatingReactions";
-import { movieEmbedSources, episodeEmbedSources } from "@/lib/embedProviders";
 
 export default function Player() {
   const { kind, id } = useParams();
@@ -89,25 +88,8 @@ export default function Player() {
     if (fallback && !list.some((s) => s.url === fallback)) {
       list.push({ provider: item?.provider || "default", url: fallback });
     }
-
-    // Auto-fallback: always offer the stable multi-provider embeds when we know
-    // the TMDB id, so a provider serving a short preview can be swapped out.
-    const tmdbId = item?.tmdb_id;
-    if (tmdbId && (kind === "movie" || kind === "series")) {
-      const seasonNumber =
-        seasons.find((s) => s.id === (activeEpisode?.season_id ?? activeSeasonId))?.season_number ?? 1;
-      const generated =
-        kind === "series"
-          ? activeEpisode
-            ? episodeEmbedSources(tmdbId, seasonNumber, activeEpisode.episode_number ?? 1)
-            : []
-          : movieEmbedSources(tmdbId);
-      for (const g of generated) {
-        if (!list.some((s) => s.url === g.url)) list.push(g);
-      }
-    }
     return list;
-  }, [kind, item, activeEpisode, seasons, activeSeasonId]);
+  }, [kind, item, activeEpisode]);
 
   // Reset server selection whenever the active piece of content changes.
   useEffect(() => { setServerIdx(0); }, [id, activeEpisodeId]);
