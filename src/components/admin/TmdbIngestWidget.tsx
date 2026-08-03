@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, Download, Loader2, Check } from "lucide-react";
 import { toast } from "sonner";
-import { movieEmbedSources, episodeEmbedSources } from "@/lib/embedProviders";
 
 type Kind = "movie" | "series";
 type Result = {
@@ -17,11 +16,8 @@ type Result = {
   year?: string | null;
 };
 
-/** Multi-provider embed sources (full-length streams, with fallbacks) */
-const movieEmbed = (tmdbId: number) => movieEmbedSources(tmdbId)[0].url;
-const episodeEmbed = (tmdbId: number, s: number, e: number) =>
-  episodeEmbedSources(tmdbId, s, e)[0].url;
-
+// No automatic embed/iframe generation: stream links are entered manually
+// (direct video URLs) after import.
 export default function TmdbIngestWidget() {
   const [kind, setKind] = useState<Kind>("movie");
   const [q, setQ] = useState("");
@@ -66,11 +62,9 @@ export default function TmdbIngestWidget() {
       const uid = auth?.user?.id ?? null;
 
       if (kind === "movie") {
-        const streamUrl = movieEmbed(r.tmdb_id);
-        if (!streamUrl) throw new Error("Could not build stream URL");
         const { data: existing } = await (supabase.from("movies") as any)
           .select("id").eq("tmdb_id", r.tmdb_id).maybeSingle();
-        const payload = {
+        const payload: Record<string, any> = {
           title: d.title,
           description: d.description,
           poster_url: d.poster_url,
@@ -82,21 +76,20 @@ export default function TmdbIngestWidget() {
           imdb_rating: d.imdb_rating,
           rating: d.rating,
           tmdb_id: r.tmdb_id,
-          stream_url: streamUrl,
-          stream_sources: movieEmbedSources(r.tmdb_id),
-          source_type: "embed",
           status: "published",
           is_admin_upload: true,
           created_by: uid,
         };
         if (existing?.id) {
+          // Metadata-only update — never overwrite a manually entered stream link.
           const { error } = await (supabase.from("movies") as any).update(payload).eq("id", existing.id);
           if (error) throw error;
           toast.success(`Updated "${d.title}" in the catalog`);
         } else {
-          const { error } = await (supabase.from("movies") as any).insert([payload]);
+          const { error } = await (supabase.from("movies") as any)
+            .insert([{ ...payload, source_type: "direct" }]);
           if (error) throw error;
-          toast.success(`Imported "${d.title}"`);
+          toast.success(`Imported "${d.title}" — add a direct stream link to publish playback`);
         }
       } else {
         // Series: upsert series row, then every season + episode with its embed.
@@ -153,16 +146,10 @@ export default function TmdbIngestWidget() {
             ? s.episodes
             : [{ episode_number: 1, title: "Episode 1" }];
           for (const ep of episodes) {
-            const url =
-              episodeEmbed(r.tmdb_id, s.season_number ?? 1, ep.episode_number ?? 1) ||
-              episodeEmbed(r.tmdb_id, 1, 1);
-            if (!url) throw new Error("Could not build episode stream URL");
             const row = {
               season_id: seasonId,
               episode_number: ep.episode_number,
               title: ep.title,
-              stream_url: url,
-              stream_sources: episodeEmbedSources(r.tmdb_id, s.season_number ?? 1, ep.episode_number ?? 1),
             };
             const existingEp = have.get(ep.episode_number);
             if (existingEp) {
