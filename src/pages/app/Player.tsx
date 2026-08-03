@@ -80,15 +80,13 @@ export default function Player() {
   // legacy single stream_url so old records keep working.
   const servers = useMemo(() => {
     const raw = kind === "series" ? activeEpisode?.stream_sources : item?.stream_sources;
-    const list: { provider: string; url: string; label?: string }[] = Array.isArray(raw)
+    const list: { provider: string; url: string }[] = Array.isArray(raw)
       ? raw.filter((s: any) => s && typeof s.url === "string" && s.url.trim())
       : [];
+    if (list.length > 0) return list;
     const fallback =
       kind === "series" ? activeEpisode?.stream_url : item?.stream_url || item?.m3u_url;
-    if (fallback && !list.some((s) => s.url === fallback)) {
-      list.push({ provider: item?.provider || "default", url: fallback });
-    }
-    return list;
+    return fallback ? [{ provider: item?.provider || "default", url: fallback }] : [];
   }, [kind, item, activeEpisode]);
 
   // Reset server selection whenever the active piece of content changes.
@@ -291,7 +289,7 @@ export default function Player() {
               className={i === serverIdx ? "bg-gradient-red shadow-neon" : "glass"}
               title={s.url}
             >
-              {(s as any).label || `Server ${i + 1}`}
+              Server {i + 1}
               <span className="ml-2 text-[10px] uppercase opacity-70">{s.provider}</span>
             </Button>
           ))}

@@ -44,7 +44,6 @@ import AdsManager from "@/components/admin/AdsManager";
 import StorageModeToggle from "@/components/admin/StorageModeToggle";
 import CommunityUploadsQueue from "@/components/admin/CommunityUploadsQueue";
 import ReelsManager from "@/components/admin/ReelsManager";
-import TmdbIngestWidget from "@/components/admin/TmdbIngestWidget";
 import { MovieSearchPicker } from "@/components/admin/MovieSearchPicker";
 import { SubtitlesManager } from "@/components/admin/SubtitlesManager";
 import { useStorageMode } from "@/hooks/useStorageMode";
@@ -76,7 +75,6 @@ export default function Admin() {
         <TabsList className="bg-secondary/40 backdrop-blur flex flex-wrap h-auto">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
-          <TabsTrigger value="tmdb">TMDB Import</TabsTrigger>
           <TabsTrigger value="movies">Movies</TabsTrigger>
           <TabsTrigger value="series">Series</TabsTrigger>
           <TabsTrigger value="trailers">Trailers</TabsTrigger>
@@ -92,7 +90,6 @@ export default function Admin() {
 
         <TabsContent value="overview"><Overview /></TabsContent>
         <TabsContent value="users"><UsersTab /></TabsContent>
-        <TabsContent value="tmdb"><TmdbIngestWidget /></TabsContent>
         <TabsContent value="movies"><MoviesTab /></TabsContent>
         <TabsContent value="series"><SeriesTab /></TabsContent>
         <TabsContent value="trailers"><TrailersTab /></TabsContent>
