@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, Download, Loader2, Check } from "lucide-react";
 import { toast } from "sonner";
+import { movieEmbedSources, episodeEmbedSources } from "@/lib/embedProviders";
 
 type Kind = "movie" | "series";
 type Result = {
