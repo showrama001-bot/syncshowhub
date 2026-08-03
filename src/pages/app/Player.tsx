@@ -16,6 +16,7 @@ import { TvChannelChat } from "@/components/tv/TvChannelChat";
 import { PlaybackReportButton } from "@/components/player/PlaybackReportButton";
 import { AutoNextOverlay } from "@/components/player/AutoNextOverlay";
 import { FloatingReactions } from "@/components/reactions/FloatingReactions";
+import { movieEmbedSources, episodeEmbedSources } from "@/lib/embedProviders";
 
 export default function Player() {
   const { kind, id } = useParams();
@@ -80,14 +81,33 @@ export default function Player() {
   // legacy single stream_url so old records keep working.
   const servers = useMemo(() => {
     const raw = kind === "series" ? activeEpisode?.stream_sources : item?.stream_sources;
-    const list: { provider: string; url: string }[] = Array.isArray(raw)
+    const list: { provider: string; url: string; label?: string }[] = Array.isArray(raw)
       ? raw.filter((s: any) => s && typeof s.url === "string" && s.url.trim())
       : [];
-    if (list.length > 0) return list;
     const fallback =
       kind === "series" ? activeEpisode?.stream_url : item?.stream_url || item?.m3u_url;
-    return fallback ? [{ provider: item?.provider || "default", url: fallback }] : [];
-  }, [kind, item, activeEpisode]);
+    if (fallback && !list.some((s) => s.url === fallback)) {
+      list.push({ provider: item?.provider || "default", url: fallback });
+    }
+
+    // Auto-fallback: always offer the stable multi-provider embeds when we know
+    // the TMDB id, so a provider serving a short preview can be swapped out.
+    const tmdbId = item?.tmdb_id;
+    if (tmdbId && (kind === "movie" || kind === "series")) {
+      const seasonNumber =
+        seasons.find((s) => s.id === (activeEpisode?.season_id ?? activeSeasonId))?.season_number ?? 1;
+      const generated =
+        kind === "series"
+          ? activeEpisode
+            ? episodeEmbedSources(tmdbId, seasonNumber, activeEpisode.episode_number ?? 1)
+            : []
+          : movieEmbedSources(tmdbId);
+      for (const g of generated) {
+        if (!list.some((s) => s.url === g.url)) list.push(g);
+      }
+    }
+    return list;
+  }, [kind, item, activeEpisode, seasons, activeSeasonId]);
 
   // Reset server selection whenever the active piece of content changes.
   useEffect(() => { setServerIdx(0); }, [id, activeEpisodeId]);
@@ -289,7 +309,7 @@ export default function Player() {
               className={i === serverIdx ? "bg-gradient-red shadow-neon" : "glass"}
               title={s.url}
             >
-              Server {i + 1}
+              {(s as any).label || `Server ${i + 1}`}
               <span className="ml-2 text-[10px] uppercase opacity-70">{s.provider}</span>
             </Button>
           ))}
