@@ -44,6 +44,7 @@ import AdsManager from "@/components/admin/AdsManager";
 import StorageModeToggle from "@/components/admin/StorageModeToggle";
 import CommunityUploadsQueue from "@/components/admin/CommunityUploadsQueue";
 import ReelsManager from "@/components/admin/ReelsManager";
+import ErrorMonitorPanel from "@/components/admin/ErrorMonitorPanel";
 import { MovieSearchPicker } from "@/components/admin/MovieSearchPicker";
 import { SubtitlesManager } from "@/components/admin/SubtitlesManager";
 import { useStorageMode } from "@/hooks/useStorageMode";
@@ -86,6 +87,7 @@ export default function Admin() {
           <TabsTrigger value="playback">Playback Reports</TabsTrigger>
           <TabsTrigger value="ads">Ads Management</TabsTrigger>
           <TabsTrigger value="community">User Uploads Queue</TabsTrigger>
+          <TabsTrigger value="errors">Error Monitor</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview"><Overview /></TabsContent>
@@ -101,6 +103,7 @@ export default function Admin() {
         <TabsContent value="playback"><PlaybackReportsPanel /></TabsContent>
         <TabsContent value="ads"><AdsManager /></TabsContent>
         <TabsContent value="community"><CommunityUploadsQueue /></TabsContent>
+        <TabsContent value="errors"><ErrorMonitorPanel /></TabsContent>
       </Tabs>
     </div>
   );
