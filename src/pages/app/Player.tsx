@@ -97,6 +97,14 @@ export default function Player() {
   // Reset server selection whenever the active piece of content changes.
   useEffect(() => { setServerIdx(0); }, [id, activeEpisodeId]);
 
+  // Alert monitoring when playable content has no usable source.
+  useEffect(() => {
+    if (!item || servers.length > 0) return;
+    reportPlayerError("No stream source configured for content", {
+      kind, id, episode_id: activeEpisodeId,
+    });
+  }, [item, servers, kind, id, activeEpisodeId]);
+
   const nextEpisode = useMemo(() => {
     if (kind !== "series" || !activeEpisode || allEpisodes.length === 0) return null;
     const seasonNumberById: Record<string, number> = {};
