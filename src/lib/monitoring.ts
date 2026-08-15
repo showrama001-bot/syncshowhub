@@ -130,6 +130,18 @@ function isInternalUrl(url: string) {
   return url.includes("/rest/v1/client_error_logs");
 }
 
+/** Dev-mode React warnings and known browser noise are breadcrumbs, not incidents. */
+const IGNORED_PATTERNS = [
+  /^Warning:/i,
+  /React DevTools/i,
+  /ResizeObserver loop/i,
+  /Download the React DevTools/i,
+];
+
+function isNoise(text: string) {
+  return IGNORED_PATTERNS.some((re) => re.test(text.trim()));
+}
+
 export function installMonitoring() {
   if (typeof window === "undefined" || installed) return;
   installed = true;
@@ -177,7 +189,7 @@ export function installMonitoring() {
     origError(...args);
     const text = args.map((a) => safeStringify(a)).join(" ");
     addBreadcrumb("console.error", text);
-    if (!reporting && text) void reportError({ message: text, source: "console.error" });
+    if (!reporting && text && !isNoise(text)) void reportError({ message: text, source: "console.error" });
   };
   const origWarn = console.warn.bind(console);
   console.warn = (...args: unknown[]) => {
