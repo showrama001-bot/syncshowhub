@@ -27,6 +27,7 @@ import Accueil from "./pages/app/Accueil";
 import NotFound from "./pages/NotFound";
 import { AdsProvider } from "@/components/ads/AdsProvider";
 import { installAntiTheft } from "@/lib/antiTheft";
+import { installMonitoring } from "@/lib/monitoring";
 import { MiniPlayerProvider } from "@/components/miniplayer/MiniPlayerProvider";
 
 // Lazy-load the heavy player bundle — only fetched when user clicks Play.
@@ -52,6 +53,7 @@ const queryClient = new QueryClient();
 const App = () => {
   useEffect(() => {
     installAntiTheft();
+    installMonitoring();
   }, []);
 
   return (
