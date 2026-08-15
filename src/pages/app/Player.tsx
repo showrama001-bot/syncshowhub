@@ -16,6 +16,7 @@ import { TvChannelChat } from "@/components/tv/TvChannelChat";
 import { PlaybackReportButton } from "@/components/player/PlaybackReportButton";
 import { AutoNextOverlay } from "@/components/player/AutoNextOverlay";
 import { FloatingReactions } from "@/components/reactions/FloatingReactions";
+import { reportPlayerError } from "@/lib/monitoring";
 
 export default function Player() {
   const { kind, id } = useParams();
@@ -34,7 +35,11 @@ export default function Player() {
       kind === "tv" ? "tv_channels" :
       kind === "match" ? "matches" :
       kind === "series" ? "series" : "movies";
-    supabase.from(table as any).select("*").eq("id", id).maybeSingle().then(({ data }) => setItem(data));
+    supabase.from(table as any).select("*").eq("id", id).maybeSingle().then(({ data, error }) => {
+      if (error) reportPlayerError(`Failed to load ${kind} record: ${error.message}`, { kind, id });
+      else if (!data) reportPlayerError(`No ${kind} found for id`, { kind, id });
+      setItem(data);
+    });
   }, [kind, id]);
 
   // Series: load seasons + episodes
