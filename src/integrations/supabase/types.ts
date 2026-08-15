@@ -158,6 +158,66 @@ export type Database = {
         }
         Relationships: []
       }
+      client_error_logs: {
+        Row: {
+          area: string
+          context: Json
+          created_at: string
+          fingerprint: string | null
+          id: string
+          level: string
+          message: string
+          request_url: string | null
+          resolved: boolean
+          resolved_at: string | null
+          resolved_by: string | null
+          route: string | null
+          source: string
+          stack: string | null
+          status_code: number | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          area?: string
+          context?: Json
+          created_at?: string
+          fingerprint?: string | null
+          id?: string
+          level?: string
+          message: string
+          request_url?: string | null
+          resolved?: boolean
+          resolved_at?: string | null
+          resolved_by?: string | null
+          route?: string | null
+          source?: string
+          stack?: string | null
+          status_code?: number | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          area?: string
+          context?: Json
+          created_at?: string
+          fingerprint?: string | null
+          id?: string
+          level?: string
+          message?: string
+          request_url?: string | null
+          resolved?: boolean
+          resolved_at?: string | null
+          resolved_by?: string | null
+          route?: string | null
+          source?: string
+          stack?: string | null
+          status_code?: number | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       community_uploads: {
         Row: {
           backdrop_url: string | null
