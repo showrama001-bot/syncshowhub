@@ -57,49 +57,69 @@ function mergeSources(existing: unknown, stream_url: string, telegram_link: stri
   return sources;
 }
 
-Deno.serve(async (req) => {
+function firstString(obj: any, keys: string[]): string {
+  for (const k of keys) {
+    const v = obj?.[k];
+    if (typeof v === "string" && v.trim()) return v.trim();
+  }
+  return "";
+}
+
+function toNum(v: unknown): number | null {
+  if (v == null || v === "") return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+async function handle(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+  if (req.method !== "POST") return json({ ok: false, error: "Method not allowed" }, 405);
 
   const expected = Deno.env.get("BOT_SECRET_TOKEN");
-  if (!expected) return json({ error: "Server not configured" }, 500);
+  if (!expected) return json({ ok: false, error: "Server not configured: BOT_SECRET_TOKEN missing" }, 500);
 
-  const provided = req.headers.get("x-admin-bot-key") ?? "";
+  const provided = (req.headers.get("x-admin-bot-key") ?? req.headers.get("X-Admin-Bot-Key") ?? "").trim();
   if (!provided || !timingSafeEqual(provided, expected)) {
-    return json({ error: "Unauthorized" }, 401);
+    return json({ ok: false, error: "Unauthorized: invalid or missing X-Admin-Bot-Key" }, 401);
   }
 
   let payload: any;
   try {
     payload = await req.json();
   } catch {
-    return json({ error: "Invalid JSON body" }, 400);
+    return json({ ok: false, error: "Invalid JSON body" }, 400);
+  }
+  if (!payload || typeof payload !== "object") {
+    return json({ ok: false, error: "Body must be a JSON object" }, 400);
   }
 
-  const tmdb_id = Number(payload?.tmdb_id);
-  const stream_url = typeof payload?.stream_url === "string" ? payload.stream_url.trim() : "";
-  const telegram_link = typeof payload?.telegram_link === "string" ? payload.telegram_link.trim() : "";
-  const season_number = payload?.season_number != null ? Number(payload.season_number) : null;
-  const episode_number = payload?.episode_number != null ? Number(payload.episode_number) : null;
+  const tmdb_id = toNum(payload.tmdb_id ?? payload.tmdbId ?? payload.id);
+  const stream_url = firstString(payload, ["stream_url", "streamUrl", "url", "video_url", "m3u8", "embed_url", "iframe"]);
+  const telegram_link = firstString(payload, ["telegram_link", "telegramLink", "telegram", "tg_link"]);
+  const season_number = toNum(payload.season_number ?? payload.season ?? payload.seasonNumber);
+  const episode_number = toNum(payload.episode_number ?? payload.episode ?? payload.episodeNumber);
 
-  if (!Number.isFinite(tmdb_id) || tmdb_id <= 0) {
-    return json({ error: "tmdb_id is required and must be a positive integer" }, 400);
+  if (tmdb_id == null || tmdb_id <= 0) {
+    return json({ ok: false, error: "tmdb_id is required and must be a positive integer" }, 400);
   }
   if (!stream_url && !telegram_link) {
-    return json({ error: "At least one of stream_url or telegram_link is required" }, 400);
+    return json({ ok: false, error: "At least one of stream_url or telegram_link is required" }, 400);
   }
   for (const [k, v] of Object.entries({ stream_url, telegram_link })) {
     if (v && !/^https?:\/\//i.test(v) && !(k === "telegram_link" && /^tg:\/\//i.test(v))) {
-      return json({ error: `${k} must be a valid URL` }, 400);
+      return json({ ok: false, error: `${k} must be a valid URL` }, 400);
     }
   }
 
-  const isEpisode = Number.isFinite(season_number as number) && Number.isFinite(episode_number as number);
+  const isEpisode = season_number != null && episode_number != null;
 
-  const admin = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-  );
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceKey) {
+    return json({ ok: false, error: "Server not configured: database credentials missing" }, 500);
+  }
+  const admin = createClient(supabaseUrl, serviceKey);
+
 
   // ---------------------------------------------------------------- MOVIE ---
   if (!isEpisode) {
