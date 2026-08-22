@@ -98,12 +98,16 @@ export default function Player() {
   useEffect(() => { setServerIdx(0); }, [id, activeEpisodeId]);
 
   // Alert monitoring when playable content has no usable source.
+  // For series, wait until an episode is actually resolved — seasons/episodes
+  // load in later async round trips, and reporting before that is a false positive.
   useEffect(() => {
     if (!item || servers.length > 0) return;
+    if (kind === "series" && !activeEpisode) return;
     reportPlayerError("No stream source configured for content", {
       kind, id, episode_id: activeEpisodeId,
     });
-  }, [item, servers, kind, id, activeEpisodeId]);
+  }, [item, servers, kind, id, activeEpisodeId, activeEpisode]);
+
 
   const nextEpisode = useMemo(() => {
     if (kind !== "series" || !activeEpisode || allEpisodes.length === 0) return null;
