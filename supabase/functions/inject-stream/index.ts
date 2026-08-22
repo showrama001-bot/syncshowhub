@@ -20,6 +20,43 @@ function timingSafeEqual(a: string, b: string): boolean {
   return result === 0;
 }
 
+const IMG = (p?: string | null) => (p ? `https://image.tmdb.org/t/p/original${p}` : null);
+
+async function tmdb(path: string, params: Record<string, string> = {}) {
+  const key = Deno.env.get("TMDB_API_KEY");
+  if (!key) return null;
+  const url = new URL(`https://api.themoviedb.org/3${path}`);
+  url.searchParams.set("api_key", key);
+  url.searchParams.set("language", "en-US");
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  try {
+    const res = await fetch(url.toString());
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+function kindOf(url: string) {
+  return /\.m3u8(\?|$)/i.test(url) ? "hls" : /\.mp4(\?|$)/i.test(url) ? "mp4" : "direct";
+}
+
+/** Merge new links into an existing stream_sources array without ever duplicating a URL. */
+function mergeSources(existing: unknown, stream_url: string, telegram_link: string) {
+  const sources = Array.isArray(existing) ? [...(existing as any[])] : [];
+  const seen = new Set(sources.map((s: any) => String(s?.url ?? "")));
+  const now = new Date().toISOString();
+  if (stream_url && !seen.has(stream_url)) {
+    sources.push({ type: kindOf(stream_url), url: stream_url, added_by: "bot", added_at: now });
+    seen.add(stream_url);
+  }
+  if (telegram_link && !seen.has(telegram_link)) {
+    sources.push({ type: "telegram", url: telegram_link, added_by: "bot", added_at: now });
+  }
+  return sources;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -57,70 +94,124 @@ Deno.serve(async (req) => {
     }
   }
 
+  const isEpisode = Number.isFinite(season_number as number) && Number.isFinite(episode_number as number);
+
   const admin = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
-  // Try movie first
-  const { data: movie, error: movieErr } = await admin
-    .from("movies").select("id, stream_sources").eq("tmdb_id", tmdb_id).maybeSingle();
-  if (movieErr) return json({ error: movieErr.message }, 500);
+  // ---------------------------------------------------------------- MOVIE ---
+  if (!isEpisode) {
+    const { data: movie, error: movieErr } = await admin
+      .from("movies").select("id, stream_sources").eq("tmdb_id", tmdb_id).maybeSingle();
+    if (movieErr) return json({ error: movieErr.message }, 500);
 
-  if (movie) {
-    const sources = Array.isArray(movie.stream_sources) ? [...movie.stream_sources as any[]] : [];
-    if (stream_url) {
-      const kind = /\.m3u8(\?|$)/i.test(stream_url) ? "hls" : /\.mp4(\?|$)/i.test(stream_url) ? "mp4" : "direct";
-      if (!sources.some((s: any) => s?.url === stream_url)) {
-        sources.push({ type: kind, url: stream_url, added_by: "bot", added_at: new Date().toISOString() });
-      }
+    if (movie) {
+      const sources = mergeSources(movie.stream_sources, stream_url, telegram_link);
+      const patch: Record<string, unknown> = { stream_sources: sources };
+      if (stream_url) { patch.stream_url = stream_url; patch.source_type = kindOf(stream_url); }
+      const { error: upErr } = await admin.from("movies").update(patch).eq("id", movie.id);
+      if (upErr) return json({ error: upErr.message }, 500);
+      return json({ ok: true, target: "movie", created: false, id: movie.id, sources: sources.length });
     }
-    if (telegram_link && !sources.some((s: any) => s?.url === telegram_link)) {
-      sources.push({ type: "telegram", url: telegram_link, added_by: "bot", added_at: new Date().toISOString() });
-    }
-    const patch: Record<string, unknown> = { stream_sources: sources };
-    if (stream_url) { patch.stream_url = stream_url; patch.source_type = /\.m3u8(\?|$)/i.test(stream_url) ? "hls" : "direct"; }
-    const { error: upErr } = await admin.from("movies").update(patch).eq("id", movie.id);
-    if (upErr) return json({ error: upErr.message }, 500);
-    return json({ ok: true, target: "movie", id: movie.id });
+
+    // Auto-create the movie from TMDB metadata.
+    const meta = await tmdb(`/movie/${tmdb_id}`);
+    const sources = mergeSources([], stream_url, telegram_link);
+    const row: Record<string, unknown> = {
+      tmdb_id,
+      title: meta?.title ?? meta?.original_title ?? `TMDB #${tmdb_id}`,
+      description: meta?.overview ?? null,
+      poster_url: IMG(meta?.poster_path),
+      backdrop_url: IMG(meta?.backdrop_path),
+      year: meta?.release_date ? Number(String(meta.release_date).slice(0, 4)) : null,
+      genre: meta?.genres?.[0]?.name ?? null,
+      duration_minutes: meta?.runtime ?? null,
+      imdb_rating: meta?.vote_average ?? null,
+      stream_url: stream_url || null,
+      source_type: stream_url ? kindOf(stream_url) : "direct",
+      stream_sources: sources,
+      is_admin_upload: true,
+      status: "published",
+    };
+    const { data: created, error: insErr } = await admin
+      .from("movies").insert(row).select("id").single();
+    if (insErr) return json({ error: insErr.message }, 500);
+    return json({
+      ok: true, target: "movie", created: true, id: created.id,
+      metadata: meta ? "tmdb" : "basic", sources: sources.length,
+    });
   }
 
-  // Otherwise episode via series tmdb_id (+ optional season/episode numbers)
-  const { data: series } = await admin
+  // -------------------------------------------------------------- EPISODE ---
+  // Ensure series exists.
+  let seriesId: string | null = null;
+  const { data: series, error: serErr } = await admin
     .from("series").select("id").eq("tmdb_id", tmdb_id).maybeSingle();
-  if (!series) return json({ error: "No movie or series found for tmdb_id" }, 404);
+  if (serErr) return json({ error: serErr.message }, 500);
+  seriesId = series?.id ?? null;
 
-  const { data: seasons } = await admin
-    .from("seasons").select("id, season_number").eq("series_id", series.id);
-  const seasonIds = (seasons ?? []).map((s: any) => s.id);
-  if (seasonIds.length === 0) return json({ error: "No seasons for series" }, 404);
-
-  let epQuery = admin.from("episodes").select("id, season_id, episode_number, stream_sources").in("season_id", seasonIds);
-  if (Number.isFinite(episode_number as number)) epQuery = epQuery.eq("episode_number", episode_number as number);
-  if (Number.isFinite(season_number as number)) {
-    const matchSeason = (seasons ?? []).find((s: any) => s.season_number === season_number);
-    if (!matchSeason) return json({ error: "Season not found" }, 404);
-    epQuery = epQuery.eq("season_id", matchSeason.id);
-  }
-  const { data: episodes, error: epErr } = await epQuery;
-  if (epErr) return json({ error: epErr.message }, 500);
-  if (!episodes || episodes.length === 0) return json({ error: "No matching episode(s) found" }, 404);
-  if (episodes.length > 1 && !(Number.isFinite(episode_number as number) && Number.isFinite(season_number as number))) {
-    return json({ error: "Ambiguous target: provide season_number and episode_number" }, 400);
+  if (!seriesId) {
+    const meta = await tmdb(`/tv/${tmdb_id}`);
+    const { data: createdSeries, error: sErr } = await admin.from("series").insert({
+      tmdb_id,
+      title: meta?.name ?? meta?.original_name ?? `TMDB #${tmdb_id}`,
+      description: meta?.overview ?? null,
+      poster_url: IMG(meta?.poster_path),
+      backdrop_url: IMG(meta?.backdrop_path),
+      genre: meta?.genres?.[0]?.name ?? null,
+      year: meta?.first_air_date ? Number(String(meta.first_air_date).slice(0, 4)) : null,
+      imdb_rating: meta?.vote_average ?? null,
+    }).select("id").single();
+    if (sErr) return json({ error: sErr.message }, 500);
+    seriesId = createdSeries.id;
   }
 
-  const ep = episodes[0] as any;
-  const sources = Array.isArray(ep.stream_sources) ? [...ep.stream_sources] : [];
-  if (stream_url && !sources.some((s: any) => s?.url === stream_url)) {
-    const kind = /\.m3u8(\?|$)/i.test(stream_url) ? "hls" : /\.mp4(\?|$)/i.test(stream_url) ? "mp4" : "direct";
-    sources.push({ type: kind, url: stream_url, added_by: "bot", added_at: new Date().toISOString() });
+  // Ensure season exists.
+  let seasonId: string | null = null;
+  const { data: season } = await admin
+    .from("seasons").select("id").eq("series_id", seriesId).eq("season_number", season_number).maybeSingle();
+  seasonId = season?.id ?? null;
+
+  if (!seasonId) {
+    const { data: createdSeason, error: seErr } = await admin.from("seasons").insert({
+      series_id: seriesId,
+      season_number,
+      title: `Season ${season_number}`,
+    }).select("id").single();
+    if (seErr) return json({ error: seErr.message }, 500);
+    seasonId = createdSeason.id;
   }
-  if (telegram_link && !sources.some((s: any) => s?.url === telegram_link)) {
-    sources.push({ type: "telegram", url: telegram_link, added_by: "bot", added_at: new Date().toISOString() });
+
+  // Ensure episode exists, then merge sources.
+  const { data: ep } = await admin
+    .from("episodes").select("id, stream_sources")
+    .eq("season_id", seasonId).eq("episode_number", episode_number).maybeSingle();
+
+  if (ep) {
+    const sources = mergeSources(ep.stream_sources, stream_url, telegram_link);
+    const patch: Record<string, unknown> = { stream_sources: sources };
+    if (stream_url) patch.stream_url = stream_url;
+    const { error: upErr } = await admin.from("episodes").update(patch).eq("id", ep.id);
+    if (upErr) return json({ error: upErr.message }, 500);
+    return json({ ok: true, target: "episode", created: false, id: ep.id, sources: sources.length });
   }
-  const patch: Record<string, unknown> = { stream_sources: sources };
-  if (stream_url) patch.stream_url = stream_url;
-  const { error: upErr } = await admin.from("episodes").update(patch).eq("id", ep.id);
-  if (upErr) return json({ error: upErr.message }, 500);
-  return json({ ok: true, target: "episode", id: ep.id });
+
+  const epMeta = await tmdb(`/tv/${tmdb_id}/season/${season_number}/episode/${episode_number}`);
+  const sources = mergeSources([], stream_url, telegram_link);
+  const { data: createdEp, error: eErr } = await admin.from("episodes").insert({
+    season_id: seasonId,
+    episode_number,
+    title: epMeta?.name ?? `Episode ${episode_number}`,
+    stream_url: stream_url || null,
+    stream_sources: sources,
+  }).select("id").single();
+  if (eErr) return json({ error: eErr.message }, 500);
+
+  return json({
+    ok: true, target: "episode", created: true, id: createdEp.id,
+    series_id: seriesId, season_id: seasonId,
+    metadata: epMeta ? "tmdb" : "basic", sources: sources.length,
+  });
 });
