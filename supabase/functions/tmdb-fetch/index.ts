@@ -83,10 +83,12 @@ Deno.serve(async (req) => {
     }
 
     if (!movie || movie.success === false) {
-      return new Response(JSON.stringify({ error: "Not found" }), {
-        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: tmdb_id ? `No TMDB entry for id ${tmdb_id}` : `No TMDB match for "${query ?? ""}"` }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
+
 
     const videos: any[] = movie.videos?.results ?? [];
     const trailer =
