@@ -37,11 +37,24 @@ Deno.serve(async (req) => {
 
     let movie: any = null;
     let resolvedType = type;
+    const getById = async (t: "movie" | "tv", id: string | number) => {
+      const r = await fetch(`https://api.themoviedb.org/3/${t}/${id}?api_key=${key}&append_to_response=external_ids,videos&language=en-US`);
+      if (!r.ok) return null;
+      const j = await r.json();
+      return j && j.success !== false ? j : null;
+    };
+
     if (tmdb_id) {
-      const r = await fetch(`https://api.themoviedb.org/3/${type}/${tmdb_id}?api_key=${key}&append_to_response=external_ids,videos&language=en-US`);
-      movie = await r.json();
+      // The caller's "kind" can be wrong — try the other type before giving up.
+      const other: "movie" | "tv" = type === "movie" ? "tv" : "movie";
+      movie = await getById(type, tmdb_id);
+      if (!movie) {
+        movie = await getById(other, tmdb_id);
+        if (movie) resolvedType = other;
+      }
     } else if (query) {
       const q = encodeURIComponent(query);
+
       // Try multi-search across languages/types to handle non-English titles.
       const attempts: Array<{ t: "movie" | "tv"; lang: string }> = [
         { t: type, lang: "en-US" },
@@ -70,10 +83,12 @@ Deno.serve(async (req) => {
     }
 
     if (!movie || movie.success === false) {
-      return new Response(JSON.stringify({ error: "Not found" }), {
-        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: tmdb_id ? `No TMDB entry for id ${tmdb_id}` : `No TMDB match for "${query ?? ""}"` }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
+
 
     const videos: any[] = movie.videos?.results ?? [];
     const trailer =
