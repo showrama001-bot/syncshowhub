@@ -234,4 +234,6 @@ async function handle(req: Request): Promise<Response> {
     series_id: seriesId, season_id: seasonId,
     metadata: epMeta ? "tmdb" : "basic", sources: sources.length,
   });
-});
+}
+
+Deno.serve(handle);
