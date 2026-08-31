@@ -106,6 +106,7 @@ export default function Admin() {
         <TabsContent value="ads"><AdsManager /></TabsContent>
         <TabsContent value="community"><CommunityUploadsQueue /></TabsContent>
         <TabsContent value="errors"><ErrorMonitorPanel /></TabsContent>
+        <TabsContent value="inject"><StreamInjector /></TabsContent>
       </Tabs>
     </div>
   );
