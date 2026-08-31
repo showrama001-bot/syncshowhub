@@ -138,12 +138,11 @@ async function handle(req: Request): Promise<Response> {
 
   const isEpisode = season_number != null && episode_number != null;
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!supabaseUrl || !serviceKey) {
+  const admin = makeAdmin();
+  if (!admin) {
     return json({ ok: false, error: "Server not configured: database credentials missing" }, 500);
   }
-  const admin = createClient(supabaseUrl, serviceKey);
+
 
 
   // ---------------------------------------------------------------- MOVIE ---
