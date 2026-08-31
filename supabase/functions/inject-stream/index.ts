@@ -71,17 +71,42 @@ function toNum(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+const supabaseUrl = Deno.env.get("SUPABASE_URL");
+const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+function makeAdmin() {
+  if (!supabaseUrl || !serviceKey) return null;
+  return createClient(supabaseUrl, serviceKey);
+}
+
+/** Auth: accept the bot secret key OR an authenticated admin user's JWT. */
+async function isAuthorized(req: Request): Promise<{ ok: boolean; error?: string; status?: number }> {
+  const expected = Deno.env.get("BOT_SECRET_TOKEN");
+  const provided = (req.headers.get("x-admin-bot-key") ?? req.headers.get("X-Admin-Bot-Key") ?? "").trim();
+  if (expected && provided && timingSafeEqual(provided, expected)) return { ok: true };
+
+  const authHeader = req.headers.get("Authorization") ?? req.headers.get("authorization") ?? "";
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+  if (token) {
+    const admin = makeAdmin();
+    if (!admin) return { ok: false, error: "Server not configured: database credentials missing", status: 500 };
+    const { data: userData, error: userErr } = await admin.auth.getUser(token);
+    const user = userData?.user;
+    if (!userErr && user) {
+      const { data: isAdmin } = await admin.rpc("has_role", { _user_id: user.id, _role: "admin" });
+      if (isAdmin === true) return { ok: true };
+      return { ok: false, error: "Forbidden: admin role required", status: 403 };
+    }
+  }
+  return { ok: false, error: "Unauthorized: invalid or missing X-Admin-Bot-Key / admin session", status: 401 };
+}
+
 async function handle(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ ok: false, error: "Method not allowed" }, 405);
 
-  const expected = Deno.env.get("BOT_SECRET_TOKEN");
-  if (!expected) return json({ ok: false, error: "Server not configured: BOT_SECRET_TOKEN missing" }, 500);
-
-  const provided = (req.headers.get("x-admin-bot-key") ?? req.headers.get("X-Admin-Bot-Key") ?? "").trim();
-  if (!provided || !timingSafeEqual(provided, expected)) {
-    return json({ ok: false, error: "Unauthorized: invalid or missing X-Admin-Bot-Key" }, 401);
-  }
+  const auth = await isAuthorized(req);
+  if (!auth.ok) return json({ ok: false, error: auth.error }, auth.status ?? 401);
 
   let payload: any;
   try {
@@ -113,12 +138,11 @@ async function handle(req: Request): Promise<Response> {
 
   const isEpisode = season_number != null && episode_number != null;
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!supabaseUrl || !serviceKey) {
+  const admin = makeAdmin();
+  if (!admin) {
     return json({ ok: false, error: "Server not configured: database credentials missing" }, 500);
   }
-  const admin = createClient(supabaseUrl, serviceKey);
+
 
 
   // ---------------------------------------------------------------- MOVIE ---
