@@ -1884,24 +1884,37 @@ export type Database = {
       }
       watchlist: {
         Row: {
+          content_kind: string
           created_at: string
+          episode_id: string | null
           id: string
-          movie_id: string
+          movie_id: string | null
           user_id: string
         }
         Insert: {
+          content_kind?: string
           created_at?: string
+          episode_id?: string | null
           id?: string
-          movie_id: string
+          movie_id?: string | null
           user_id: string
         }
         Update: {
+          content_kind?: string
           created_at?: string
+          episode_id?: string | null
           id?: string
-          movie_id?: string
+          movie_id?: string | null
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "watchlist_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "episodes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "watchlist_movie_id_fkey"
             columns: ["movie_id"]
