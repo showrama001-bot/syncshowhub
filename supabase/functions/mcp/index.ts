@@ -6,7 +6,7 @@
 import { auth, defineMcp } from "npm:@lovable.dev/mcp-js@0.20.1";
 
 // src/lib/mcp/tools/search-movies.ts
-import { createClient } from "npm:@supabase/supabase-js@^2.105.3";
+import { createClient } from "npm:@supabase/supabase-js@^2.116.0";
 import { defineTool } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z } from "npm:zod@^3.25.76";
 var search_movies_default = defineTool({
@@ -32,7 +32,7 @@ var search_movies_default = defineTool({
 });
 
 // src/lib/mcp/tools/get-movie.ts
-import { createClient as createClient2 } from "npm:@supabase/supabase-js@^2.105.3";
+import { createClient as createClient2 } from "npm:@supabase/supabase-js@^2.116.0";
 import { defineTool as defineTool2 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z2 } from "npm:zod@^3.25.76";
 var get_movie_default = defineTool2({
@@ -58,7 +58,7 @@ var get_movie_default = defineTool2({
 });
 
 // src/lib/mcp/tools/list-trending.ts
-import { createClient as createClient3 } from "npm:@supabase/supabase-js@^2.105.3";
+import { createClient as createClient3 } from "npm:@supabase/supabase-js@^2.116.0";
 import { defineTool as defineTool3 } from "npm:@lovable.dev/mcp-js@0.20.1";
 import { z as z3 } from "npm:zod@^3.25.76";
 var list_trending_default = defineTool3({
