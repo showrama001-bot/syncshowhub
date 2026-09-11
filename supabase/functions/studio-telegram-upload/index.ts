@@ -1,4 +1,6 @@
-// Studio-only Telegram upload: routes files to an isolated bot/chat so the
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+
+// Studio-only Telegram upload: routes authenticated uploads to an isolated bot/chat so the
 // main site's upload traffic stays separate. Mirrors telegram-upload but
 // reads STUDIO_TELEGRAM_BOT_TOKEN / STUDIO_TELEGRAM_CHAT_ID.
 
@@ -13,6 +15,18 @@ const MAX_BYTES = 50 * 1024 * 1024;
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+    if (!authHeader.startsWith("Bearer ") || !supabaseUrl || !anonKey) {
+      return json({ error: "Authentication required" }, 401);
+    }
+    const authClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: authData, error: authError } = await authClient.auth.getUser();
+    if (authError || !authData.user) return json({ error: "Authentication required" }, 401);
+
     const BOT_TOKEN = Deno.env.get("STUDIO_TELEGRAM_BOT_TOKEN");
     const CHAT_ID = Deno.env.get("STUDIO_TELEGRAM_CHAT_ID");
     if (!BOT_TOKEN || !CHAT_ID) {
@@ -50,12 +64,9 @@ Deno.serve(async (req) => {
     const fileId: string | undefined =
       result?.video?.file_id || result?.document?.file_id || result?.animation?.file_id;
     if (!fileId) return json({ error: "No file_id returned from Telegram" }, 502);
-    const getFileRes = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getFile?file_id=${encodeURIComponent(fileId)}`);
-    const getFileJson = await getFileRes.json();
-    if (!getFileJson.ok) return json({ error: `getFile failed: ${getFileJson.description}` }, 502);
-    const filePath = getFileJson.result?.file_path;
-    if (!filePath) return json({ error: "No file_path returned from Telegram" }, 502);
-    const streamUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${filePath}`;
+    const expires = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60;
+    const signature = await signMediaReference(BOT_TOKEN, "studio", fileId, expires);
+    const streamUrl = `${supabaseUrl}/functions/v1/telegram-media?source=studio&file_id=${encodeURIComponent(fileId)}&expires=${expires}&signature=${signature}`;
     return json({ ok: true, stream_url: streamUrl, file_id: fileId, message_id: result?.message_id ?? null });
   } catch (e) {
     return json({ error: String((e as Error)?.message ?? e) }, 500);
@@ -67,4 +78,12 @@ function json(body: unknown, status = 200) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+async function signMediaReference(secret: string, source: string, fileId: string, expires: number) {
+  const key = await crypto.subtle.importKey(
+    "raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
+  );
+  const bytes = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${source}:${fileId}:${expires}`));
+  return Array.from(new Uint8Array(bytes), (b) => b.toString(16).padStart(2, "0")).join("");
 }

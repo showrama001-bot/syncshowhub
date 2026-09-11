@@ -75,7 +75,10 @@ Deno.serve(async (req) => {
     } else if (action === "suspend_3d") {
       if (uploaderId) {
         const until = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
-        await admin.from("profiles").update({ suspended_until: until }).eq("id", uploaderId);
+        const { error: suspensionError } = await admin.from("profiles").update({ suspended_until: until }).eq("id", uploaderId);
+        if (suspensionError) throw suspensionError;
+        const { error: banError } = await admin.auth.admin.updateUserById(uploaderId, { ban_duration: "72h" });
+        if (banError) throw banError;
       }
       await logViolation("suspended_3d");
     } else if (action === "permanent_ban") {
