@@ -15,27 +15,22 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "GET" && req.method !== "HEAD") return json({ error: "Method not allowed" }, 405);
 
-  const authHeader = req.headers.get("Authorization") ?? "";
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-  if (!authHeader.startsWith("Bearer ") || !supabaseUrl || !anonKey) {
-    return json({ error: "Authentication required" }, 401);
-  }
-
-  const authClient = createClient(supabaseUrl, anonKey, {
-    global: { headers: { Authorization: authHeader } },
-  });
-  const { data, error } = await authClient.auth.getUser();
-  if (error || !data.user) return json({ error: "Authentication required" }, 401);
-
   const url = new URL(req.url);
   const fileId = url.searchParams.get("file_id")?.trim() ?? "";
   const source = url.searchParams.get("source") === "studio" ? "studio" : "main";
+  const expires = Number(url.searchParams.get("expires"));
+  const signature = url.searchParams.get("signature") ?? "";
   if (!/^[A-Za-z0-9_-]{10,512}$/.test(fileId)) return json({ error: "Invalid file reference" }, 400);
 
   const tokenName = source === "studio" ? "STUDIO_TELEGRAM_BOT_TOKEN" : "TELEGRAM_BOT_TOKEN";
   const token = Deno.env.get(tokenName);
   if (!token) return json({ error: "Media service unavailable" }, 503);
+  if (!Number.isSafeInteger(expires) || expires <= Math.floor(Date.now() / 1000)) {
+    return json({ error: "Media link expired" }, 403);
+  }
+  const expected = await signMediaReference(token, source, fileId, expires);
+  if (!constantTimeEqual(signature, expected)) return json({ error: "Invalid media link" }, 403);
 
   try {
     const metadataResponse = await fetch(
@@ -70,3 +65,18 @@ Deno.serve(async (req) => {
     return json({ error: "Media service unavailable" }, 502);
   }
 });
+
+async function signMediaReference(secret: string, source: string, fileId: string, expires: number) {
+  const key = await crypto.subtle.importKey(
+    "raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
+  );
+  const bytes = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${source}:${fileId}:${expires}`));
+  return Array.from(new Uint8Array(bytes), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function constantTimeEqual(a: string, b: string) {
+  if (a.length !== b.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < a.length; i++) mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return mismatch === 0;
+}

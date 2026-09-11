@@ -93,7 +93,9 @@ Deno.serve(async (req) => {
       result?.animation?.file_id;
     if (!fileId) return json({ error: "No file_id returned from Telegram" }, 502);
 
-    const streamUrl = `${supabaseUrl}/functions/v1/telegram-media?source=main&file_id=${encodeURIComponent(fileId)}`;
+    const expires = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60;
+    const signature = await signMediaReference(BOT_TOKEN, "main", fileId, expires);
+    const streamUrl = `${supabaseUrl}/functions/v1/telegram-media?source=main&file_id=${encodeURIComponent(fileId)}&expires=${expires}&signature=${signature}`;
 
     return json({
       ok: true,
@@ -111,4 +113,12 @@ function json(body: unknown, status = 200) {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+async function signMediaReference(secret: string, source: string, fileId: string, expires: number) {
+  const key = await crypto.subtle.importKey(
+    "raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
+  );
+  const bytes = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${source}:${fileId}:${expires}`));
+  return Array.from(new Uint8Array(bytes), (b) => b.toString(16).padStart(2, "0")).join("");
 }
